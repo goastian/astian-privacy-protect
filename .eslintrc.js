@@ -1,5 +1,5 @@
 /**
- * @file Base eslint config for Astian Privacy Protect extension
+ * @file Base eslint config for AdGuard extension
  */
 module.exports = {
     'root': true,
