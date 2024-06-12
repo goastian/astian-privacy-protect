@@ -1,0 +1,88 @@
+{
+    "env": {
+        "browser": true,
+        "node": true,
+        "jest": true
+    },
+    "extends": ["airbnb"],
+    "parser": "@babel/eslint-parser",
+    "settings": {
+        "import/resolver": {
+            "alias": {
+                "map": [
+                    ["~src", "./Extension/src"]
+                ],
+                "extensions": [".js", ".jsx"]
+            }
+        }
+    },
+    "globals": {
+        "adguard": true,
+        "chrome": true,
+        "browser": true,
+        "page": true,
+        "context": true,
+        "jestPuppeteer": true
+    },
+    "rules": {
+        "import/no-extraneous-dependencies": 0,
+        "import/no-cycle": "off",
+        "no-use-before-define": "off",
+        "indent": [
+            "error",
+            4,
+            {
+                "SwitchCase": 1,
+                "ignoreComments": false,
+                "ignoredNodes": ["ConditionalExpression"]
+            }
+        ],
+        "no-useless-escape": "off",
+        "no-param-reassign": "off",
+        "wrap-iife": "off",
+        "func-names": "off",
+        "no-shadow": "off",
+        "no-multi-spaces": [
+            "error",
+            {
+                "ignoreEOLComments": true
+            }
+        ],
+        // Prefer destructuring from arrays and objects
+        // https://eslint.org/docs/rules/prefer-destructuring
+        "prefer-destructuring": [
+            "error",
+            {
+                "VariableDeclarator": {
+                    "array": false,
+                    "object": true
+                },
+                "AssignmentExpression": {
+                    "array": true,
+                    "object": false
+                }
+            },
+            {
+                "enforceForRenamedProperties": false
+            }
+        ],
+        "consistent-return": "off",
+        "no-prototype-builtins": "off",
+        "dot-notation": "off",
+        "quote-props": "off",
+        "no-continue": "off",
+        "strict": "off",
+        "no-bitwise": "off",
+        "no-underscore-dangle": "off",
+        "max-len": [
+            "error",
+            {
+                "code": 120
+            }
+        ],
+        "arrow-body-style": "off",
+        "import/prefer-default-export": "off",
+        "arrow-parens": "off",
+        "import/extensions": "off"
+    }
+}
