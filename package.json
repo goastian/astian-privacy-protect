@@ -123,7 +123,7 @@
     "prop-types": "^15.7.2",
     "punycode": "^2.1.1",
     "react": "^17.0.2",
-    "react-ace": "^10.1.0",
+    "react-ace": "^11.0.1",
     "react-dom": "^17.0.2",
     "react-i18next": "^11.17.3",
     "react-icons": "^4.4.0",
