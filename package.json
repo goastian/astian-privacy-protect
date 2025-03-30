@@ -66,9 +66,9 @@
     "sourceDir": "./dist/"
   },
   "author": {
-    "name": "Ghostery GmbH",
-    "email": "info@ghostery.com",
-    "url": "https://www.ghostery.com"
+    "name": "Astian Inc",
+    "email": "contact@astian.org",
+    "url": "https://astian.org"
   },
   "license": "GPL-3.0"
 }
