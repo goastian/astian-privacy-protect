@@ -74,7 +74,7 @@ export default {
                 ${msg.html`
                   By sharing insights on <a href="${router.url(AddonHealth)}">add-on's health</a> and
                   <a href="${router.url(Performance)}">performance telemetry</a>
-                  as outlined in our <a href="${'https://addons.mozilla.org/firefox/addon/ghostery/privacy/'}" target="_blank" rel="noreferrer">Privacy Policy</a>,
+                  as outlined in our <a href="${'https://addons.mozilla.org/es-ES/firefox/addon/astian-privacy-protect/privacy/'}" target="_blank" rel="noreferrer">Privacy Policy</a>,
                   you help advance privacy protections for the entire Astian Privacy community.
                 `}
               </ui-text>
