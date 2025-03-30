@@ -178,7 +178,7 @@ export default {
 
             <panel-menu-item
               href="${__PLATFORM__ === 'firefox'
-                ? 'https://addons.mozilla.org/firefox/addon/ghostery/privacy/'
+                ? 'https://addons.mozilla.org/es-ES/firefox/addon/astian-privacy-protect/privacy/'
                 : 'https://www.ghostery.com/privacy-policy?utm_source=gbe&utm_campaign=menu-privacypolicy'}"
               icon="privacy-m"
               suffix-icon="link-external-m"
