@@ -23,7 +23,7 @@ for PLATFORM in firefox chromium; do
   echo
 
   npm run build -- $PLATFORM --silent
-  NAME="ghostery-$PLATFORM"
+  NAME="astian-$PLATFORM"
   if ! [ $SIMPLE ]; then
     NAME+="-$VERSION"
     if [ $SHA ]; then
