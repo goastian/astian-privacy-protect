@@ -1,0 +1,127 @@
+{
+  "manifest_version": 3,
+  "author": "Ghostery",
+  "name": "__MSG_manifest_name__",
+  "short_name": "Ghostery",
+  "default_locale": "en",
+  "description": "__MSG_manifest_short_description__",
+  "permissions": [
+    "alarms",
+    "cookies",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "webNavigation",
+    "storage",
+    "scripting",
+    "tabs",
+    "activeTab",
+    "webRequest",
+    "offscreen"
+  ],
+  "host_permissions": ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"],
+  "icons": {
+    "64": "/icons/icon-64.png",
+    "128": "/icons/icon-128.png"
+  },
+  "action": {
+    "default_icon": {
+      "64": "/icons/icon-64.png",
+      "128": "/icons/icon-128.png"
+    },
+    "default_title": "Ghostery",
+    "default_popup": "pages/panel/index.html"
+  },
+  "options_ui": {
+    "page": "pages/settings/index.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "storage": {
+    "managed_schema": "managed_storage.json"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ads",
+        "enabled": false,
+        "path": "rule_resources/dnr-ads.json"
+      },
+      {
+        "id": "tracking",
+        "enabled": false,
+        "path": "rule_resources/dnr-tracking.json"
+      },
+      {
+        "id": "annoyances",
+        "enabled": false,
+        "path": "rule_resources/dnr-annoyances.json"
+      },
+      {
+        "id": "fixes",
+        "enabled": false,
+        "path": "rule_resources/dnr-fixes.json"
+      }
+    ]
+  },
+  "content_scripts": [
+    {
+      "js": ["content_scripts/adblocker.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "js": ["content_scripts/autoconsent.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "js": ["content_scripts/notifications.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "run_at": "document_start"
+    },
+    {
+      "js": ["content_scripts/whotracksme/reporting.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "run_at": "document_start"
+    },
+    {
+      "js": ["content_scripts/youtube.js"],
+      "matches": ["*://www.youtube.com/*"],
+      "run_at": "document_start"
+    },
+    {
+      "js": ["content_scripts/trackers-preview.js"],
+      "run_at": "background_execute_script"
+    },
+    {
+      "js": ["content_scripts/prevent-serp-tracking.js"],
+      "run_at": "background_execute_script"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "pages/trackers-preview/index.html",
+        "pages/notifications/opera-serp.html",
+        "pages/notifications/pause-assistant.html",
+        "pages/notifications/pause-resume.html",
+        "pages/notifications/pause-feedback.html"
+      ],
+      "matches": ["<all_urls>"],
+      "use_dynamic_url": true
+    },
+    {
+      "resources": ["pages/notifications/youtube.html"],
+      "matches": ["*://www.youtube.com/*"],
+      "use_dynamic_url": true
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

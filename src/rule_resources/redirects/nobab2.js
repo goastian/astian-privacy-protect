@@ -1,0 +1,1 @@
+(function(){"use strict";const t=document.currentScript;if(t===null)return;const n=t.src;if(typeof n!=="string")return;const e=new RegExp("^https?://[\\w-]+\\.("+["adclixx\\.net","adnetasia\\.com","adtrackers\\.net","bannertrack\\.net"].join("|")+")/.");if(e.test(n)===false)return;window.nH7eXzOsG=858})();

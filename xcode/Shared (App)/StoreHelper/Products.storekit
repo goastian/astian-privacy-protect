@@ -1,0 +1,77 @@
+{
+  "identifier" : "FB75CE85",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "FB0ADD53",
+      "localizations" : [
+
+      ],
+      "name" : "Plus",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "47.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "7DEC3339",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "$3.99/month - Cancel anytime",
+              "displayName" : "Yearly donation",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.ghostery.subscription.plus.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : null,
+          "subscriptionGroupID" : "FB0ADD53",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "4D43C581",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "$4.99/month",
+              "displayName" : "Monthly donation",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.ghostery.subscription.plus.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : null,
+          "subscriptionGroupID" : "FB0ADD53",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 2,
+    "minor" : 0
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "/*": ["./*"]
+    }
+  },
+  "include": [
+    "./**/*.js",
+    "./globals.d.ts"
+  ]
+}

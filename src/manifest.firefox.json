@@ -1,0 +1,100 @@
+{
+  "manifest_version": 2,
+  "author": "Astian",
+  "name": "__MSG_manifest_name__",
+  "short_name": "Astian Privacy",
+  "default_locale": "en",
+  "description": "__MSG_manifest_short_description__",
+  "permissions": [
+    "alarms",
+    "cookies",
+    "storage",
+    "scripting",
+    "tabs",
+    "activeTab",
+    "webNavigation",
+    "webRequest",
+    "webRequestBlocking",
+    "unlimitedStorage",
+    "http://*/*",
+    "https://*/*",
+    "ws://*/*",
+    "wss://*/*"
+  ],
+  "icons": {
+    "32": "/icons/icon.svg",
+    "64": "/icons/icon.svg",
+    "128": "/icons/icon.svg"
+  },
+  "browser_action": {
+    "default_icon": {
+      "32": "/icons/icon.svg",
+      "64": "/icons/icon.svg",
+      "128": "/icons/icon.svg"
+    },
+    "default_area": "navbar",
+    "default_title": "Ghostery",
+    "default_popup": "pages/panel/index.html"
+  },
+  "options_ui": {
+    "page": "pages/settings/index.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "scripts": ["background/index.js"],
+    "type": "module",
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "js": ["content_scripts/adblocker.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "js": ["content_scripts/autoconsent.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "js": ["content_scripts/notifications.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "run_at": "document_start"
+    },
+    {
+      "js": ["content_scripts/whotracksme/reporting.js"],
+      "matches": ["http://*/*", "https://*/*"],
+      "run_at": "document_start"
+    },
+    {
+      "js": ["content_scripts/youtube.js"],
+      "matches": ["*://www.youtube.com/*"],
+      "run_at": "document_start"
+    },
+    {
+      "js": ["content_scripts/trackers-preview.js"],
+      "run_at": "background_execute_script"
+    },
+    {
+      "js": ["content_scripts/prevent-serp-tracking.js"],
+      "run_at": "background_execute_script"
+    }
+  ],
+  "web_accessible_resources": [
+    "pages/trackers-preview/index.html",
+    "pages/notifications/youtube.html",
+    "pages/notifications/pause-assistant.html",
+    "pages/notifications/pause-resume.html",
+    "pages/notifications/pause-feedback.html"
+  ],
+  "content_security_policy": "script-src 'self'",
+  "browser_specific_settings": {
+    "gecko_android": {},
+    "gecko": {
+      "id": "astian-privacy@astian.org",
+      "strict_min_version": "115.0"
+    }
+  }
+}

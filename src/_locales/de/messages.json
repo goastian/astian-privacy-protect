@@ -1,0 +1,935 @@
+{
+  "@_0__left": {
+    "message": "$${0} verbleibend"
+  },
+  "@_0__will_be_blocked_on_this_website_": {
+    "message": "$${0} wird auf dieser Website blockiert.",
+    "description": "A tracker will be trusted on this website."
+  },
+  "@_0__will_be_trusted_on_this_website_": {
+    "message": "$${0} wird auf dieser Website vertraut.",
+    "description": "A tracker will be trusted on this website."
+  },
+  "1_day": {
+    "message": "1 Tag"
+  },
+  "1_hour": {
+    "message": "1 Stunde"
+  },
+  "about": {
+    "message": "Über uns"
+  },
+  "account_details": {
+    "message": "Kontodetails"
+  },
+  "active": {
+    "message": "Aktiv"
+  },
+  "activities": {
+    "message": "Aktivitäten"
+  },
+  "ad_blocking": {
+    "message": "Werbeblocker"
+  },
+  "add": {
+    "message": "Hinzufügen"
+  },
+  "add_@_0__as_an_exception": {
+    "message": "$${0} als Ausnahme hinzufügen",
+    "description": "Add domain as an exception"
+  },
+  "add_exception": {
+    "message": "Ausnahme hinzufügen"
+  },
+  "add_on_s_health": {
+    "message": "Zustand des Add-ons"
+  },
+  "add_website": {
+    "message": "Webseite hinzufügen"
+  },
+  "add_website_exception": {
+    "message": "Website-Ausnahme hinzufügen"
+  },
+  "adjusted___tracker": {
+    "message": "angepasst",
+    "description": "Singular form - tracker has been adjusted"
+  },
+  "adjusted___tracker_list": {
+    "message": "Angepasst",
+    "description": "Plural form - list of adjusted trackers"
+  },
+  "ads_and_trackers_will_not_be_blocked_": {
+    "message": "Werbung und Tracker werden nicht blockiert."
+  },
+  "adult_advertising": {
+    "message": "Erwachsenenwerbung",
+    "description": "Tracker category name"
+  },
+  "advertising": {
+    "message": "Werbung",
+    "description": "Tracker category name"
+  },
+  "all_information_displayed_on_the_whotracks_me_tab_or_@_0__is_an_aggregate_of_facts_about_web_trackers__these_reports_power_ghostery_s_anti_tracking_technology__protecting_the_entire_community_": {
+    "message": "Alle Informationen, die auf dem WhoTracks.Me Tab oder $${0} angezeigt werden, sind eine Zusammenfassung von Fakten über Tracker. Diese Berichte unterstützen Astians Anti-Tracking-Technologie und schützen die gesamte Gemeinschaft."
+  },
+  "all_websites_with_adjusted_protection_status_will_be_listed_here_": {
+    "message": "Alle Websites mit angepasstem Schutzstatus werden hier aufgelistet."
+  },
+  "allow_ghostery_in_private_windows": {
+    "message": "Erlaube Astian in privaten Fenstern"
+  },
+  "allow_trusted_scriptlets": {
+    "message": "\"Trusted Scriptlets\" erlauben"
+  },
+  "always": {
+    "message": "Immer"
+  },
+  "anti_tracking": {
+    "message": "Anti-Tracking"
+  },
+  "are_you_sure_you_want_to_disable_trackers_preview_": {
+    "message": "Sind Sie sicher, dass Sie die Trackervorschau deaktivieren möchten?"
+  },
+  "audio_video_player": {
+    "message": "Audio/Video-Player",
+    "description": "Tracker category name"
+  },
+  "automatically_rejects_cookie_consent_notices_": {
+    "message": "Lehnt Cookie-Einwilligungserklärungen automatisch ab."
+  },
+  "back": {
+    "message": "Zurück"
+  },
+  "become_a_contributor": {
+    "message": "Werde Astian-Förderer"
+  },
+  "being_an_eu_company__ghostery_strictly_adheres_to_the_gdpr__the_general_data_protection_regulation___which_regulates_data_collection_to_ensure_user_s_privacy_": {
+    "message": "Astian hält sich strikt an die GDPR (General Data Protection Regulation), die die Erfassung von Daten regelt, um die Privatsphäre der Nutzer zu gewährleisten."
+  },
+  "block_all__recommended_": {
+    "message": "Alle blockieren (empfohlen)"
+  },
+  "block_on_all_websites": {
+    "message": "Auf allen Webseiten blockieren"
+  },
+  "block_on_this_website": {
+    "message": "Auf dieser Website blockieren"
+  },
+  "blocked": {
+    "message": "Blockiert"
+  },
+  "blocked___tracker_list": {
+    "message": "Blockiert",
+    "description": "Plural form - list of blocked trackers"
+  },
+  "blocked_on_all_websites": {
+    "message": "Auf allen Websites blockiert"
+  },
+  "blocked_on_this_website": {
+    "message": "Auf dieser Website blockiert"
+  },
+  "blocks_additional_ads__trackers__and_pop_ups_specific_to_the_language_of_websites_you_visit__enable_only_the_languages_you_need_to_avoid_slowing_down_your_browser_": {
+    "message": "Blockiert zusätzlich sprachspezifische Werbung, Tracker und Pop-ups auf den von dir besuchten Webseiten. Aktiviere nur die benötigten Sprachen, um deinen Browser nicht zu verlangsamen."
+  },
+  "browser__vendor": {
+    "message": "Browser: Anbieter"
+  },
+  "browser__vendor__version__language__operating_system_vendor": {
+    "message": "Browser: Anbieter, Version, Sprache, Betriebssystemanbieter"
+  },
+  "by_sharing_insights_on__a_href__@_0___add_on_s_health__a__and__a_href____1___performance_telemetry__a__as_outlined_in_our__a_href____2___target___blank__rel__noreferrer__privacy_policy__a___you_help_advance_privacy_protections_for_the_entire_ghostery_community_": {
+    "message": "Durch das Teilen von Informationen zum <a href=\"$${0}\">Add-on-Zustand</a> und <a href=\"$${1}\"> Leistungstelemetrie</a>, wie in unserer <a href=\"$${2}\" target=\"_blank\" rel=\"noreferrer\">Datenschutzrichtlinie</a> beschrieben, tragen Sie dazu bei, den Datenschutz für die gesamte Astian-Community zu verbessern."
+  },
+  "cancel": {
+    "message": "Abbrechen"
+  },
+  "categories": {
+    "message": "Kategorien"
+  },
+  "category": {
+    "message": "Kategorie"
+  },
+  "cdn": {
+    "message": "CDN",
+    "description": "Tracker category name"
+  },
+  "changes_application_color_theme_": {
+    "message": "Ändert das Farbschema der Anwendung."
+  },
+  "click_the_puzzle_icon_next_to_the_search_bar_and_pin_ghostery_to_your_toolbar_": {
+    "message": "Klicken Sie auf das Puzzle-Symbol neben der Suchleiste, um Astian an die Werkzeugleiste anzuheften."
+  },
+  "close": {
+    "message": "Schließen"
+  },
+  "collapse": {
+    "message": "Weniger anzeigen"
+  },
+  "comments": {
+    "message": "Kommentare",
+    "description": "Tracker category name"
+  },
+  "consent_management": {
+    "message": "Zustimmungsmanagement",
+    "description": "Tracker category name - includes trackers used for cookie consent management, allowing websites different levels of tracking user activity"
+  },
+  "contact": {
+    "message": "Kontakt"
+  },
+  "contact_support": {
+    "message": "Kontakt zum Support"
+  },
+  "contribute_to_ghostery_tracker_database_on_github": {
+    "message": "Zur Astian Tracker-Datenbank auf Github beitragen"
+  },
+  "contributes_non_personal_information_about_add_on_health_and_performance_telemetry_to_help_advance_privacy_protections_for_the_entire_ghostery_community_": {
+    "message": "Trägt mit nicht-personenbezogenen Informationen über den Add-On-Zustand und Leistungstelemetrie dazu bei, den Datenschutz für die gesamte Astian-Community zu verbessern."
+  },
+  "contributor": {
+    "message": "Unterstützer"
+  },
+  "copied_to_clipboard": {
+    "message": "In die Zwischenablage kopiert"
+  },
+  "cosmetic_filters__@_0_": {
+    "message": "Kosmetische Filter: $${0}"
+  },
+  "country": {
+    "message": "Land"
+  },
+  "create_account": {
+    "message": "Konto erstellen"
+  },
+  "current_protection_status_for_@_0__": {
+    "message": "Aktueller Schutzstatus für $${0}:",
+    "description": "Current protection status for a tracker"
+  },
+  "custom": {
+    "message": "Benutzerdefiniert"
+  },
+  "custom_filters": {
+    "message": "Benutzerdefinierte Filter"
+  },
+  "custom_filters_have_been_updated": {
+    "message": "Benutzerdefinierte Filter wurden aktualisiert"
+  },
+  "customer_interaction": {
+    "message": "Kundeninteraktion",
+    "description": "Tracker category name"
+  },
+  "daily": {
+    "message": "Täglich"
+  },
+  "dark": {
+    "message": "Dunkelmodus"
+  },
+  "data_collection_summary": {
+    "message": "Zusammenfassung der erfassten Daten"
+  },
+  "date_range__@_0______1_": {
+    "message": "Zeitraum: $${0} - $${1}"
+  },
+  "default": {
+    "message": "Standard"
+  },
+  "detailed_view": {
+    "message": "Detailansicht"
+  },
+  "disable": {
+    "message": "Deaktivieren"
+  },
+  "disable_trackers_preview": {
+    "message": "Tracker-Vorschau deaktivieren"
+  },
+  "disabled": {
+    "message": "Deaktiviert"
+  },
+  "dismiss": {
+    "message": "Verwerfen"
+  },
+  "displays_the_tracker_count_on_the_ghostery_icon_in_the_browser_toolbar_": {
+    "message": "Zeigt den Tracker-Zähler auf dem Astian-Symbol in der Browser-Werkzeugleiste an"
+  },
+  "displays_unique_insights_into_observed_activities_on_@_0___revealing_affiliation__categories__and_presence_across_the_site_": {
+    "message": "Bietet exklusive Einblicke in die beobachteten Aktivitäten auf $${0}, offenbart Zugehörigkeit, Kategorien und Präsenz auf der Website."
+  },
+  "dnr_rules__@_0_": {
+    "message": "Regeln des DNR: $${0}"
+  },
+  "don_t_ask_again": {
+    "message": "Frag nicht noch einmal"
+  },
+  "due_to_browser_restrictions_and_additional_permissions_missing__ghostery_is_not_able_to_protect_you_": {
+    "message": "Aufgrund von Browser-Einschränkungen und fehlenden zusätzlichen Berechtigungen kann Astian Sie nicht schützen."
+  },
+  "eliminates_ads_on_websites_for_safe_and_fast_browsing_": {
+    "message": "Entfernt Werbung auf Websites für sicheres und schnelles Surfen."
+  },
+  "email": {
+    "message": "E-Mail-Adresse",
+    "description": "Tracker category name"
+  },
+  "enable_@_0_": {
+    "message": "Aktivieren $${0}",
+    "description": "Enable \"feature name\"\nEnable \"feature name\"\nEnable \"feature name\"\nEnable \"feature name\""
+  },
+  "enable_ad_blocking_now": {
+    "message": "Werbeblocker jetzt aktivieren"
+  },
+  "enable_ghostery": {
+    "message": "Astian Privacy aktivieren"
+  },
+  "enable_ghostery_to_get_started": {
+    "message": "Aktivieren Sie Astian Privacy, um loszulegen"
+  },
+  "enable_now": {
+    "message": "Jetzt aktivieren"
+  },
+  "enabled": {
+    "message": "Aktiviert"
+  },
+  "enter_email_address": {
+    "message": "E-Mail-Adresse eingeben"
+  },
+  "enter_website_url": {
+    "message": "URL der Website eingeben"
+  },
+  "error__type__message__stack_trace": {
+    "message": "Fehler: Typ, Nachricht, Stack-Trace"
+  },
+  "errors__@_0__": {
+    "message": "Fehler ($${0})"
+  },
+  "essential": {
+    "message": "Essenziell",
+    "description": "Tracker category name"
+  },
+  "exceptions": {
+    "message": "Ausnahmen"
+  },
+  "expand": {
+    "message": "Mehr anzeigen"
+  },
+  "expand_ghostery_ad_blocking_to_search_engines_in_a_few_easy_steps_": {
+    "message": "Erweitern Sie den Astian-Werbeblocker in wenigen einfachen Schritten auf Suchmaschinen."
+  },
+  "experimental_filters": {
+    "message": "Experimentelle Filter"
+  },
+  "extension__version__installation_date__random_install_number__from_1_to_100___basic_settings__contribution_status": {
+    "message": "Erweiterung: Version, Installationsdatum, zufällige Installationsnummer (von 1 bis 100), Grundeinstellungen, Fördererstatus"
+  },
+  "extension_id_is_removed_from_the_stack_traces_": {
+    "message": "Die Erweiterungs-ID wird aus den Stack-Traces entfernt."
+  },
+  "extensions": {
+    "message": "Erweiterungen",
+    "description": "Tracker category name"
+  },
+  "facilitates_the_creation_of_your_own_ad_blocking_rules_to_customize_your_ghostery_experience_": {
+    "message": "Erstelle eigene Werbeblocker-Regeln, um deine Astian-Erfahrung anzupassen."
+  },
+  "facts": {
+    "message": "Fakten"
+  },
+  "fantastic__thanks_": {
+    "message": "Super! Danke!"
+  },
+  "feedback_sharing": {
+    "message": "Feedback Teilen"
+  },
+  "generates_a_global_transparency_report_on_web_tracking_in_your_ghostery_protected_browser_": {
+    "message": "Erstellt einen globalen Transparenzbericht über Web-Tracking in deinem Astian-geschützten Browser."
+  },
+  "get_help": {
+    "message": "Hilfe erhalten"
+  },
+  "ghostery_has_been_resumed_": {
+    "message": "Astian wird fortgesetzt."
+  },
+  "ghostery_has_been_resumed_on_this_site_": {
+    "message": "Astian wird auf dieser Website fortgesetzt."
+  },
+  "ghostery_has_nothing_to_do_on_this_page": {
+    "message": "Astian hat auf dieser Seite nichts zu tun"
+  },
+  "ghostery_is_all_set_to_stop_trackers_in_their_tracks_and_protect_your_privacy_while_browsing_": {
+    "message": "Astian ist bereit, um Tracker zu unterbinden und Ihre Daten zu schützen, während Sie browsen!"
+  },
+  "ghostery_is_installed_with_limited_functionality": {
+    "message": "Astian ist mit eingeschränkter Funktionalität installiert"
+  },
+  "ghostery_is_paused": {
+    "message": "Astian pausiert"
+  },
+  "ghostery_is_paused_on_this_site_": {
+    "message": "Astian pausiert auf dieser Website."
+  },
+  "ghostery_maps_the_ownership_structure_linking_activities_to_the_organizations_controlling_them__this_knowledge__hand_curated_by_experts__is_publicly_available_on": {
+    "message": "Astian erfasst die Eigentümerstruktur, die Aktivitäten mit den sie kontrollierenden Organisationen verknüpft. Dieses von Experten kuratierte Wissen ist öffentlich verfügbar auf"
+  },
+  "ghostery_never_collects_personal_information_like_passwords__browsing_history_or_the_content_of_the_pages_you_visit_": {
+    "message": "Astian erfasst niemals persönliche Daten wie Passwörter, den Browserverlauf oder die Inhalte besuchter Seiten."
+  },
+  "ghostery_paused": {
+    "message": "Astian pausiert"
+  },
+  "ghostery_privacy_policy": {
+    "message": "Astian-Datenschutzrichtlinie"
+  },
+  "ghostery_protects_your_privacy_by_detecting_and_neutralizing_different_types_of_data_collection_including_ads__trackers__and_cookie_pop_ups_": {
+    "message": "Astian schützt Ihre Privatsphäre, indem es verschiedene Arten der Datenerfassung entdeckt und neutralisiert, darunter Werbung, Tracker und Cookie-Pop-ups."
+  },
+  "ghostery_settings": {
+    "message": "Astian Privacy-Einstellungen"
+  },
+  "ghostery_tracker___ad_blocker_is_naming_the_trackers_present_on_websites_you_visit__you_are_browsing_the_web_unprotected_": {
+    "message": "Der Astian Tracker- und Werbeblocker zeigt lediglich Tracker auf Webseiten an. Dies allein garantiert keinen umfassenden Datenschutz. "
+  },
+  "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__resume_ghostery_": {
+    "message": "Astian-Nutzer berichten, dass Werbeblocker diese Seite nicht mehr beeinträchtigen. Astian fortsetzen."
+  },
+  "ghostery_users_report_that_ad_blockers_break_this_site__try_pausing_ghostery_": {
+    "message": "Astian-Nutzer berichten, dass Werbeblocker diese Seite beeinträchtigen. Versuchen Sie, Astian zu pausieren."
+  },
+  "ghostery_uses_this_information_to_provide_its_community_powered_privacy_features__ensuring_that_personal_information_such_as_passwords__browsing_history__and_page_content_is_never_collected_": {
+    "message": "Astian verwendet diese Informationen, um seine gemeinschaftsgestützten Datenschutzfunktionen bereitzustellen. Es stellt sicher, dass persönliche Informationen wie Passwörter, Browserverlauf und Seiteninhalte niemals gesammelt werden."
+  },
+  "ghostery_will_show_how_many_trackers_were_blocked_on_a_page__clicking_on_the_ghostery_icon_reveals_more_detailed_information_": {
+    "message": "Astian zeigt Ihnen, wie viele Tracker auf einer Seite blockiert wurden. Wenn Sie auf das Astian-Symbol klicken, erhalten Sie detailliertere Informationen."
+  },
+  "hashes_of_potentially_unique_identifier_in_requests_parameters": {
+    "message": "Hashes von potenziell eindeutigen Identifikatoren in Anfrageparametern"
+  },
+  "help_ghostery_fight_for_a_web_where_privacy_is_a_basic_human_right_": {
+    "message": "Helfen Sie Astian, für ein Web zu kämpfen, in dem Privatsphäre ein grundlegendes Menschenrecht ist."
+  },
+  "helps_ghostery_fix_broken_pages_faster__by_activating_you_can_test_experimental_filters_and_support_us_with_feedback__please_send_a_message_to_support@ghostery_com_describing_how_your_experience_changed_after_enabling_": {
+    "message": "Hilft Astian, defekte Seiten schneller zu reparieren. Durch Aktivierung können Sie experimentelle Filter testen und uns Feedback geben. Bitte senden Sie eine Nachricht an support@ghostery.com und beschreiben Sie, wie sich Ihre Erfahrung nach der Aktivierung geändert hat."
+  },
+  "hey__do_you_enjoy_ghostery_and_want_to_support_our_work_": {
+    "message": "Gefällt Ihnen Astian? Möchten Sie unsere Arbeit unterstützen?"
+  },
+  "hosting": {
+    "message": "Hosting",
+    "description": "Tracker category name"
+  },
+  "if_the_issue_persists_or_you_d_like_to_report_a_different_page_as_broken__please_use_the_report_form_on__a_href__@_0___onclick____1___ghostery_com__a__": {
+    "message": "Wenn das Problem weiterhin besteht oder du eine andere Seite als defekt melden möchtest, verwende bitte das Meldeformular auf <a href=\"$${0}\" onclick=\"$${1}\">ghostery.com</a>."
+  },
+  "ignore": {
+    "message": "Ignorieren"
+  },
+  "include_a_screenshot_of_the_current_page": {
+    "message": "Füge einen Screenshot der aktuellen Seite ein"
+  },
+  "inform_us_about_a_broken_page_experience__we_re_happy_to_investigate_and_fix_": {
+    "message": "Melde uns eine kaputte Seite. Wir schauen es uns gerne an und beheben das Problem."
+  },
+  "information_about__a_href__@_0___web_trackers__a____a_href____1___add_on_s_health__a___and__a_href____2___performance_telemetry__a__will_be_shared_in_accordance_with_our__a_href____3___target___blank__rel__noreferrer__privacy_policy__a___advancing_privacy_protection_for_the_ghostery_community_": {
+    "message": "Informationen über <a href=\"$${0}\">Web-Tracker</a>, <a href=\"$${1}\">Zustand des Add-ons</a> und <a href=\"$${2}\">Leistungstelemetrie</a> werden gemäß unserer <a href=\"$${3}\" target=\"_blank\" rel=\"noreferrer\">Datenschutzerklärung</a> geteilt, um die Privatsphäre der ganzen Astian-Community zu verbessern."
+  },
+  "it_exists_thanks_to_the_micro_contributions_of_every_ghostery_user_who_chooses_to_send_non_personal_information_to_whotracks_me__this_input_enables_ghostery_to_provide_real_time_intel_on_trackers__which__in_turn__delivers_privacy_protection_to_the_entire_ghostery_community_": {
+    "message": "Es existiert dank der Beiträge jedes Astian-Nutzers, der sich dafür entscheidet, nicht-personenbezogene Informationen an WhoTracks.Me zu senden. Diese Informationen ermöglichen es Astian, Echtzeitinformationen über Tracker zu liefern, die wiederum die gesamte Astian-Gemeinschaft schützen."
+  },
+  "join_ghostery": {
+    "message": "Schließen Sie sich Astian an"
+  },
+  "k_anonymity_protected_reports_of_page_shows": {
+    "message": "Berichte von Seitenansichten geschützt mit k-Anonymität"
+  },
+  "keep_disabled": {
+    "message": "Deaktiviert lassen"
+  },
+  "last_month": {
+    "message": "Letzten Monat"
+  },
+  "last_update__@_0_": {
+    "message": "Letzte Aktualisierung: $${0}"
+  },
+  "learn_how": {
+    "message": "Lernen wie"
+  },
+  "learn_more": {
+    "message": "Weitere Informationen"
+  },
+  "learn_more_about_youtube_s_challenges_to_ad_blockers": {
+    "message": "Erfahre mehr über die Herausforderungen von YouTube gegenüber Werbeblockern"
+  },
+  "learn_more_on_supported_syntax": {
+    "message": "Erfahre mehr über die unterstützte Syntax"
+  },
+  "leave_a_review_today": {
+    "message": "Hinterlass uns hier eine Bewertung!"
+  },
+  "light": {
+    "message": "Hellmodus"
+  },
+  "load_more": {
+    "message": "Mehr laden"
+  },
+  "manifest_name": {
+    "message": "Astian Privacy Tracker- & Werbeblocker | Datenschutz AdBlocker"
+  },
+  "manifest_short_description": {
+    "message": "Leistungsstark und benutzerfreundlich: Blockiere Werbung, Tracker und beschleunige Seiten mit der Astian Datenschutz-Erweiterung."
+  },
+  "many_thanks_for_your_report_": {
+    "message": "Vielen Dank für deinen Bericht!"
+  },
+  "menu": {
+    "message": "Menü"
+  },
+  "mind_that_not_all_listed_activities_are_trackers__that_is_not_all_of_them_collect_personal_data_": {
+    "message": "Beachten Sie, dass nicht alle genannten Aktivitäten Tracker sind, d.h. nicht alle sammeln persönliche Daten."
+  },
+  "miscellaneous": {
+    "message": "Sonstiges",
+    "description": "Tracker category name"
+  },
+  "modify_the_recommended_blocking_settings_for_every_website_": {
+    "message": "Ändern Sie die empfohlenen Blockierungseinstellungen für jede Website."
+  },
+  "monthly": {
+    "message": "Monatlich"
+  },
+  "more_ad_blocking_available": {
+    "message": "Weitere Werbeblocker verfügbar"
+  },
+  "more_in_this_organization": {
+    "message": "Mehr in dieser Organisation"
+  },
+  "my_ghostery": {
+    "message": "Mein Astian"
+  },
+  "name": {
+    "message": "Name"
+  },
+  "navigate_to_a_website_to_see_ghostery_in_action_": {
+    "message": "Navigieren Sie zu einer Website, um Astian in Aktion zu sehen."
+  },
+  "network_filters__@_0_": {
+    "message": "Netzwerkfilter: $${0}"
+  },
+  "never_consent": {
+    "message": "Never-Consent"
+  },
+  "no": {
+    "message": "Nein"
+  },
+  "no_activities_detected": {
+    "message": "Keine Aktivitäten erkannt"
+  },
+  "no_protection_exceptions_added_yet": {
+    "message": "Noch keine Schutzausnahmen hinzugefügt"
+  },
+  "no_websites_exceptions_added_yet": {
+    "message": "Noch keine Website-Ausnahmen hinzugefügt"
+  },
+  "observed_activities": {
+    "message": "Beobachtete Aktivitäten"
+  },
+  "off": {
+    "message": "Aus"
+  },
+  "ok": {
+    "message": "OK"
+  },
+  "on": {
+    "message": "An"
+  },
+  "open_video": {
+    "message": "Video öffnen"
+  },
+  "open_youtube_in_a_private_window": {
+    "message": "YouTube in einem privaten Fenster öffnen"
+  },
+  "organization": {
+    "message": "Organisation"
+  },
+  "organization_s_website": {
+    "message": "Website der Organisation"
+  },
+  "organizations": {
+    "message": "Organisationen"
+  },
+  "other": {
+    "message": "Sonstiges",
+    "description": "Tracker category name"
+  },
+  "our_recommendation_for_this_activity": {
+    "message": "Unsere Empfehlung für diese Aktivität"
+  },
+  "pages_visited": {
+    "message": "Besuchte Seiten"
+  },
+  "pause_ghostery": {
+    "message": "Astian pausieren"
+  },
+  "pause_on_this_site": {
+    "message": "Auf dieser Seite pausieren"
+  },
+  "paused": {
+    "message": "Pausiert"
+  },
+  "pausing___": {
+    "message": "Wird pausiert..."
+  },
+  "performance_telemetry": {
+    "message": "Leistungstelemetrie"
+  },
+  "permission_required": {
+    "message": "Berechtigung erforderlich"
+  },
+  "pin_extension_for_easy_access": {
+    "message": "Erweiterung für leichteren Zugriff anheften"
+  },
+  "pin_it_here": {
+    "message": "Hier anheften"
+  },
+  "please_describe_the_issue": {
+    "message": "Bitte beschreiben Sie das Problem"
+  },
+  "prevents_google_from_redirecting_search_result_links_through_their_servers_instead_of_linking_directly_to_pages_": {
+    "message": "Verhindern, dass Google die Links der Suchergebnisse über seine Server umleitet, anstatt sie direkt mit den Seiten zu verknüpfen."
+  },
+  "prevents_various_tracking_techniques_using_ai_driven_technology_": {
+    "message": "Nutzt KI-basierte Technologie, um verschiedene Tracking-Techniken zu verhindern."
+  },
+  "print_to_pdf": {
+    "message": "Als PDF speichern"
+  },
+  "privacy_policy": {
+    "message": "Datenschutzerklärung"
+  },
+  "privacy_protection": {
+    "message": "Datenschutz"
+  },
+  "protection_exceptions": {
+    "message": "Schutzausnahmen"
+  },
+  "protection_status": {
+    "message": "Schutzstatus"
+  },
+  "provides_an_overview_of_the_essential_aspects_of_privacy_protection_": {
+    "message": "Bietet einen Überblick über die wesentlichen Aspekte des Datenschutzes."
+  },
+  "read_more_on_whotracks_me": {
+    "message": "Lesen Sie mehr auf WhoTracks.Me"
+  },
+  "regional_filters": {
+    "message": "Regionale Filter"
+  },
+  "reload_to_see_changes": {
+    "message": "Neu laden, um Änderungen zu sehen"
+  },
+  "replaces_the_ghostery_icon_in_the_browser_toolbar_with_the_tracker_wheel_": {
+    "message": "Ersetzt das Astian-Symbol in der Werkzeugleiste des Browsers mit dem Tracker-Rad."
+  },
+  "report_a_broken_page": {
+    "message": "Fehlerhafte Seite melden"
+  },
+  "request_metadata_of_potential_web_trackers": {
+    "message": "Metadaten potenzieller Web-Tracker anfordern"
+  },
+  "resume": {
+    "message": "Fortsetzen"
+  },
+  "resuming___": {
+    "message": "Wird fortgesetzt..."
+  },
+  "reveals_what_s_hidden_beneath_the_internet_s_surface__with_whotracks_me__you_can_uncover_the_identities_behind_every_tracker_": {
+    "message": "Offenbart, was unter der Oberfläche des Internets verborgen liegt. Mit WhoTracks.Me kannst du die Identitäten hinter jedem Tracker enthüllen."
+  },
+  "save": {
+    "message": "Speichern"
+  },
+  "saves_and_synchronizes_your_custom_settings_between_browsers_and_devices_": {
+    "message": "Speichern und synchronisieren Sie Ihre benutzerdefinierten Einstellungen auf verschiedenen Browsern und Geräten."
+  },
+  "search_engine_redirect_protection": {
+    "message": "Schutz vor Suchmaschinenumleitungen"
+  },
+  "search_for_a_tracker_or_organization___": {
+    "message": "Suche nach einer Tracker oder Organisation..."
+  },
+  "search_website___": {
+    "message": "Website durchsuchen ..."
+  },
+  "select_time_frame": {
+    "message": "Zeitraum auswählen"
+  },
+  "send": {
+    "message": "Senden"
+  },
+  "send_feedback": {
+    "message": "Feedback senden"
+  },
+  "sentry_sdk_is_in_use_to_gather_and_send_the_reports__but_sentry_does_only_receive_information_above___no_two_requests_can_be_linked_with_one_another_and_browser_ip_is_never_shared_with_sentry_": {
+    "message": "Das Sentry SDK wird verwendet, um Berichte zu sammeln und zu senden, aber Sentry erhält nur die oben genannten Informationen - keine zwei Anfragen können miteinander verknüpft werden und die IP-Adresse des Browsers wird niemals mit Sentry geteilt."
+  },
+  "setup_successful": {
+    "message": "Einrichtung erfolgreich"
+  },
+  "show_all": {
+    "message": "Alle anzeigen"
+  },
+  "shows_the_tracker_preview_beside_search_results_": {
+    "message": "Zeigt die Tracker-Vorschau neben den Suchergebnissen."
+  },
+  "sign_in": {
+    "message": "Anmelden"
+  },
+  "sign_in_or_create_account_on_ghostery_com": {
+    "message": "Melden Sie sich an oder erstellen Sie ein Konto auf Astian.com."
+  },
+  "simple_view": {
+    "message": "Einfache Ansicht"
+  },
+  "site_analytics": {
+    "message": "Website-Analytics",
+    "description": "Tracker category name"
+  },
+  "site_works_fine": {
+    "message": "Die Seite funktioniert einwandfrei"
+  },
+  "skip": {
+    "message": "Überspringen"
+  },
+  "skip_this_time": {
+    "message": "Dieses Mal überspringen "
+  },
+  "social_media": {
+    "message": "Social Media",
+    "description": "Tracker category name"
+  },
+  "software_licenses": {
+    "message": "Software-Lizenzen"
+  },
+  "something_wrong_": {
+    "message": "Etwas nicht in Ordnung?"
+  },
+  "statistical_reports_on_navigational_routes": {
+    "message": "Statistische Berichte über Navigationsrouten"
+  },
+  "submit_a_new_tracker": {
+    "message": "Neuen Tracker senden"
+  },
+  "support": {
+    "message": "Support"
+  },
+  "suspends_privacy_protection_globally_for_1_day_": {
+    "message": "Deaktiviert den Astian-Schutz für 1 Tag."
+  },
+  "sync_settings": {
+    "message": "Synchronisierungseinstellungen"
+  },
+  "telemetry": {
+    "message": "Telemetrie",
+    "description": "Tracker category name"
+  },
+  "terms___conditions": {
+    "message": "Konditionen"
+  },
+  "thank_you_for_your_support_in_ghostery_s_fight_for_a_web_where_privacy_is_a_basic_human_right_": {
+    "message": "Vielen Dank für Ihre Unterstützung im Kampf von Astian für ein Internet, in dem Datenschutz ein grundlegendes Menschenrecht ist!"
+  },
+  "theme": {
+    "message": "Thema"
+  },
+  "this_privacy_report_was_generated_by_tracking_the_trackers_in_a_browser_protected_by_ghostery__the_statistics_here_provide_transparency_about_web_tracking__to_learn_more_about_how_ghostery_keeps_its_community_safe__visit_@_0__": {
+    "message": "Dieser Datenschutzbericht wurde erstellt, indem die Tracker in einem durch Astian geschützten Browser verfolgt wurden. Die hier aufgeführten Statistiken bieten Transparenz über das Web-Tracking. Um mehr darüber zu erfahren, wie Astian seine Community schützt, besuchen Sie $${0}."
+  },
+  "this_site_will_always_be_paused__you_can_change_this_at_any_time_in_ghostery_settings_to_stop_trackers_and_ads_from_tracking_you_around_the_web": {
+    "message": "Diese Seite wird immer pausiert. Sie können dies jederzeit in den Astian-Einstellungen ändern, damit Tracker und Werbung Ihnen nicht durchs Web folgen"
+  },
+  "this_site_will_be_paused_for_1_day": {
+    "message": "Diese Seite wird für 1 Tag pausiert"
+  },
+  "this_site_will_be_paused_for_1_hour": {
+    "message": "Diese Seite wird für 1 Stunde pausiert"
+  },
+  "to_adjust_privacy_protection_trust_a_site_": {
+    "message": "Zur Anpassung der Einstellungen, vertrauen Sie einer Webseite:"
+  },
+  "to_get_insights_on_add_on_usage__the_following_information_about_the_browser_and_the_extension_is_collected_": {
+    "message": "Um Einblicke in die Nutzung von Add-ons zu erhalten, werden folgende Informationen über den Browser und die Erweiterung gesammelt:"
+  },
+  "to_monitor_critical_crash_information_of_the_extension__the_following_information_about_errors_is_collected_": {
+    "message": "Um kritische Absturzinformationen der Erweiterung zu überwachen, werden folgende Informationen über Fehler gesammelt:"
+  },
+  "to_provide_privacy_protection_features__the_following_information_about_web_trackers_is_collected_": {
+    "message": "Um Datenschutzfunktionen bereitzustellen, werden folgende Informationen über Web-Tracker gesammelt:"
+  },
+  "to_the_benefit_of_the_ghostery_community__let_us_know_if_this_helped_": {
+    "message": "Dein Feedback unterstützt die gesamte Astian-Community – sag uns, ob das geholfen hat!"
+  },
+  "top_100": {
+    "message": "Top 100"
+  },
+  "top_20": {
+    "message": "Top 20"
+  },
+  "top_50": {
+    "message": "Top 50"
+  },
+  "tracker_database": {
+    "message": "Tracker Datenbank"
+  },
+  "trackers": {
+    "message": "Tracker"
+  },
+  "trackers_blocked": {
+    "message": "Blockierte Tracker"
+  },
+  "trackers_count": {
+    "message": "Tracker-Zähler"
+  },
+  "trackers_modified": {
+    "message": "Geänderte Tracker"
+  },
+  "trackers_preview": {
+    "message": "Tracker-Vorschau"
+  },
+  "trackers_wheel": {
+    "message": "Tracker-Rad"
+  },
+  "trends": {
+    "message": "Trends"
+  },
+  "trust_all__recommended_": {
+    "message": "Allen vertrauen (empfohlen)"
+  },
+  "trust_on_all_websites": {
+    "message": "Auf allen Webseiten vertrauen"
+  },
+  "trust_on_this_website": {
+    "message": "Auf dieser Website vertrauen"
+  },
+  "trusted": {
+    "message": "Vertrauenswürdig"
+  },
+  "trusted___tracker_list": {
+    "message": "Vertrauenswürdig",
+    "description": "Plural form - list of trusted trackers"
+  },
+  "trusted_on_all_websites": {
+    "message": "Auf allen Websites vertraut"
+  },
+  "trusted_on_this_website": {
+    "message": "Auf dieser Website vertraut"
+  },
+  "uncovers_that_no_two_days_are_alike__with_ghostery__you_re_protected_each_day_": {
+    "message": "Enthüllt, dass kein Tag wie der andere ist. Mit Astian bist du jeden Tag geschützt."
+  },
+  "unidentified": {
+    "message": "Nicht identifiziert",
+    "description": "Tracker category name"
+  },
+  "uninstall": {
+    "message": "Add-On Deinstallieren"
+  },
+  "updating___": {
+    "message": "Wird aktualisiert..."
+  },
+  "urls_blocked": {
+    "message": "Blockierte URLs"
+  },
+  "urls_modified": {
+    "message": "Geänderte URLs"
+  },
+  "urls_observed": {
+    "message": "Beobachtete URLs"
+  },
+  "utilities": {
+    "message": "Dienstprogramme",
+    "description": "Tracker category name"
+  },
+  "view_activity_details": {
+    "message": "Details zur Aktivität anzeigen"
+  },
+  "view_report": {
+    "message": "Bericht anzeigen"
+  },
+  "visit_our_blog": {
+    "message": "Besuche unseren Blog"
+  },
+  "was_the_most_frequently_observed_tracker_across_all_web_pages_visited_": {
+    "message": "war der am häufigsten beobachtete Tracker auf allen besuchten Webseiten."
+  },
+  "we_know_you_rely_on_ghostery_for_a_smooth_youtube_experience__until_a_more_refined_solution_emerges__here_s_a_temporary_fix_": {
+    "message": "Wir wissen, dass du dich für ein reibungsloses YouTube-Erlebnis auf Astian verlässt. Bis eine bessere Lösung gefunden ist, haben wir hier eine vorübergehende Lösung."
+  },
+  "we_ll_continue_working_on_it__thanks_": {
+    "message": "Danke! Wir arbeiten weiter daran!"
+  },
+  "we_re_so_glad_ghostery_has_your_heart__help_others_find_us_too___it_only_takes_a_moment_": {
+    "message": "Wir freuen uns so sehr, dass Astian dein Herz erobert hat! Hilf anderen, uns auch zu finden – es dauert nur einen Moment."
+  },
+  "we_re_so_glad_ghostery_has_your_heart__let_others_know_leave_a_review_": {
+    "message": "Wir freuen uns sehr, dass Astian dein Herz erobert hat! Lass es andere wissen – hinterlasse eine Bewertung!"
+  },
+  "web_trackers": {
+    "message": "Web-Tracker"
+  },
+  "website": {
+    "message": "Website"
+  },
+  "website_exceptions": {
+    "message": "Website-Ausnahmen"
+  },
+  "websites": {
+    "message": "Websites"
+  },
+  "weekly": {
+    "message": "Wöchentlich"
+  },
+  "welcome_to_ghostery": {
+    "message": "Willkommen bei Astian Privacy"
+  },
+  "what_s_next_": {
+    "message": "Wie geht es weiter?"
+  },
+  "whotracks_me__operated_by_ghostery__is_a_vital_cornerstone_of_ghostery_s_ai_anti_tracking_technology__playing_a_crucial_role_in_providing_real_time_privacy_protection_for_the_ghostery_community__it_is_a_comprehensive_global_resource_on_trackers__bringing_transparency_to_web_tracking_": {
+    "message": "WhoTracks.Me, betrieben von Astian, ist eine wesentliche Komponente der KI-gestützten Anti-Tracking-Technologie von Astian und spielt eine entscheidende Rolle bei der Bereitstellung von Echtzeit-Datenschutz für die gesamte Astian-Community. Es ist eine umfassende globale Ressource zu Trackern und schafft Transparenz im Bereich des Web-Trackings."
+  },
+  "whotracks_me_privacy_report": {
+    "message": "WhoTracks.Me Datenschutzbericht"
+  },
+  "whotracks_me_reports": {
+    "message": "WhoTracks.Me Berichte"
+  },
+  "whotracks_me_statistical_report": {
+    "message": "WhoTracks.Me-Statistiken"
+  },
+  "whotracks_me_wheel": {
+    "message": "Whotracks.me-Rad"
+  },
+  "with_ghostery_disabled__only_the_basic_functionality_of_naming_trackers_is_available_": {
+    "message": "Wenn Astian deaktiviert ist, steht nur die grundlegende Funktionalität zur Benennung von Trackern zur Verfügung."
+  },
+  "yes": {
+    "message": "Ja"
+  },
+  "yesterday": {
+    "message": "Gestern"
+  },
+  "you_are_awesome_": {
+    "message": "Sie sind toll!"
+  },
+  "you_are_signed_in_as_": {
+    "message": "Sie sind angemeldet als:"
+  },
+  "you_will_no_longer_see_tracker_wheels_next_to_the_search_results_": {
+    "message": "Neben den Suchergebnissen werden keine Tracker-Räder mehr angezeigt."
+  },
+  "your_community_powered_privacy_features_": {
+    "message": "Ihre Community-gestützten Datenschutzfunktionen:"
+  },
+  "your_contribution_helps_build_a_more_private_and_safe_internet_for_the_entire_ghostery_community_": {
+    "message": "Dein Beitrag hilft, ein privateres und sichereres Internet für die gesamte Astian-Community aufzubauen."
+  },
+  "youtube_blocking_you_from_watching_ad_free_videos_": {
+    "message": "YouTube hindert dich daran, werbefreie Videos anzusehen?"
+  }
+}

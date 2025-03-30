@@ -1,0 +1,1 @@
+(function(){"use strict";const t=(()=>{let t="";for(let r=0;r<8;r++)t+=(Math.random()*65536+4096|0).toString(16).slice(-4);return t})();const r=class{static hashComponents(){return t}static load(){return Promise.resolve(new r)}get(){return Promise.resolve({visitorId:t})}};window.FingerprintJS=r})();

@@ -1,0 +1,1 @@
+(function(){"use strict";const t=function(){};window.pSUPERFLY={activity:t,virtualPage:t};for(const t of document.querySelectorAll("style[id^=chartbeat-flicker-control]"))t.remove()})();
