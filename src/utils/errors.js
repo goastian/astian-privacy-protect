@@ -21,9 +21,8 @@ const { version } = chrome.runtime.getManifest();
 const hostRegexp = new RegExp(new URL(chrome.runtime.getURL('/')).host, 'g');
 
 const config = {
-  tunnel: 'https://crashreporting.ghostery.net/',
-  dsn: 'https://05c74f55666649f0b6d671b9c37f6da1@o475874.ingest.sentry.io/6447378',
-  release: `ghostery-extension@${version}`,
+  dsn: 'https://e1ccc60104189293f9ac2f9fd513930c@o508466.ingest.us.sentry.io/4509069245480960',
+  release: `astian-extension@${version}`,
   debug: debugMode,
   environment: debugMode ? 'development' : 'production',
   // We use Sentry to track critical errors only.
