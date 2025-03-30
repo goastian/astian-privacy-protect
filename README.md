@@ -8,4 +8,4 @@ Midori Protect My Privacy is a component oriented and aimed at taking care of an
 
 In future versions, the option to activate VPN and DNS navigation among other features will be available.
 
-Midori Protect My Privacy using Adguard as a base will always be open source as will all components, and we will always preserve and protect the privacy of users.
+Midori Privacy Protect using Ghostery as a base will always be open source as will all components, and we will always preserve and protect the privacy of users.
