@@ -20,7 +20,7 @@ fi
 # Rebuild from latest tag
 echo "Downloading and unzipping the latest tag: $tag"
 rm -rf ./dist ./dist.zip
-curl -L -o dist.zip "https://github.com/ghostery/ghostery-extension/releases/download/$tag/ghostery-$target-$version.zip"
+curl -L -o dist.zip "https://github.com/goastian/astian-privacy-protect/releases/download/$tag/astian-$target-$version.zip"
 unzip dist.zip -d ./dist
 rm dist.zip
 
