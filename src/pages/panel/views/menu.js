@@ -79,7 +79,7 @@ export default {
                 icon="wtm"
                 translate="no"
               >
-                WhoTracks.Me
+                Alfra
               </panel-menu-item>
               <panel-menu-item
                 href="${chrome.runtime.getURL(

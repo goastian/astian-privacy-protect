@@ -70,7 +70,7 @@
     "description": "Tracker category name"
   },
   "all_information_displayed_on_the_whotracks_me_tab_or_@_0__is_an_aggregate_of_facts_about_web_trackers__these_reports_power_ghostery_s_anti_tracking_technology__protecting_the_entire_community_": {
-    "message": "All information displayed on the WhoTracks.Me Tab or $${0} is an aggregate of facts about web trackers. These reports power Astian's anti-tracking technology, protecting the entire community."
+    "message": "All information displayed on the Alfra Tab or $${0} is an aggregate of facts about web trackers. These reports power Astian's anti-tracking technology, protecting the entire community."
   },
   "all_websites_with_adjusted_protection_status_will_be_listed_here_": {
     "message": "All websites with adjusted protection status will be listed here."

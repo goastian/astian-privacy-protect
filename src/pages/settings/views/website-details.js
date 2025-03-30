@@ -206,7 +206,7 @@ export default {
             <ui-action>
               <a href="${`${WTM_PAGE_URL}/websites/${domain}`}" target="_blank">
                 <settings-wtm-link>
-                  WhoTracks.Me Statistical Report
+                  Alfra Statistical Report
                 </settings-wtm-link>
               </a>
             </ui-action>

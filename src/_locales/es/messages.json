@@ -70,7 +70,7 @@
     "description": "Tracker category name"
   },
   "all_information_displayed_on_the_whotracks_me_tab_or_@_0__is_an_aggregate_of_facts_about_web_trackers__these_reports_power_ghostery_s_anti_tracking_technology__protecting_the_entire_community_": {
-    "message": "Toda la información mostrada en la pestaña WhoTracks.Me o $${0} es un conjunto de datos sobre rastreadores web. Estos informes impulsan la tecnología anti-rastreo de Astian, protegiendo a toda la comunidad."
+    "message": "Toda la información mostrada en la pestaña Alfra o $${0} es un conjunto de datos sobre rastreadores web. Estos informes impulsan la tecnología anti-rastreo de Astian, protegiendo a toda la comunidad."
   },
   "all_websites_with_adjusted_protection_status_will_be_listed_here_": {
     "message": "Todos los sitios web con estado de protección ajustado se mostrarán aquí."
@@ -430,7 +430,7 @@
     "message": "Información sobre <a href=\"$${0}\">rastreadores web</a>, <a href=\"$${1}\">salud de los complementos</a> y <a href=\"$${2}\">telemetría de rendimiento</a> se compartirá de acuerdo con nuestra <a href=\"$${3}\" target=\"_blank\" rel=\"noreferrer\">Política de Privacidad</a>, avanzando en la protección de la privacidad para la comunidad de Astian."
   },
   "it_exists_thanks_to_the_micro_contributions_of_every_ghostery_user_who_chooses_to_send_non_personal_information_to_whotracks_me__this_input_enables_ghostery_to_provide_real_time_intel_on_trackers__which__in_turn__delivers_privacy_protection_to_the_entire_ghostery_community_": {
-    "message": "Existe gracias a las microcontribuciones de cada usuario de Astian que decide enviar información no personal a WhoTracks.Me. Esta aportación permite a Astian proporcionar información en tiempo real sobre los rastreadores, lo que a su vez proporciona protección a toda la comunidad de Astian."
+    "message": "Existe gracias a las microcontribuciones de cada usuario de Astian que decide enviar información no personal a Alfra. Esta aportación permite a Astian proporcionar información en tiempo real sobre los rastreadores, lo que a su vez proporciona protección a toda la comunidad de Astian."
   },
   "join_ghostery": {
     "message": "Únete a Astian"
@@ -615,7 +615,7 @@
     "message": "Proporciona una visión general de los aspectos esenciales de la protección de la privacidad."
   },
   "read_more_on_whotracks_me": {
-    "message": "Leer más sobre WhoTracks.Me"
+    "message": "Leer más sobre Alfra"
   },
   "regional_filters": {
     "message": "Filtros Regionales"
@@ -639,7 +639,7 @@
     "message": "Reanudando..."
   },
   "reveals_what_s_hidden_beneath_the_internet_s_surface__with_whotracks_me__you_can_uncover_the_identities_behind_every_tracker_": {
-    "message": "Revela lo que está oculto bajo la superficie de internet. Con WhoTracks.Me, puedes descubrir las identidades detrás de cada Rastreador."
+    "message": "Revela lo que está oculto bajo la superficie de internet. Con Alfra, puedes descubrir las identidades detrás de cada Rastreador."
   },
   "save": {
     "message": "Guardar"
@@ -891,19 +891,19 @@
     "message": "¿Qué es lo siguiente?"
   },
   "whotracks_me__operated_by_ghostery__is_a_vital_cornerstone_of_ghostery_s_ai_anti_tracking_technology__playing_a_crucial_role_in_providing_real_time_privacy_protection_for_the_ghostery_community__it_is_a_comprehensive_global_resource_on_trackers__bringing_transparency_to_web_tracking_": {
-    "message": "WhoTracks.Me, operado por Astian, es un pilar vital de la tecnología anti-rastreo de inteligencia artificial de Astian, desempeñando un papel crucial en proporcionar protección de privacidad en tiempo real para la comunidad de Astian. Es un recurso global integral sobre rastreadores, aportando transparencia al seguimiento web."
+    "message": "Alfra, operado por Astian, es un pilar vital de la tecnología anti-rastreo de inteligencia artificial de Astian, desempeñando un papel crucial en proporcionar protección de privacidad en tiempo real para la comunidad de Astian. Es un recurso global integral sobre rastreadores, aportando transparencia al seguimiento web."
   },
   "whotracks_me_privacy_report": {
-    "message": "Informe de Privacidad de WhoTracks.Me"
+    "message": "Informe de Privacidad de Alfra"
   },
   "whotracks_me_reports": {
-    "message": "Informes de WhoTracks.Me"
+    "message": "Informes de Alfra"
   },
   "whotracks_me_statistical_report": {
-    "message": "Informe estadístico de WhoTracks.Me"
+    "message": "Informe estadístico de Alfra"
   },
   "whotracks_me_wheel": {
-    "message": "Rueda de WhoTracks.Me"
+    "message": "Rueda de Alfra"
   },
   "with_ghostery_disabled__only_the_basic_functionality_of_naming_trackers_is_available_": {
     "message": "Con Astian desactivado, solo está disponible la funcionalidad básica de nombrar rastreadores."

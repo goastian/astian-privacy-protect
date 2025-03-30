@@ -73,7 +73,7 @@ export default {
             data-qa="button:whotracksme"
           >
             <ui-icon name="wtm" color="nav" layout="size:3"></ui-icon>
-            WhoTracks.Me
+            Alfra
           </a>
 
           <a
@@ -86,7 +86,7 @@ export default {
                   ${session.contributor
                     ? html`<ui-icon name="contributor"></ui-icon>`
                     : html`<ui-icon name="user" color="nav"></ui-icon>`}
-                  <span layout@992px="hidden">My Ghostery</span>
+                  <span layout@992px="hidden">My Astian</span>
                   <div
                     layout="hidden"
                     layout@992px="column margin:left:2px width::0"
@@ -132,12 +132,6 @@ export default {
                     </div>
                   `
                 : html`
-                    <img
-                      src="${assets['hands']}"
-                      layout="size:12"
-                      alt="Contribution"
-                      slot="picture"
-                    />
                     <div layout="column gap:0.5">
                       <ui-text type="label-l" layout="block:center">
                         Become a Contributor

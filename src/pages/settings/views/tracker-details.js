@@ -192,7 +192,7 @@ export default {
                     target="_blank"
                   >
                     <settings-wtm-link>
-                      WhoTracks.Me Statistical Report
+                      Alfra Statistical Report
                     </settings-wtm-link>
                   </a>
                 </ui-action>

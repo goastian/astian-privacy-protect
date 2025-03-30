@@ -40,9 +40,9 @@ export default {
     <template layout="contents">
       <settings-page-layout layout="gap:4" layout@768px="gap:4">
         <div layout="column gap" layout@992px="margin:bottom">
-          <ui-text type="headline-m" translate="no">WhoTracks.Me</ui-text>
+          <ui-text type="headline-m" translate="no">Alfra</ui-text>
           <ui-text type="body-l" mobile-type="body-m" color="secondary">
-            WhoTracks.Me, operated by Ghostery, is a vital cornerstone of
+            Alfra, operated by Ghostery, is a vital cornerstone of
             Ghostery’s AI anti-tracking technology, playing a crucial role in
             providing real-time privacy protection for the Ghostery community.
             It is a comprehensive global resource on trackers, bringing
@@ -50,7 +50,7 @@ export default {
           </ui-text>
           <ui-text type="body-l" mobile-type="body-m" color="secondary">
             It exists thanks to the micro-contributions of every Ghostery user
-            who chooses to send non-personal information to WhoTracks.Me. This
+            who chooses to send non-personal information to Alfra. This
             input enables Ghostery to provide real-time intel on trackers,
             which, in turn, delivers privacy protection to the entire Ghostery
             community.
@@ -69,12 +69,12 @@ export default {
                   <settings-help-image>
                     <img
                       src="${assets.wtm_wheel_small}"
-                      alt="WhoTracks.Me Wheel"
+                      alt="Alfra Wheel"
                     />
                   </settings-help-image>
                 </a>
                 <settings-option>
-                  WhoTracks.Me Wheel
+                  Alfra Wheel
                   <span slot="description">
                     Replaces the Ghostery icon in the browser toolbar with the
                     tracker wheel.
@@ -187,7 +187,7 @@ export default {
                     />
                   </settings-help-image>
                   <settings-option>
-                    WhoTracks.Me Privacy Report
+                    Alfra Privacy Report
                     <span slot="description">
                       Generates a global transparency report on web tracking in
                       your Ghostery-protected browser.
