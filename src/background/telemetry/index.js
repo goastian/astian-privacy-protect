@@ -91,7 +91,7 @@ OptionsObserver.addListener(async function telemetry({ terms, feedback }) {
 
     runner.setUninstallUrl();
   } else {
-    chrome.runtime.setUninstallURL('https://mygho.st/fresh-uninstalls');
+    chrome.runtime.setUninstallURL('https://astian.org/feedback/?mtm_campaign=Astian%20Privacy');
   }
 });
 
