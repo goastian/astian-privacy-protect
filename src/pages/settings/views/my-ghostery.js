@@ -66,16 +66,6 @@ export default {
           session.enabled &&
           html`
             <settings-card>
-              <img
-                src="${assets[
-                  store.ready(session) && session.user
-                    ? 'shield'
-                    : 'contribution'
-                ]}"
-                layout="size:20"
-                alt="Contribution"
-                slot="picture"
-              />
               ${session.user
                 ? html`
                     <div layout="column gap:0.5 margin:bottom:2">
