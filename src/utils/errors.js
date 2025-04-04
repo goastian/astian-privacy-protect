@@ -21,6 +21,7 @@ const { version } = chrome.runtime.getManifest();
 const hostRegexp = new RegExp(new URL(chrome.runtime.getURL('/')).host, 'g');
 
 const config = {
+  tunnel: 'https://astian.sentry.io/',
   dsn: 'https://e1ccc60104189293f9ac2f9fd513930c@o508466.ingest.us.sentry.io/4509069245480960',
   release: `astian-extension@${version}`,
   debug: debugMode,
