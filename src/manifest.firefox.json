@@ -33,7 +33,7 @@
       "128": "/icons/icon.svg"
     },
     "default_area": "navbar",
-    "default_title": "Ghostery",
+    "default_title": "Astian Privacy",
     "default_popup": "pages/panel/index.html"
   },
   "options_ui": {

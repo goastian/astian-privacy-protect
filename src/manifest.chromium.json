@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "author": "Ghostery",
+  "author": "Astian",
   "name": "__MSG_manifest_name__",
-  "short_name": "Ghostery",
+  "short_name": "Astian Privacy",
   "default_locale": "en",
   "description": "__MSG_manifest_short_description__",
   "permissions": [
