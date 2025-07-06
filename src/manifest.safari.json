@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "author": "Ghostery",
-  "name": "Ghostery",
-  "short_name": "Ghostery",
+  "author": "Astian",
+  "name": "Astian Privacy",
+  "short_name": "Astian Privacy",
   "default_locale": "en",
   "description": "Block Ads, Trackers and Annoyances",
   "permissions": [
