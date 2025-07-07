@@ -21,6 +21,7 @@ import Config, {
   FLAG_PAUSE_ASSISTANT,
 } from './config.js';
 import CustomFilters from './custom-filters.js';
+import notification from '/pages/panel/store/notification.js';
 
 const UPDATE_OPTIONS_ACTION_NAME = 'updateOptions';
 export const GLOBAL_PAUSE_ID = '<all_urls>';
@@ -89,7 +90,7 @@ const Options = {
   installDate: '',
 
   // UI
-  panel: { statsType: 'graph' },
+  panel: { statsType: 'graph', notifications: true },
   theme: '',
 
   // Pause
