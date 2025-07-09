@@ -2,13 +2,8 @@
   "@_0__left": {
     "message": "還剩 $${0}"
   },
-  "@_0__will_be_blocked_on_this_website_": {
-    "message": "$${0} 將被此網站封鎖。",
-    "description": "A tracker will be trusted on this website."
-  },
   "@_0__will_be_trusted_on_this_website_": {
-    "message": "$${0} 將受此網站信任。",
-    "description": "A tracker will be trusted on this website."
+    "message": "$${0} 將受此網站信任。"
   },
   "1_day": {
     "message": "1 天"
@@ -18,6 +13,9 @@
   },
   "about": {
     "message": "有關"
+  },
+  "access_website_settings": {
+    "message": "存取網站設定"
   },
   "account_details": {
     "message": "帳戶詳細資料"
@@ -58,9 +56,6 @@
     "message": "已调整",
     "description": "Plural form - list of adjusted trackers"
   },
-  "ads_and_trackers_will_not_be_blocked_": {
-    "message": "廣告和追蹤器將不會被阻擋。"
-  },
   "adult_advertising": {
     "message": "成人廣告",
     "description": "Tracker category name"
@@ -70,7 +65,7 @@
     "description": "Tracker category name"
   },
   "all_information_displayed_on_the_whotracks_me_tab_or_@_0__is_an_aggregate_of_facts_about_web_trackers__these_reports_power_ghostery_s_anti_tracking_technology__protecting_the_entire_community_": {
-    "message": "所有顯示在 WhoTracks.Me 標籤或 $${0} 上的信息都是關於網路追蹤器的事實彙總。這些報告為 Astian 的反追蹤技術提供支持，保護整個社群。"
+    "message": "所有顯示在 Alfra 標籤或 $${0} 上的信息都是關於網路追蹤器的事實彙總。這些報告為 Astian 的反追蹤技術提供支持，保護整個社群。"
   },
   "all_websites_with_adjusted_protection_status_will_be_listed_here_": {
     "message": "所有已調整保護狀態的網站都會在這裡列出。"
@@ -104,16 +99,13 @@
     "message": "成為捐助者"
   },
   "being_an_eu_company__ghostery_strictly_adheres_to_the_gdpr__the_general_data_protection_regulation___which_regulates_data_collection_to_ensure_user_s_privacy_": {
-    "message": "Astian 嚴格遵循 GDPR（通用數據保護條例），該條例規範數據收集以確保用戶隱私。."
+    "message": "作為一家歐盟公司，Astian 嚴格遵循 GDPR（通用數據保護條例），該條例規範數據收集以確保用戶隱私。."
   },
-  "block_all__recommended_": {
-    "message": "阻止所有（推薦）"
+  "block_all": {
+    "message": "封鎖全部"
   },
-  "block_on_all_websites": {
-    "message": "封鎖全部網站"
-  },
-  "block_on_this_website": {
-    "message": "在此網站封鎖"
+  "block_similar_elements": {
+    "message": "封鎖類似元素"
   },
   "blocked": {
     "message": "已封鎖"
@@ -122,11 +114,20 @@
     "message": "已封鎖",
     "description": "Plural form - list of blocked trackers"
   },
+  "blocked_elements_on_this_site": {
+    "message": "此網站上的已封鎖元素"
+  },
+  "blocked_manually": {
+    "message": "手動封鎖"
+  },
   "blocked_on_all_websites": {
     "message": "在所有網站都被封鎖"
   },
   "blocked_on_this_website": {
     "message": "在這個網站被封鎖"
+  },
+  "blocking_has_been_paused_temporarily__and_only_on_this_page__consider_pausing_other_adblockers_for_best_results_": {
+    "message": "暫時停止封鎖，僅限於此頁面。為獲得最佳效果，請考慮暫停其他廣告攔截器。"
   },
   "blocks_additional_ads__trackers__and_pop_ups_specific_to_the_language_of_websites_you_visit__enable_only_the_languages_you_need_to_avoid_slowing_down_your_browser_": {
     "message": "阻擋您所訪問網站語言特定的額外廣告、追蹤器和彈出視窗。僅啟用您需要的語言，以避免減慢瀏覽器速度。."
@@ -155,6 +156,9 @@
   },
   "changes_application_color_theme_": {
     "message": "更改應用程式的顏色主題。"
+  },
+  "clear": {
+    "message": "清除"
   },
   "click_the_puzzle_icon_next_to_the_search_bar_and_pin_ghostery_to_your_toolbar_": {
     "message": "點擊搜尋欄位旁邊的拼圖圖示，將 Astian 釘選至工具列。"
@@ -200,10 +204,6 @@
   "create_account": {
     "message": "創建帳戶"
   },
-  "current_protection_status_for_@_0__": {
-    "message": "目前對 $${0} 的保護狀態：",
-    "description": "Current protection status for a tracker"
-  },
   "custom": {
     "message": "自訂"
   },
@@ -244,8 +244,8 @@
   "disabled": {
     "message": "已停用"
   },
-  "dismiss": {
-    "message": "忽略"
+  "displays_all_content_blocks_manually_hidden_on_this_site__you_can_remove_them_individually_or_clear_the_entire_list_": {
+    "message": "顯示在此網站上手動隱藏的所有內容區塊。您可以單獨移除它們或清除整個列表。"
   },
   "displays_the_tracker_count_on_the_ghostery_icon_in_the_browser_toolbar_": {
     "message": "在瀏覽器工具列中的 Astian 圖示上顯示追蹤器記數。"
@@ -258,6 +258,9 @@
   },
   "don_t_ask_again": {
     "message": "不要再問"
+  },
+  "done": {
+    "message": "完成"
   },
   "due_to_browser_restrictions_and_additional_permissions_missing__ghostery_is_not_able_to_protect_you_": {
     "message": "由於瀏覽器限制和缺少額外權限，Astian 無法為您提供保護。"
@@ -277,10 +280,10 @@
     "message": "立即啟用廣告攔截功能"
   },
   "enable_ghostery": {
-    "message": "啟用 Astian Privacy"
+    "message": "啟用 Astian"
   },
   "enable_ghostery_to_get_started": {
-    "message": "啟用 Astian Privacy 開始"
+    "message": "啟用 Astian 開始"
   },
   "enable_now": {
     "message": "立即啟用"
@@ -294,8 +297,14 @@
   "enter_website_url": {
     "message": "輸入網站網址"
   },
+  "error__invalid_file_format_": {
+    "message": "錯誤：無效的檔案格式。"
+  },
   "error__type__message__stack_trace": {
     "message": "錯誤：類型、訊息、堆疊追蹤"
+  },
+  "error__unsupported_file_version_@_0____expected___1__": {
+    "message": "錯誤：不支援的檔案版本 $${0} - 預期為 $${1}。"
   },
   "errors__@_0__": {
     "message": "錯誤 ($${0})"
@@ -316,6 +325,9 @@
   "experimental_filters": {
     "message": "實驗性過濾器"
   },
+  "export_to_file": {
+    "message": "匯出到檔案"
+  },
   "extension__version__installation_date__random_install_number__from_1_to_100___basic_settings__contribution_status": {
     "message": "擴充功能：版本、安裝日期、隨機安裝號碼（從1到100）、基本設定、貢獻狀態"
   },
@@ -332,9 +344,6 @@
   "facts": {
     "message": "事實"
   },
-  "fantastic__thanks_": {
-    "message": "太棒了！謝謝！"
-  },
   "feedback_sharing": {
     "message": "意見分享"
   },
@@ -343,6 +352,9 @@
   },
   "get_help": {
     "message": "取得幫助"
+  },
+  "ghostery_added_a_rule_to_keep_this_content_block_hidden__you_can_undo_this_anytime_in_website_settings_": {
+    "message": "Astian 新增了一條規則以保持此內容區塊隱藏。您可以隨時在網站設定中取消此操作。"
   },
   "ghostery_has_been_resumed_": {
     "message": "Astian 已恢復。"
@@ -381,22 +393,25 @@
     "message": "Astian 透過檢測並阻擋廣告、追蹤器和 cookie 彈跳視窗等數據收集方式保護你的隱私。"
   },
   "ghostery_settings": {
-    "message": "Astian Privacy 設定"
+    "message": "Astian 設定"
   },
   "ghostery_tracker___ad_blocker_is_naming_the_trackers_present_on_websites_you_visit__you_are_browsing_the_web_unprotected_": {
     "message": "Astian Tracker＆Ad Blocker正在命名您访问的网站上的跟踪器。您正在未受保护的情况下浏览网页。"
   },
-  "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__resume_ghostery_": {
-    "message": "Astian 使用者回報廣告攔截器不再影響此網站。重新啟用 Astian。"
+  "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__ghostery_will_be_re_enabled_": {
+    "message": "Astian 使用者回報廣告攔截器不再影響此網站。Astian 將重新啟用。"
   },
-  "ghostery_users_report_that_ad_blockers_break_this_site__try_pausing_ghostery_": {
-    "message": "Astian 使用者回報廣告攔截器會使此網站無法正常運作。試著暫停 Astian。"
+  "ghostery_users_report_that_adblockers_break_this_page__ghostery_has_been_paused_": {
+    "message": "Astian 使用者反映廣告攔截器會破壞此頁面。Astian 已暫停。"
   },
   "ghostery_uses_this_information_to_provide_its_community_powered_privacy_features__ensuring_that_personal_information_such_as_passwords__browsing_history__and_page_content_is_never_collected_": {
     "message": "Astian 使用這些資訊來提供其社群驅動的隱私功能，確保不會收集個人資訊，例如密碼、瀏覽歷史和頁面內容。"
   },
   "ghostery_will_show_how_many_trackers_were_blocked_on_a_page__clicking_on_the_ghostery_icon_reveals_more_detailed_information_": {
     "message": "Astian 將顯示頁面中已經阻擋的追蹤器數量。點擊 Astian 圖示可以顯示更多資訊。"
+  },
+  "gone_": {
+    "message": "不见了！"
   },
   "hashes_of_potentially_unique_identifier_in_requests_parameters": {
     "message": "請求參數中潛在唯一識別碼的雜湊值"
@@ -410,6 +425,15 @@
   "hey__do_you_enjoy_ghostery_and_want_to_support_our_work_": {
     "message": "嗨，您喜歡使用 Astian 並願意鼓勵我們的工作嗎？"
   },
+  "hide": {
+    "message": "隱藏"
+  },
+  "hide_content_block": {
+    "message": "隱藏內容區塊"
+  },
+  "hide_distraction": {
+    "message": "隱藏干擾"
+  },
   "hosting": {
     "message": "託管",
     "description": "Tracker category name"
@@ -419,6 +443,18 @@
   },
   "ignore": {
     "message": "忽略"
+  },
+  "import_from_file": {
+    "message": "從檔案匯入"
+  },
+  "importing_settings___": {
+    "message": "匯入設定中..."
+  },
+  "importing_supports_ublock_origin_file_format_with_selected_features_": {
+    "message": "匯入支援 uBlock Origin 檔案格式的選定功能。"
+  },
+  "in_panel_notifications": {
+    "message": "面板內通知"
   },
   "include_a_screenshot_of_the_current_page": {
     "message": "包含當前頁面的截圖"
@@ -430,7 +466,7 @@
     "message": "有關<a href=\"$${0}\">網路追蹤器</a>、<a href=\"$${1}\">附加元件健康狀況</a>和<a href=\"$${2}\">效能遙測</a>的信息將根據我們的<a href=\"$${3}\" target=\"_blank\" rel=\"noreferrer\">隱私政策</a>分享，以促進Astian社群的隱私保護。."
   },
   "it_exists_thanks_to_the_micro_contributions_of_every_ghostery_user_who_chooses_to_send_non_personal_information_to_whotracks_me__this_input_enables_ghostery_to_provide_real_time_intel_on_trackers__which__in_turn__delivers_privacy_protection_to_the_entire_ghostery_community_": {
-    "message": "它的存在要歸功於每位選擇將非個人資料傳送到 WhoTracks.Me 的 Astian 用戶的微小貢獻。這些資料的輸入使 Astian 能夠提供有關追蹤器的即時情報，進而為整個 Astian 社群提供保護。"
+    "message": "它的存在要歸功於每位選擇將非個人資料傳送到 Alfra 的 Astian 用戶的微小貢獻。這些資料的輸入使 Astian 能夠提供有關追蹤器的即時情報，進而為整個 Astian 社群提供保護。"
   },
   "join_ghostery": {
     "message": "加入 Astian"
@@ -469,7 +505,7 @@
     "message": "載入更多"
   },
   "manifest_name": {
-    "message": "Astian Privacy 追蹤器和廣告攔截器 - 隱私 AdBlock"
+    "message": "Astian 追蹤器和廣告攔截器 - 隱私 AdBlock"
   },
   "manifest_short_description": {
     "message": "功能強大且易於使用的隱私擴充套件。阻擋廣告、追蹤器並加速您的網頁。."
@@ -499,6 +535,9 @@
   "more_in_this_organization": {
     "message": "有關此機構的更多內容"
   },
+  "move_the_slider_to_show_or_hide_sections_": {
+    "message": "將滑桿移動以顯示或隱藏部分內容。"
+  },
   "my_ghostery": {
     "message": "我的 Astian"
   },
@@ -513,9 +552,6 @@
   },
   "never_consent": {
     "message": "Never-Consent"
-  },
-  "no": {
-    "message": "否"
   },
   "no_activities_detected": {
     "message": "未偵測到任何活動"
@@ -557,9 +593,6 @@
     "message": "其他",
     "description": "Tracker category name"
   },
-  "our_recommendation_for_this_activity": {
-    "message": "我們對此活動的推薦"
-  },
   "pages_visited": {
     "message": "瀏覽的頁面"
   },
@@ -571,9 +604,6 @@
   },
   "paused": {
     "message": "暫停"
-  },
-  "pausing___": {
-    "message": "暫停中..."
   },
   "performance_telemetry": {
     "message": "效能遙測"
@@ -590,8 +620,8 @@
   "please_describe_the_issue": {
     "message": "請描述問題"
   },
-  "prevents_google_from_redirecting_search_result_links_through_their_servers_instead_of_linking_directly_to_pages_": {
-    "message": "防止 Google 透過其伺服器重新導向搜尋結果連結，而不是直接連結到網頁。"
+  "prevents_google_and_bing_from_redirecting_search_result_links_through_their_servers_instead_of_linking_directly_to_pages_": {
+    "message": "防止 Google 和 Bing 透過其伺服器重新導向搜尋結果連結，而不是直接連結到網頁。"
   },
   "prevents_various_tracking_techniques_using_ai_driven_technology_": {
     "message": "使用 AI 科技防止各種追蹤技術。"
@@ -615,7 +645,7 @@
     "message": "提供隱私保護基本方面的概述。"
   },
   "read_more_on_whotracks_me": {
-    "message": "在 WhoTracks.Me 上繼續閱讀"
+    "message": "在 Alfra 上繼續閱讀"
   },
   "regional_filters": {
     "message": "區域過濾器"
@@ -632,17 +662,20 @@
   "request_metadata_of_potential_web_trackers": {
     "message": "請求潛在網路追蹤器的元數據"
   },
+  "reselect": {
+    "message": "重新選擇"
+  },
   "resume": {
     "message": "恢復"
   },
-  "resuming___": {
-    "message": "恢復中..."
-  },
   "reveals_what_s_hidden_beneath_the_internet_s_surface__with_whotracks_me__you_can_uncover_the_identities_behind_every_tracker_": {
-    "message": "揭示網路表面下隱藏的真相。透過 WhoTracks.Me，您可以揭開每個追蹤者背後的身份。"
+    "message": "揭示網路表面下隱藏的真相。透過 Alfra，您可以揭開每個追蹤者背後的身份。"
   },
   "save": {
     "message": "儲存"
+  },
+  "save_your_custom_settings_to_a_file__or_restore_them_from_a_file_": {
+    "message": "將您的自訂設定儲存到檔案，或從檔案還原設定。"
   },
   "saves_and_synchronizes_your_custom_settings_between_browsers_and_devices_": {
     "message": "保存您的自定义设置并在浏览器和设备之间同步。"
@@ -656,17 +689,23 @@
   "search_website___": {
     "message": "搜尋網站......"
   },
+  "select_distracting_element": {
+    "message": "選擇干擾元素"
+  },
   "select_time_frame": {
     "message": "選擇時間範圍"
   },
   "send": {
     "message": "發送"
   },
-  "send_feedback": {
-    "message": "發送反饋"
-  },
   "sentry_sdk_is_in_use_to_gather_and_send_the_reports__but_sentry_does_only_receive_information_above___no_two_requests_can_be_linked_with_one_another_and_browser_ip_is_never_shared_with_sentry_": {
     "message": "Sentry SDK 用於收集和發送報告，但 Sentry 只接收上述信息——兩個請求之間無法互相關聯，且瀏覽器 IP 永遠不會與 Sentry 共享。."
+  },
+  "settings_backup": {
+    "message": "設定備份"
+  },
+  "settings_sync": {
+    "message": "設定同步"
   },
   "setup_successful": {
     "message": "設定成功"
@@ -690,15 +729,6 @@
     "message": "網站分析",
     "description": "Tracker category name"
   },
-  "site_works_fine": {
-    "message": "網站運作正常"
-  },
-  "skip": {
-    "message": "跳過"
-  },
-  "skip_this_time": {
-    "message": "這次略過"
-  },
   "social_media": {
     "message": "社交媒體",
     "description": "Tracker category name"
@@ -721,9 +751,6 @@
   "suspends_privacy_protection_globally_for_1_day_": {
     "message": "全球暫停隱私保護一天。"
   },
-  "sync_settings": {
-    "message": "同步設定"
-  },
   "telemetry": {
     "message": "遙測",
     "description": "Tracker category name"
@@ -733,6 +760,9 @@
   },
   "thank_you_for_your_support_in_ghostery_s_fight_for_a_web_where_privacy_is_a_basic_human_right_": {
     "message": "感謝你支持 Astian 為建立以隱私為基本人權的網路而奮鬥。"
+  },
+  "the_backup_from_@_0__imported_successfully_": {
+    "message": "來自 $${0} 的備份已成功匯入。"
   },
   "theme": {
     "message": "主題"
@@ -761,9 +791,6 @@
   "to_provide_privacy_protection_features__the_following_information_about_web_trackers_is_collected_": {
     "message": "為了提供隱私保護功能，會收集以下有關網路追蹤器的資訊："
   },
-  "to_the_benefit_of_the_ghostery_community__let_us_know_if_this_helped_": {
-    "message": "请告知我们这是否对Astian社区有帮助！"
-  },
   "top_100": {
     "message": "前100名"
   },
@@ -772,6 +799,9 @@
   },
   "top_50": {
     "message": "前 50 名"
+  },
+  "tracker___ad_blocking_will_be_active_on_this_page_": {
+    "message": "追踪器和广告拦截将在此页面上激活。"
   },
   "tracker_database": {
     "message": "追蹤程式資料庫"
@@ -797,9 +827,6 @@
   "trends": {
     "message": "趨勢"
   },
-  "trust_all__recommended_": {
-    "message": "信任一切（推薦)"
-  },
   "trust_on_all_websites": {
     "message": "信任所有網站"
   },
@@ -818,6 +845,9 @@
   },
   "trusted_on_this_website": {
     "message": "在這個網站受信任"
+  },
+  "turns_ghostery_notifications_displayed_in_the_panel_on_or_off_": {
+    "message": "將面板中顯示的 Astian 通知開啟或關閉。"
   },
   "uncovers_that_no_two_days_are_alike__with_ghostery__you_re_protected_each_day_": {
     "message": "揭示了每天都不一樣。有了 Astian，您每天都受到保護。"
@@ -860,14 +890,8 @@
   "we_know_you_rely_on_ghostery_for_a_smooth_youtube_experience__until_a_more_refined_solution_emerges__here_s_a_temporary_fix_": {
     "message": "我們知道您依靠 Astian 來獲得流暢的 YouTube 體驗。 在出現更完善的解決方案之前，這裡有一個臨時解決方案。"
   },
-  "we_ll_continue_working_on_it__thanks_": {
-    "message": "我们会继续努力的！谢谢！"
-  },
   "we_re_so_glad_ghostery_has_your_heart__help_others_find_us_too___it_only_takes_a_moment_": {
     "message": "很高興你喜歡Astian！幫助其他人也找到我們吧——只需片刻時間。."
-  },
-  "we_re_so_glad_ghostery_has_your_heart__let_others_know_leave_a_review_": {
-    "message": "我們很高興 Astian 贏得了你的喜愛！讓其他人知道——留下評論吧！"
   },
   "web_trackers": {
     "message": "網路追蹤器"
@@ -878,6 +902,9 @@
   "website_exceptions": {
     "message": "網站例外"
   },
+  "website_statistical_report": {
+    "message": "網站統計報告"
+  },
   "websites": {
     "message": "網站"
   },
@@ -885,31 +912,28 @@
     "message": "每週"
   },
   "welcome_to_ghostery": {
-    "message": "歡迎來到 Astian Privacy"
+    "message": "歡迎來到 Astian"
   },
   "what_s_next_": {
     "message": "下一步是？"
   },
   "whotracks_me__operated_by_ghostery__is_a_vital_cornerstone_of_ghostery_s_ai_anti_tracking_technology__playing_a_crucial_role_in_providing_real_time_privacy_protection_for_the_ghostery_community__it_is_a_comprehensive_global_resource_on_trackers__bringing_transparency_to_web_tracking_": {
-    "message": "WhoTracks.Me由Astian運營，是Astian人工智慧反追蹤技術的重要基石，在為Astian社群提供即時隱私保護方面發揮了關鍵作用。它是一個關於追蹤器的全面全球資源，為網路追蹤帶來透明度。"
-  },
-  "whotracks_me_privacy_report": {
-    "message": "WhoTracks.Me 隱私報告"
+    "message": "Alfra由Astian運營，是Astian人工智慧反追蹤技術的重要基石，在為Astian社群提供即時隱私保護方面發揮了關鍵作用。它是一個關於追蹤器的全面全球資源，為網路追蹤帶來透明度。"
   },
   "whotracks_me_reports": {
-    "message": "WhoTracks.Me 報告"
+    "message": "Alfra 報告"
   },
   "whotracks_me_statistical_report": {
-    "message": "WhoTracks.Me 統計報告"
+    "message": "Alfra 統計報告"
   },
   "whotracks_me_wheel": {
-    "message": "WhoTracks.Me 輪盤"
+    "message": "Alfra 輪盤"
+  },
+  "why_paused_": {
+    "message": "為什麼暫停？"
   },
   "with_ghostery_disabled__only_the_basic_functionality_of_naming_trackers_is_available_": {
     "message": "禁用 Astian 時，只有命名追蹤器的基本功能可用。."
-  },
-  "yes": {
-    "message": "是"
   },
   "yesterday": {
     "message": "昨天"
@@ -923,6 +947,9 @@
   "you_will_no_longer_see_tracker_wheels_next_to_the_search_results_": {
     "message": "你將不會再在搜尋結果旁邊看到追蹤器輪盤。"
   },
+  "your_browser_privacy_report": {
+    "message": "您的瀏覽器隱私報告"
+  },
   "your_community_powered_privacy_features_": {
     "message": "您的社群驅動隱私功能："
   },
@@ -931,5 +958,11 @@
   },
   "youtube_blocking_you_from_watching_ad_free_videos_": {
     "message": "YouTube 阻止您觀看無廣告的影片？"
+  },
+  "zoom_in": {
+    "message": "放大"
+  },
+  "zoom_out": {
+    "message": "縮小"
   }
 }
