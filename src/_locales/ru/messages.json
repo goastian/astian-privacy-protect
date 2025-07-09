@@ -2,13 +2,8 @@
   "@_0__left": {
     "message": "$${0} left"
   },
-  "@_0__will_be_blocked_on_this_website_": {
-    "message": "Трекер $${0} будет заблокирован на этом сайте.",
-    "description": "A tracker will be trusted on this website."
-  },
   "@_0__will_be_trusted_on_this_website_": {
-    "message": "Трекер $${0} будет разрешен на этом сайте.",
-    "description": "A tracker will be trusted on this website."
+    "message": "Трекер $${0} будет разрешен на этом сайте."
   },
   "1_day": {
     "message": "1 день"
@@ -18,6 +13,9 @@
   },
   "about": {
     "message": "О программе"
+  },
+  "access_website_settings": {
+    "message": "Доступ к настройкам сайта"
   },
   "account_details": {
     "message": "Данные аккаунта"
@@ -58,9 +56,6 @@
     "message": "Изменено",
     "description": "Plural form - list of adjusted trackers"
   },
-  "ads_and_trackers_will_not_be_blocked_": {
-    "message": "Реклама и трекеры не будут блокироваться."
-  },
   "adult_advertising": {
     "message": "Реклама для взрослых",
     "description": "Tracker category name"
@@ -70,7 +65,7 @@
     "description": "Tracker category name"
   },
   "all_information_displayed_on_the_whotracks_me_tab_or_@_0__is_an_aggregate_of_facts_about_web_trackers__these_reports_power_ghostery_s_anti_tracking_technology__protecting_the_entire_community_": {
-    "message": "Вся информация, отображаемая на вкладке WhoTracks.Me или $${0}, представляет собой совокупность фактов о Трекерах. Эти отчеты поддерживают технологию анти-трекинга Astian, защищая всю сообщество."
+    "message": "Вся информация, отображаемая на вкладке Alfra или $${0}, представляет собой совокупность фактов о Трекерах. Эти отчеты поддерживают технологию анти-трекинга Astian, защищая всю сообщество."
   },
   "all_websites_with_adjusted_protection_status_will_be_listed_here_": {
     "message": "Все веб-сайты с измененным статусом защиты будут перечислены здесь."
@@ -104,16 +99,13 @@
     "message": "Стать участником"
   },
   "being_an_eu_company__ghostery_strictly_adheres_to_the_gdpr__the_general_data_protection_regulation___which_regulates_data_collection_to_ensure_user_s_privacy_": {
-    "message": "Astian строго соблюдает GDPR (Общий регламент по защите данных), который регулирует сбор данных для обеспечения конфиденциальности пользователей."
+    "message": "Будучи компанией из ЕС, Astian строго соблюдает GDPR (Общий регламент по защите данных), который регулирует сбор данных для обеспечения конфиденциальности пользователей."
   },
-  "block_all__recommended_": {
-    "message": "Заблокировать все (рекомендуется)"
+  "block_all": {
+    "message": "Заблокировать все"
   },
-  "block_on_all_websites": {
-    "message": "Блокировать на всех сайтах"
-  },
-  "block_on_this_website": {
-    "message": "Заблокировать на этом сайте"
+  "block_similar_elements": {
+    "message": "Блокировать похожие элементы"
   },
   "blocked": {
     "message": "Заблокированные"
@@ -122,11 +114,20 @@
     "message": "Заблокированные",
     "description": "Plural form - list of blocked trackers"
   },
+  "blocked_elements_on_this_site": {
+    "message": "Заблокированные элементы на этом сайте"
+  },
+  "blocked_manually": {
+    "message": "Заблокировано вручную"
+  },
   "blocked_on_all_websites": {
     "message": "Заблокировано на всех сайтах"
   },
   "blocked_on_this_website": {
     "message": "Заблокировано на этом сайте"
+  },
+  "blocking_has_been_paused_temporarily__and_only_on_this_page__consider_pausing_other_adblockers_for_best_results_": {
+    "message": "Блокировка временно приостановлена, и только на этой странице. Для достижения наилучших результатов рассмотрите возможность приостановки других блокировщиков рекламы."
   },
   "blocks_additional_ads__trackers__and_pop_ups_specific_to_the_language_of_websites_you_visit__enable_only_the_languages_you_need_to_avoid_slowing_down_your_browser_": {
     "message": "Блокирует дополнительные объявления, трекеры и всплывающие окна, специфичные для языка посещаемых вами веб-сайтов. Включайте только те языки, которые вам нужны, чтобы избежать замедления работы браузера."
@@ -155,6 +156,9 @@
   },
   "changes_application_color_theme_": {
     "message": "Изменяет цветовую тему приложения."
+  },
+  "clear": {
+    "message": "Очистить"
   },
   "click_the_puzzle_icon_next_to_the_search_bar_and_pin_ghostery_to_your_toolbar_": {
     "message": "Нажмите на значок «Расширения» справа от строки поиска и закрепите Astian на панели инструментов."
@@ -200,10 +204,6 @@
   "create_account": {
     "message": "Создать учетную запись"
   },
-  "current_protection_status_for_@_0__": {
-    "message": "Текущий статус $${0}: ",
-    "description": "Current protection status for a tracker"
-  },
   "custom": {
     "message": "Пользовательский"
   },
@@ -244,8 +244,8 @@
   "disabled": {
     "message": "Инвалид"
   },
-  "dismiss": {
-    "message": "Отклонить"
+  "displays_all_content_blocks_manually_hidden_on_this_site__you_can_remove_them_individually_or_clear_the_entire_list_": {
+    "message": "Отображает все блоки контента, скрытые вручную на этом сайте. Вы можете удалить их по отдельности или очистить весь список."
   },
   "displays_the_tracker_count_on_the_ghostery_icon_in_the_browser_toolbar_": {
     "message": "Показывает счетчик трекеров у значка Astian на панели инструментов в браузере."
@@ -258,6 +258,9 @@
   },
   "don_t_ask_again": {
     "message": "Не спрашивай больше"
+  },
+  "done": {
+    "message": "Готово"
   },
   "due_to_browser_restrictions_and_additional_permissions_missing__ghostery_is_not_able_to_protect_you_": {
     "message": "Astian не работает из-за ограничений браузера и отсутствия дополнительных разрешений."
@@ -277,10 +280,10 @@
     "message": "Включить блокировку рекламы"
   },
   "enable_ghostery": {
-    "message": "Включить Astian Privacy"
+    "message": "Включить Astian"
   },
   "enable_ghostery_to_get_started": {
-    "message": "Включите Astian Privacy, чтобы начать работу"
+    "message": "Включите Astian, чтобы начать работу"
   },
   "enable_now": {
     "message": "Включить"
@@ -294,8 +297,14 @@
   "enter_website_url": {
     "message": "Enter website URL"
   },
+  "error__invalid_file_format_": {
+    "message": "Ошибка: недопустимый формат файла."
+  },
   "error__type__message__stack_trace": {
     "message": "ошибка: тип, сообщение, трассировка стека"
+  },
+  "error__unsupported_file_version_@_0____expected___1__": {
+    "message": "Ошибка: неподдерживаемая версия файла $${0} - ожидается $${1}."
   },
   "errors__@_0__": {
     "message": "Ошибки ($${0})"
@@ -316,6 +325,9 @@
   "experimental_filters": {
     "message": "Экспериментальные фильтры"
   },
+  "export_to_file": {
+    "message": "Экспорт в файл"
+  },
   "extension__version__installation_date__random_install_number__from_1_to_100___basic_settings__contribution_status": {
     "message": "расширение: версия, дата установки, случайный номер установки (от 1 до 100), основные настройки, статус вклада"
   },
@@ -332,9 +344,6 @@
   "facts": {
     "message": "Факты"
   },
-  "fantastic__thanks_": {
-    "message": "Фантастика! Спасибо!"
-  },
   "feedback_sharing": {
     "message": "Обмен отзывами"
   },
@@ -343,6 +352,9 @@
   },
   "get_help": {
     "message": "Помощь"
+  },
+  "ghostery_added_a_rule_to_keep_this_content_block_hidden__you_can_undo_this_anytime_in_website_settings_": {
+    "message": "Astian добавил правило, чтобы этот блок контента оставался скрытым. Вы можете отменить это в любое время в настройках сайта."
   },
   "ghostery_has_been_resumed_": {
     "message": "Astian возобновлен."
@@ -381,22 +393,25 @@
     "message": "Для обеспечения конфиденциальности Astian выявляет и блокирует различные попытки сбора данных, включая рекламу, трекеры и уведомления о файлах cookie."
   },
   "ghostery_settings": {
-    "message": "Настройки Astian Privacy"
+    "message": "Настройки Astian"
   },
   "ghostery_tracker___ad_blocker_is_naming_the_trackers_present_on_websites_you_visit__you_are_browsing_the_web_unprotected_": {
     "message": "Astian Трекер & Ad Blocker называет трекеры, присутствующие на посещаемых вами веб-сайтах. Вы просматриваете веб-сайты без защиты."
   },
-  "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__resume_ghostery_": {
-    "message": "Пользователи Astian сообщают, что блокировщики рекламы больше не нарушают работу этого сайта. Возобновите Astian."
+  "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__ghostery_will_be_re_enabled_": {
+    "message": "Пользователи Astian сообщают, что блокировщики рекламы больше не нарушают работу этого сайта. Astian будет снова включен."
   },
-  "ghostery_users_report_that_ad_blockers_break_this_site__try_pausing_ghostery_": {
-    "message": "Пользователи Astian сообщают, что блокировщики рекламы мешают работе этого сайта. Попробуйте приостановить Astian."
+  "ghostery_users_report_that_adblockers_break_this_page__ghostery_has_been_paused_": {
+    "message": "Пользователи Astian сообщают, что блокировщики рекламы нарушают работу этой страницы. Astian приостановлен."
   },
   "ghostery_uses_this_information_to_provide_its_community_powered_privacy_features__ensuring_that_personal_information_such_as_passwords__browsing_history__and_page_content_is_never_collected_": {
     "message": "Astian использует эту информацию для предоставления функций конфиденциальности, основанных на сообществе, гарантируя, что личная информация, такая как пароли, история просмотров и содержимое страниц, никогда не собирается."
   },
   "ghostery_will_show_how_many_trackers_were_blocked_on_a_page__clicking_on_the_ghostery_icon_reveals_more_detailed_information_": {
     "message": "Astian будет показывать количество трекеров, заблокированных на странице. Чтобы посмотреть более подробную статистику, нажмите на значок расширения."
+  },
+  "gone_": {
+    "message": "Пропало!"
   },
   "hashes_of_potentially_unique_identifier_in_requests_parameters": {
     "message": "хеши потенциально уникального идентификатора в параметрах запросов"
@@ -410,6 +425,15 @@
   "hey__do_you_enjoy_ghostery_and_want_to_support_our_work_": {
     "message": "Если вам нравится Astian, можете поддержать нашу работу."
   },
+  "hide": {
+    "message": "Скрыть"
+  },
+  "hide_content_block": {
+    "message": "Скрыть блок контента"
+  },
+  "hide_distraction": {
+    "message": "Скрыть отвлекающие элементы"
+  },
   "hosting": {
     "message": "Хостинг",
     "description": "Tracker category name"
@@ -419,6 +443,18 @@
   },
   "ignore": {
     "message": "Игнорировать"
+  },
+  "import_from_file": {
+    "message": "Импорт из файла"
+  },
+  "importing_settings___": {
+    "message": "Импорт настроек..."
+  },
+  "importing_supports_ublock_origin_file_format_with_selected_features_": {
+    "message": "Импорт поддерживает формат файлов uBlock Origin с выбранными функциями."
+  },
+  "in_panel_notifications": {
+    "message": "Уведомления в панели"
   },
   "include_a_screenshot_of_the_current_page": {
     "message": "Включите снимок текущей страницы"
@@ -430,7 +466,7 @@
     "message": "Информация о <a href=\"$${0}\">веб-трекерах</a>, <a href=\"$${1}\">состоянии дополнения</a> и <a href=\"$${2}\">телеметрии производительности</a> будет передаваться в соответствии с нашей <a href=\"$${3}\" target=\"_blank\" rel=\"noreferrer\">Политикой конфиденциальности</a>, способствуя усилению защиты конфиденциальности для сообщества Astian."
   },
   "it_exists_thanks_to_the_micro_contributions_of_every_ghostery_user_who_chooses_to_send_non_personal_information_to_whotracks_me__this_input_enables_ghostery_to_provide_real_time_intel_on_trackers__which__in_turn__delivers_privacy_protection_to_the_entire_ghostery_community_": {
-    "message": "Он существует благодаря микровкладам каждого пользователя Astian, отправляющего неперсональную информацию на WhoTracks.Me. Данные позволяют Astian оперативно предоставлять информацию о трекерах, что взамен обеспечивает защиту всего сообщества Astian."
+    "message": "Он существует благодаря микровкладам каждого пользователя Astian, отправляющего неперсональную информацию на Alfra. Данные позволяют Astian оперативно предоставлять информацию о трекерах, что взамен обеспечивает защиту всего сообщества Astian."
   },
   "join_ghostery": {
     "message": "Присоединяйтесь к Astian"
@@ -469,7 +505,7 @@
     "message": "Показать еще"
   },
   "manifest_name": {
-    "message": "Astian Privacy Трекер & Ad Blocker - приватный блокировщик рекламы"
+    "message": "Astian Трекер & Ad Blocker - приватный блокировщик рекламы"
   },
   "manifest_short_description": {
     "message": "Мощное расширение для защиты конфиденциальности, которое блокирует рекламу, предотвращает трекеры и ускоряет загрузку веб-сайтов"
@@ -499,6 +535,9 @@
   "more_in_this_organization": {
     "message": "Другие трекеры в организации"
   },
+  "move_the_slider_to_show_or_hide_sections_": {
+    "message": "Переместите ползунок, чтобы показать или скрыть разделы."
+  },
   "my_ghostery": {
     "message": "Мой Astian"
   },
@@ -513,9 +552,6 @@
   },
   "never_consent": {
     "message": "Never-Consent"
-  },
-  "no": {
-    "message": "Нет"
   },
   "no_activities_detected": {
     "message": "Действия не обнаружены"
@@ -557,9 +593,6 @@
     "message": "Другое",
     "description": "Tracker category name"
   },
-  "our_recommendation_for_this_activity": {
-    "message": "Рекомендации для этого действия"
-  },
   "pages_visited": {
     "message": "Посещенные страницы"
   },
@@ -571,9 +604,6 @@
   },
   "paused": {
     "message": "Приостановлено"
-  },
-  "pausing___": {
-    "message": "Приостановка..."
   },
   "performance_telemetry": {
     "message": "Телеметрия производительности"
@@ -590,8 +620,8 @@
   "please_describe_the_issue": {
     "message": "Опишите проблему, пожалуйста"
   },
-  "prevents_google_from_redirecting_search_result_links_through_their_servers_instead_of_linking_directly_to_pages_": {
-    "message": "Запретить перенаправление ссылок на результаты поиска через серверы Google вместо прямого доступа к страницам."
+  "prevents_google_and_bing_from_redirecting_search_result_links_through_their_servers_instead_of_linking_directly_to_pages_": {
+    "message": "Запрещает Google и Bing перенаправлять ссылки на результаты поиска через их серверы вместо прямой ссылки на страницы."
   },
   "prevents_various_tracking_techniques_using_ai_driven_technology_": {
     "message": "Использует ИИ для блокировки различных способов сбора данных."
@@ -615,7 +645,7 @@
     "message": "Предоставляет обзор основных аспектов защиты конфиденциальности."
   },
   "read_more_on_whotracks_me": {
-    "message": "Читайте больше на WhoTracks.Me"
+    "message": "Читайте больше на Alfra"
   },
   "regional_filters": {
     "message": "Региональные фильтры"
@@ -632,17 +662,20 @@
   "request_metadata_of_potential_web_trackers": {
     "message": "запросить метаданные потенциальных веб-трекеров"
   },
+  "reselect": {
+    "message": "Выбрать заново"
+  },
   "resume": {
     "message": "Возобновить"
   },
-  "resuming___": {
-    "message": "Возобновление..."
-  },
   "reveals_what_s_hidden_beneath_the_internet_s_surface__with_whotracks_me__you_can_uncover_the_identities_behind_every_tracker_": {
-    "message": "Раскрывает то, что скрыто под поверхностью интернета. С WhoTracks.Me вы можете узнать, кто стоит за каждым Трекером."
+    "message": "Раскрывает то, что скрыто под поверхностью интернета. С Alfra вы можете узнать, кто стоит за каждым Трекером."
   },
   "save": {
     "message": "Сохранить"
+  },
+  "save_your_custom_settings_to_a_file__or_restore_them_from_a_file_": {
+    "message": "Сохраните ваши настройки в файл или восстановите их из файла."
   },
   "saves_and_synchronizes_your_custom_settings_between_browsers_and_devices_": {
     "message": "Сохраняйте свои настройки и синхронизируйте их между браузерами и устройствами."
@@ -656,17 +689,23 @@
   "search_website___": {
     "message": "Поиск сайта..."
   },
+  "select_distracting_element": {
+    "message": "Выберите отвлекающий элемент"
+  },
   "select_time_frame": {
     "message": "Выберите временной интервал"
   },
   "send": {
     "message": "Отправить"
   },
-  "send_feedback": {
-    "message": "Отправить отзыв"
-  },
   "sentry_sdk_is_in_use_to_gather_and_send_the_reports__but_sentry_does_only_receive_information_above___no_two_requests_can_be_linked_with_one_another_and_browser_ip_is_never_shared_with_sentry_": {
     "message": "SDK Sentry используется для сбора и отправки отчетов, но Sentry получает только вышеуказанную информацию - никакие два запроса не могут быть связаны друг с другом, и IP-адрес браузера никогда не передается в Sentry."
+  },
+  "settings_backup": {
+    "message": "Резервное копирование настроек"
+  },
+  "settings_sync": {
+    "message": "Синхронизация настроек"
   },
   "setup_successful": {
     "message": "Настройка завершена"
@@ -690,15 +729,6 @@
     "message": "Аналитика сайта",
     "description": "Tracker category name"
   },
-  "site_works_fine": {
-    "message": "Сайт работает нормально"
-  },
-  "skip": {
-    "message": "Пропустить"
-  },
-  "skip_this_time": {
-    "message": "Пропустить на этот раз"
-  },
   "social_media": {
     "message": "Социальные сети",
     "description": "Tracker category name"
@@ -721,9 +751,6 @@
   "suspends_privacy_protection_globally_for_1_day_": {
     "message": "Приостанавливает защиту конфиденциальности по всему миру на 1 день."
   },
-  "sync_settings": {
-    "message": "Настройки синхронизации"
-  },
   "telemetry": {
     "message": "Телеметрия",
     "description": "Tracker category name"
@@ -733,6 +760,9 @@
   },
   "thank_you_for_your_support_in_ghostery_s_fight_for_a_web_where_privacy_is_a_basic_human_right_": {
     "message": "Благодарим за помощь Astian в борьбе за конфиденциальность как за основное право человека."
+  },
+  "the_backup_from_@_0__imported_successfully_": {
+    "message": "Резервная копия из $${0} успешно импортирована."
   },
   "theme": {
     "message": "Тема"
@@ -761,9 +791,6 @@
   "to_provide_privacy_protection_features__the_following_information_about_web_trackers_is_collected_": {
     "message": "Для обеспечения функций защиты конфиденциальности собирается следующая информация о веб-трекерах:"
   },
-  "to_the_benefit_of_the_ghostery_community__let_us_know_if_this_helped_": {
-    "message": "Сообщите нам, помогло ли это, на благо сообщества Astian!"
-  },
   "top_100": {
     "message": "Топ 100"
   },
@@ -772,6 +799,9 @@
   },
   "top_50": {
     "message": "Топ 50"
+  },
+  "tracker___ad_blocking_will_be_active_on_this_page_": {
+    "message": "Блокировка трекеров и рекламы будет активна на этой странице."
   },
   "tracker_database": {
     "message": "База данных трекера"
@@ -797,9 +827,6 @@
   "trends": {
     "message": "Тренды"
   },
-  "trust_all__recommended_": {
-    "message": "Доверяйте всем (рекомендуется)"
-  },
   "trust_on_all_websites": {
     "message": "Доверие на всех сайтах"
   },
@@ -818,6 +845,9 @@
   },
   "trusted_on_this_website": {
     "message": "Разрешено на этом сайте"
+  },
+  "turns_ghostery_notifications_displayed_in_the_panel_on_or_off_": {
+    "message": "Включает или отключает уведомления Astian, отображаемые в панели."
   },
   "uncovers_that_no_two_days_are_alike__with_ghostery__you_re_protected_each_day_": {
     "message": "Каждый день не похож на другой. С Astian вы защищены каждый день."
@@ -860,14 +890,8 @@
   "we_know_you_rely_on_ghostery_for_a_smooth_youtube_experience__until_a_more_refined_solution_emerges__here_s_a_temporary_fix_": {
     "message": "Мы знаем, что ты полагаешься на Astian для бесперебойной работы с YouTube. Пока не появится более совершенное решение, вот временное исправление."
   },
-  "we_ll_continue_working_on_it__thanks_": {
-    "message": "Мы продолжим работать над этим! Спасибо!"
-  },
   "we_re_so_glad_ghostery_has_your_heart__help_others_find_us_too___it_only_takes_a_moment_": {
     "message": "Мы рады, что Astian вам по душе! Помогите другим найти нас — это займет всего минуту."
-  },
-  "we_re_so_glad_ghostery_has_your_heart__let_others_know_leave_a_review_": {
-    "message": "Мы рады, что Astian завоевал ваше сердце! Дайте знать другим — оставьте отзыв!"
   },
   "web_trackers": {
     "message": "Веб-трекеры"
@@ -878,6 +902,9 @@
   "website_exceptions": {
     "message": "Сайты-исключения"
   },
+  "website_statistical_report": {
+    "message": "Отчет о статистике веб-сайта"
+  },
   "websites": {
     "message": "Веб-сайты"
   },
@@ -885,31 +912,28 @@
     "message": "Еженедельно"
   },
   "welcome_to_ghostery": {
-    "message": "Добро пожаловать в Astian Privacy"
+    "message": "Добро пожаловать в Astian"
   },
   "what_s_next_": {
     "message": "Что дальше?"
   },
   "whotracks_me__operated_by_ghostery__is_a_vital_cornerstone_of_ghostery_s_ai_anti_tracking_technology__playing_a_crucial_role_in_providing_real_time_privacy_protection_for_the_ghostery_community__it_is_a_comprehensive_global_resource_on_trackers__bringing_transparency_to_web_tracking_": {
-    "message": "WhoTracks.Me, управляемый Astian, является важнейшим элементом технологии Astian по борьбе с отслеживанием на основе ИИ, играя ключевую роль в обеспечении защиты конфиденциальности в реальном времени для сообщества Astian. Это всеобъемлющий глобальный ресурс о трекерах, обеспечивающий прозрачность веб-отслеживания."
-  },
-  "whotracks_me_privacy_report": {
-    "message": "Отчет о конфиденциальности WhoTracks.Me"
+    "message": "Alfra, управляемый Astian, является важнейшим элементом технологии Astian по борьбе с отслеживанием на основе ИИ, играя ключевую роль в обеспечении защиты конфиденциальности в реальном времени для сообщества Astian. Это всеобъемлющий глобальный ресурс о трекерах, обеспечивающий прозрачность веб-отслеживания."
   },
   "whotracks_me_reports": {
     "message": "КтоСледит.Меня Отчеты"
   },
   "whotracks_me_statistical_report": {
-    "message": "Статистический отчет WhoTracks.Me"
+    "message": "Статистический отчет Alfra"
   },
   "whotracks_me_wheel": {
-    "message": "Колесо WhoTracks.Me"
+    "message": "Колесо Alfra"
+  },
+  "why_paused_": {
+    "message": "Почему приостановлено?"
   },
   "with_ghostery_disabled__only_the_basic_functionality_of_naming_trackers_is_available_": {
     "message": "При отключенном Astian доступна только базовая функция именования трекеров."
-  },
-  "yes": {
-    "message": "Да"
   },
   "yesterday": {
     "message": "Вчера"
@@ -923,6 +947,9 @@
   "you_will_no_longer_see_tracker_wheels_next_to_the_search_results_": {
     "message": "Вы больше не будете видеть статистику трекера рядом с результатами поиска."
   },
+  "your_browser_privacy_report": {
+    "message": "Отчет о конфиденциальности вашего браузера"
+  },
   "your_community_powered_privacy_features_": {
     "message": "Ваши функции конфиденциальности, поддерживаемые сообществом:"
   },
@@ -931,5 +958,11 @@
   },
   "youtube_blocking_you_from_watching_ad_free_videos_": {
     "message": "YouTube блокирует тебе просмотр видео без рекламы?"
+  },
+  "zoom_in": {
+    "message": "Увеличить"
+  },
+  "zoom_out": {
+    "message": "Отдалить"
   }
 }

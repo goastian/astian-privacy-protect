@@ -2,13 +2,8 @@
   "@_0__left": {
     "message": "$${0} 残"
   },
-  "@_0__will_be_blocked_on_this_website_": {
-    "message": "$${0}はこのウェブサイトでブロックされます。",
-    "description": "A tracker will be trusted on this website."
-  },
   "@_0__will_be_trusted_on_this_website_": {
-    "message": "$${0}はこのウェブサイトで信頼可能です。",
-    "description": "A tracker will be trusted on this website."
+    "message": "$${0}はこのウェブサイトで信頼可能です。"
   },
   "1_day": {
     "message": "1日"
@@ -18,6 +13,9 @@
   },
   "about": {
     "message": "バージョン情報"
+  },
+  "access_website_settings": {
+    "message": "ウェブサイトの設定にアクセスする"
   },
   "account_details": {
     "message": "アカウント詳細"
@@ -58,9 +56,6 @@
     "message": "調整済み",
     "description": "Plural form - list of adjusted trackers"
   },
-  "ads_and_trackers_will_not_be_blocked_": {
-    "message": "広告とトラッカーはブロックされません。"
-  },
   "adult_advertising": {
     "message": "アダルト広告",
     "description": "Tracker category name"
@@ -70,7 +65,7 @@
     "description": "Tracker category name"
   },
   "all_information_displayed_on_the_whotracks_me_tab_or_@_0__is_an_aggregate_of_facts_about_web_trackers__these_reports_power_ghostery_s_anti_tracking_technology__protecting_the_entire_community_": {
-    "message": "WhoTracks.Meタブまたは$${0}に表示されるすべての情報は、ウェブトラッカーに関する事実の集約です。これらのレポートはAstianのアンチトラッキング技術を支え、コミュニティ全体を保護します。"
+    "message": "Alfraタブまたは$${0}に表示されるすべての情報は、ウェブトラッカーに関する事実の集約です。これらのレポートはAstianのアンチトラッキング技術を支え、コミュニティ全体を保護します。"
   },
   "all_websites_with_adjusted_protection_status_will_be_listed_here_": {
     "message": "すべての調整済み保護ステータスのウェブサイトがここにリストされます。"
@@ -104,16 +99,13 @@
     "message": "Contributorになる"
   },
   "being_an_eu_company__ghostery_strictly_adheres_to_the_gdpr__the_general_data_protection_regulation___which_regulates_data_collection_to_ensure_user_s_privacy_": {
-    "message": "アスティアンはGDPR（一般データ保護規則）を厳格に遵守し、ユーザーのプライバシーを確保するためにデータ収集を規制しています。"
+    "message": "EU企業であるAstianは、ユーザーのプライバシーを確保するためにデータ収集を規制するGDPR（一般データ保護規則）を厳格に遵守しています。."
   },
-  "block_all__recommended_": {
-    "message": "すべてをブロック (推奨)"
+  "block_all": {
+    "message": "すべてをブロック"
   },
-  "block_on_all_websites": {
-    "message": "すべてのウェブサイトでブロック"
-  },
-  "block_on_this_website": {
-    "message": "このウェブサイトでブロック"
+  "block_similar_elements": {
+    "message": "類似の要素をブロックする"
   },
   "blocked": {
     "message": "ブロックされた対象"
@@ -122,11 +114,20 @@
     "message": "ブロックされた対象",
     "description": "Plural form - list of blocked trackers"
   },
+  "blocked_elements_on_this_site": {
+    "message": "このサイトでブロックされた要素"
+  },
+  "blocked_manually": {
+    "message": "手動でブロック済み"
+  },
   "blocked_on_all_websites": {
     "message": "すべてのウェブサイトでブロック済み"
   },
   "blocked_on_this_website": {
     "message": "このウェブサイトでブロック済み"
+  },
+  "blocking_has_been_paused_temporarily__and_only_on_this_page__consider_pausing_other_adblockers_for_best_results_": {
+    "message": "ブロックは一時的に停止されており、このページのみで適用されています。最良の結果を得るために、他の広告ブロッカーも一時停止することを検討してください。"
   },
   "blocks_additional_ads__trackers__and_pop_ups_specific_to_the_language_of_websites_you_visit__enable_only_the_languages_you_need_to_avoid_slowing_down_your_browser_": {
     "message": "追加の広告、トラッカー、ポップアップを、訪問するウェブサイトの言語に特化してブロックします。ブラウザの速度低下を避けるために、必要な言語のみを有効にしてください。."
@@ -155,6 +156,9 @@
   },
   "changes_application_color_theme_": {
     "message": "アプリケーションのカラーテーマを変更します。"
+  },
+  "clear": {
+    "message": "クリア"
   },
   "click_the_puzzle_icon_next_to_the_search_bar_and_pin_ghostery_to_your_toolbar_": {
     "message": "検索バーの横にあるパズルのアイコンをクリックし、Astianをツールバーに固定します。"
@@ -200,10 +204,6 @@
   "create_account": {
     "message": "アカウントを作成"
   },
-  "current_protection_status_for_@_0__": {
-    "message": "$${0}の現在の保護ステータス: ",
-    "description": "Current protection status for a tracker"
-  },
   "custom": {
     "message": "カスタム"
   },
@@ -244,8 +244,8 @@
   "disabled": {
     "message": "無効化済み"
   },
-  "dismiss": {
-    "message": "閉じる"
+  "displays_all_content_blocks_manually_hidden_on_this_site__you_can_remove_them_individually_or_clear_the_entire_list_": {
+    "message": "このサイトで手動で非表示にしたすべてのコンテンツブロックを表示します。それらを個別に削除するか、リスト全体をクリアすることができます。"
   },
   "displays_the_tracker_count_on_the_ghostery_icon_in_the_browser_toolbar_": {
     "message": "ブラウザのツールバーのAstianアイコンにトラッカー数を表示します。"
@@ -258,6 +258,9 @@
   },
   "don_t_ask_again": {
     "message": "二度と聞くな"
+  },
+  "done": {
+    "message": "完了"
   },
   "due_to_browser_restrictions_and_additional_permissions_missing__ghostery_is_not_able_to_protect_you_": {
     "message": "ブラウザの制限および追加権限がないため、Astianによる保護を開始できません。"
@@ -277,10 +280,10 @@
     "message": "広告ブロッキングを今すぐ有効化"
   },
   "enable_ghostery": {
-    "message": "Astian Privacyを有効にする"
+    "message": "Astianを有効にする"
   },
   "enable_ghostery_to_get_started": {
-    "message": "Astian Privacyを有効にして開始する"
+    "message": "Astianを有効にして開始する"
   },
   "enable_now": {
     "message": "今すぐ有効化"
@@ -294,8 +297,14 @@
   "enter_website_url": {
     "message": "ウェブサイトのURLを入力"
   },
+  "error__invalid_file_format_": {
+    "message": "エラー: 無効なファイル形式。"
+  },
   "error__type__message__stack_trace": {
     "message": "エラー: タイプ、メッセージ、スタックトレース"
+  },
+  "error__unsupported_file_version_@_0____expected___1__": {
+    "message": "エラー: サポートされていないファイルバージョン $${0} - 期待されるバージョンは $${1} です。"
   },
   "errors__@_0__": {
     "message": "エラー ($${0})"
@@ -316,6 +325,9 @@
   "experimental_filters": {
     "message": "実験的フィルター"
   },
+  "export_to_file": {
+    "message": "ファイルにエクスポート"
+  },
   "extension__version__installation_date__random_install_number__from_1_to_100___basic_settings__contribution_status": {
     "message": "拡張機能: バージョン、インストール日、ランダムインストール番号 (1から100まで)、基本設定、貢献状況"
   },
@@ -332,9 +344,6 @@
   "facts": {
     "message": "事実"
   },
-  "fantastic__thanks_": {
-    "message": "素晴らしい！ありがとう！"
-  },
   "feedback_sharing": {
     "message": "フィードバック共有"
   },
@@ -343,6 +352,9 @@
   },
   "get_help": {
     "message": "ヘルプ"
+  },
+  "ghostery_added_a_rule_to_keep_this_content_block_hidden__you_can_undo_this_anytime_in_website_settings_": {
+    "message": "Astianは、このコンテンツブロックを非表示にするルールを追加しました。ウェブサイトの設定でいつでも元に戻すことができます。"
   },
   "ghostery_has_been_resumed_": {
     "message": "Astianが再開されました。"
@@ -381,22 +393,25 @@
     "message": "Astianは、広告、トラッカー、Cookieポップアップなど、さまざまな種類のデータ収集を検知して無効化することで、お客様のプライバシーを保護します。"
   },
   "ghostery_settings": {
-    "message": "Astian Privacy 設定"
+    "message": "Astian 設定"
   },
   "ghostery_tracker___ad_blocker_is_naming_the_trackers_present_on_websites_you_visit__you_are_browsing_the_web_unprotected_": {
     "message": "Astian Tracker & Ad Blockerは、あなたが訪れるウェブサイトに存在するトラッカーの名前を表示します。ウェブを保護されていない状態でブラウジングしています。"
   },
-  "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__resume_ghostery_": {
-    "message": "Astianユーザーは、広告ブロッカーがこのサイトを壊さなくなったと報告しています。Astianを再開してください。"
+  "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__ghostery_will_be_re_enabled_": {
+    "message": "Astianのユーザーは、広告ブロッカーがこのサイトを壊さなくなったと報告しています。Astianは再び有効になります。"
   },
-  "ghostery_users_report_that_ad_blockers_break_this_site__try_pausing_ghostery_": {
-    "message": "Astianのユーザーは、広告ブロッカーがこのサイトを壊すと報告しています。Astianを一時停止してみてください。"
+  "ghostery_users_report_that_adblockers_break_this_page__ghostery_has_been_paused_": {
+    "message": "Astianのユーザーは、広告ブロッカーがこのページを壊していると報告しています。Astianは一時停止されています。"
   },
   "ghostery_uses_this_information_to_provide_its_community_powered_privacy_features__ensuring_that_personal_information_such_as_passwords__browsing_history__and_page_content_is_never_collected_": {
     "message": "Astianは、この情報を利用してコミュニティ主導のプライバシー機能を提供し、パスワード、閲覧履歴、ページ内容などの個人情報が収集されないようにしています。"
   },
   "ghostery_will_show_how_many_trackers_were_blocked_on_a_page__clicking_on_the_ghostery_icon_reveals_more_detailed_information_": {
     "message": "Astianは、あるページでブロックされたトラッカーの数を表示します。Astianのアイコンをクリックすると、より詳細な情報が表示されます。"
+  },
+  "gone_": {
+    "message": "消えました！"
   },
   "hashes_of_potentially_unique_identifier_in_requests_parameters": {
     "message": "リクエストパラメータ内の潜在的にユニークな識別子のハッシュ"
@@ -410,6 +425,15 @@
   "hey__do_you_enjoy_ghostery_and_want_to_support_our_work_": {
     "message": "Astianが好きで、私たちの仕事をサポートしていただける方を募集中です。"
   },
+  "hide": {
+    "message": "非表示"
+  },
+  "hide_content_block": {
+    "message": "コンテンツブロックを非表示にする"
+  },
+  "hide_distraction": {
+    "message": "気を散らすものを隠す"
+  },
   "hosting": {
     "message": "ホスティング",
     "description": "Tracker category name"
@@ -419,6 +443,18 @@
   },
   "ignore": {
     "message": "無視する"
+  },
+  "import_from_file": {
+    "message": "ファイルからインポート"
+  },
+  "importing_settings___": {
+    "message": "設定をインポートしています..."
+  },
+  "importing_supports_ublock_origin_file_format_with_selected_features_": {
+    "message": "uBlock Originのファイル形式のインポートは、選択された機能に対応しています。"
+  },
+  "in_panel_notifications": {
+    "message": "パネル内通知"
   },
   "include_a_screenshot_of_the_current_page": {
     "message": "現在のページのスクリーンショットを含める"
@@ -430,7 +466,7 @@
     "message": "ウェブトラッカー、アドオンの健康状態、パフォーマンステレメトリーに関する情報は、Astianコミュニティのプライバシー保護を進めるために、当社のプライバシーポリシーに従って共有されます。."
   },
   "it_exists_thanks_to_the_micro_contributions_of_every_ghostery_user_who_chooses_to_send_non_personal_information_to_whotracks_me__this_input_enables_ghostery_to_provide_real_time_intel_on_trackers__which__in_turn__delivers_privacy_protection_to_the_entire_ghostery_community_": {
-    "message": "WhoTracks.Meに個人情報以外の情報を送信することを選択したAstianユーザー全員による、小さな貢献のおかげで存在しています。この入力により、Astianはトラッカーに関するリアルタイムの情報を提供し、その結果、Astianコミュニティ全体にプライバシー保護をもたらします。"
+    "message": "Alfraに個人情報以外の情報を送信することを選択したAstianユーザー全員による、小さな貢献のおかげで存在しています。この入力により、Astianはトラッカーに関するリアルタイムの情報を提供し、その結果、Astianコミュニティ全体にプライバシー保護をもたらします。"
   },
   "join_ghostery": {
     "message": "Astianに登録"
@@ -469,7 +505,7 @@
     "message": "さらに読み込む"
   },
   "manifest_name": {
-    "message": "Astian Privacyトラッカー＆広告ブロック - プライバシー広告ブロック"
+    "message": "Astianトラッカー＆広告ブロック - プライバシー広告ブロック"
   },
   "manifest_short_description": {
     "message": "強力で使いやすいプライバシー拡張機能。広告やトラッカーをブロックし、ウェブを高速化します。."
@@ -499,8 +535,11 @@
   "more_in_this_organization": {
     "message": "この組織の詳細"
   },
+  "move_the_slider_to_show_or_hide_sections_": {
+    "message": "スライダーを動かしてセクションを表示または非表示にします。"
+  },
   "my_ghostery": {
-    "message": "私のアスティアン"
+    "message": "マイゴースタリー"
   },
   "name": {
     "message": "名前"
@@ -513,9 +552,6 @@
   },
   "never_consent": {
     "message": "決して同意しない"
-  },
-  "no": {
-    "message": "いいえ"
   },
   "no_activities_detected": {
     "message": "アクティビティは検出されませんでした"
@@ -557,9 +593,6 @@
     "message": "その他",
     "description": "Tracker category name"
   },
-  "our_recommendation_for_this_activity": {
-    "message": "このアクティビティのおすすめ"
-  },
   "pages_visited": {
     "message": "訪問したページ"
   },
@@ -571,9 +604,6 @@
   },
   "paused": {
     "message": "一時停止"
-  },
-  "pausing___": {
-    "message": "一時停止中..."
   },
   "performance_telemetry": {
     "message": "パフォーマンステレメトリ"
@@ -590,8 +620,8 @@
   "please_describe_the_issue": {
     "message": "問題を説明してください"
   },
-  "prevents_google_from_redirecting_search_result_links_through_their_servers_instead_of_linking_directly_to_pages_": {
-    "message": "検索結果のリンクを、Googleがページに直接リンクするのではなく、自社のサーバーを経由してリダイレクトするのを防ぎます。"
+  "prevents_google_and_bing_from_redirecting_search_result_links_through_their_servers_instead_of_linking_directly_to_pages_": {
+    "message": "GoogleとBingが検索結果のリンクをページに直接リンクするのではなく、自社のサーバーを経由してリダイレクトするのを防ぎます。"
   },
   "prevents_various_tracking_techniques_using_ai_driven_technology_": {
     "message": "AIを活用した技術で様々な追跡手法を防止します。"
@@ -615,7 +645,7 @@
     "message": "プライバシー保護の重要な側面の概要を提供します。"
   },
   "read_more_on_whotracks_me": {
-    "message": "WhoTracks.Meで詳細を見る"
+    "message": "Alfraで詳細を見る"
   },
   "regional_filters": {
     "message": "地域フィルター"
@@ -632,17 +662,20 @@
   "request_metadata_of_potential_web_trackers": {
     "message": "潜在的なウェブトラッカーのメタデータを要求する"
   },
+  "reselect": {
+    "message": "再選択"
+  },
   "resume": {
     "message": "再開"
   },
-  "resuming___": {
-    "message": "再開中..."
-  },
   "reveals_what_s_hidden_beneath_the_internet_s_surface__with_whotracks_me__you_can_uncover_the_identities_behind_every_tracker_": {
-    "message": "インターネットの表面下に隠されたものを明らかにします。WhoTracks.Meを使えば、すべてのトラッカーの背後にある正体を明らかにすることができます。"
+    "message": "インターネットの表面下に隠されたものを明らかにします。Alfraを使えば、すべてのトラッカーの背後にある正体を明らかにすることができます。"
   },
   "save": {
     "message": "保存"
+  },
+  "save_your_custom_settings_to_a_file__or_restore_them_from_a_file_": {
+    "message": "カスタム設定をファイルに保存するか、ファイルから復元してください。"
   },
   "saves_and_synchronizes_your_custom_settings_between_browsers_and_devices_": {
     "message": "ブラウザとデバイス間でカスタム設定を保存・同期しましょう。"
@@ -656,17 +689,23 @@
   "search_website___": {
     "message": "サイトを検索..."
   },
+  "select_distracting_element": {
+    "message": "気を散らす要素を選択"
+  },
   "select_time_frame": {
     "message": "時間枠を選択"
   },
   "send": {
     "message": "送信"
   },
-  "send_feedback": {
-    "message": "フィードバックを送信する"
-  },
   "sentry_sdk_is_in_use_to_gather_and_send_the_reports__but_sentry_does_only_receive_information_above___no_two_requests_can_be_linked_with_one_another_and_browser_ip_is_never_shared_with_sentry_": {
     "message": "Sentry SDKはレポートを収集して送信するために使用されていますが、Sentryが受け取る情報は上記のもののみであり、2つのリクエストが互いにリンクされることはなく、ブラウザのIPがSentryと共有されることはありません。."
+  },
+  "settings_backup": {
+    "message": "設定のバックアップ"
+  },
+  "settings_sync": {
+    "message": "同期設定"
   },
   "setup_successful": {
     "message": "セットアップ成功"
@@ -690,15 +729,6 @@
     "message": "サイト分析",
     "description": "Tracker category name"
   },
-  "site_works_fine": {
-    "message": "サイトは正常に動作しています"
-  },
-  "skip": {
-    "message": "スキップ"
-  },
-  "skip_this_time": {
-    "message": "今回はスキップ"
-  },
   "social_media": {
     "message": "ソーシャル・メディア",
     "description": "Tracker category name"
@@ -721,9 +751,6 @@
   "suspends_privacy_protection_globally_for_1_day_": {
     "message": "1日間、グローバルにプライバシー保護を一時停止します。"
   },
-  "sync_settings": {
-    "message": "同期設定"
-  },
   "telemetry": {
     "message": "テレメトリー",
     "description": "Tracker category name"
@@ -733,6 +760,9 @@
   },
   "thank_you_for_your_support_in_ghostery_s_fight_for_a_web_where_privacy_is_a_basic_human_right_": {
     "message": "Astianはウェブ上でのプライバシーを基本的人権だと考え、それに対する対策を講じています。いつもサポートいただき、ありがとうございます。"
+  },
+  "the_backup_from_@_0__imported_successfully_": {
+    "message": "$${0}からのバックアップが正常にインポートされました。"
   },
   "theme": {
     "message": "テーマ"
@@ -761,9 +791,6 @@
   "to_provide_privacy_protection_features__the_following_information_about_web_trackers_is_collected_": {
     "message": "プライバシー保護機能を提供するために、ウェブトラッカーに関する以下の情報が収集されます。"
   },
-  "to_the_benefit_of_the_ghostery_community__let_us_know_if_this_helped_": {
-    "message": "Astianコミュニティのために、これが役立ったかどうか教えてください！"
-  },
   "top_100": {
     "message": "トップ100"
   },
@@ -772,6 +799,9 @@
   },
   "top_50": {
     "message": "トップ50"
+  },
+  "tracker___ad_blocking_will_be_active_on_this_page_": {
+    "message": "トラッカーと広告ブロックがこのページで有効になります。"
   },
   "tracker_database": {
     "message": "トラッカー・データベース"
@@ -797,9 +827,6 @@
   "trends": {
     "message": "トレンド"
   },
-  "trust_all__recommended_": {
-    "message": "すべてを信頼する（推奨)"
-  },
   "trust_on_all_websites": {
     "message": "すべてのウェブサイトで信頼済み"
   },
@@ -818,6 +845,9 @@
   },
   "trusted_on_this_website": {
     "message": "このウェブサイトで信頼済み"
+  },
+  "turns_ghostery_notifications_displayed_in_the_panel_on_or_off_": {
+    "message": "Astianの通知をパネルに表示するかどうかを切り替えます。"
   },
   "uncovers_that_no_two_days_are_alike__with_ghostery__you_re_protected_each_day_": {
     "message": "どの日も同じではないことを明らかにします。Astianを使えば、毎日保護されます。"
@@ -860,14 +890,8 @@
   "we_know_you_rely_on_ghostery_for_a_smooth_youtube_experience__until_a_more_refined_solution_emerges__here_s_a_temporary_fix_": {
     "message": "スムーズなYouTube体験のためにAstianに依存していることは承知しています。より洗練されたソリューションが登場するまでの一時的な解決策をご紹介します。"
   },
-  "we_ll_continue_working_on_it__thanks_": {
-    "message": "引き続き取り組んでいきます！ありがとうございます！"
-  },
   "we_re_so_glad_ghostery_has_your_heart__help_others_find_us_too___it_only_takes_a_moment_": {
     "message": "Astianを気に入っていただきありがとうございます！他の人にも見つけてもらえるように手助けしてください。ほんの一瞬でできます。."
-  },
-  "we_re_so_glad_ghostery_has_your_heart__let_others_know_leave_a_review_": {
-    "message": "Astianを気に入っていただきありがとうございます！他の人にも知らせてください—レビューを残してください！"
   },
   "web_trackers": {
     "message": "ウェブトラッカー"
@@ -878,6 +902,9 @@
   "website_exceptions": {
     "message": "ウェブサイトの例外"
   },
+  "website_statistical_report": {
+    "message": "ウェブサイト統計レポート"
+  },
   "websites": {
     "message": "ウェブサイト"
   },
@@ -885,31 +912,28 @@
     "message": "週間"
   },
   "welcome_to_ghostery": {
-    "message": "Astian Privacyをご利用いただきありがとうございます"
+    "message": "Astianをご利用いただきありがとうございます"
   },
   "what_s_next_": {
     "message": "次は何をするのでしょうか？"
   },
   "whotracks_me__operated_by_ghostery__is_a_vital_cornerstone_of_ghostery_s_ai_anti_tracking_technology__playing_a_crucial_role_in_providing_real_time_privacy_protection_for_the_ghostery_community__it_is_a_comprehensive_global_resource_on_trackers__bringing_transparency_to_web_tracking_": {
-    "message": "WhoTracks.Meは、Astianによって運営されており、AstianのAIアンチトラッキング技術の重要な基盤であり、Astianコミュニティにリアルタイムのプライバシー保護を提供する上で重要な役割を果たしています。これは、トラッカーに関する包括的なグローバルリソースであり、ウェブトラッキングに透明性をもたらします。"
-  },
-  "whotracks_me_privacy_report": {
-    "message": "WhoTracks.Meプライバシーレポート"
+    "message": "Alfraは、Astianによって運営されており、AstianのAIアンチトラッキング技術の重要な基盤であり、Astianコミュニティにリアルタイムのプライバシー保護を提供する上で重要な役割を果たしています。これは、トラッカーに関する包括的なグローバルリソースであり、ウェブトラッキングに透明性をもたらします。"
   },
   "whotracks_me_reports": {
-    "message": "WhoTracks.Meレポート"
+    "message": "Alfraレポート"
   },
   "whotracks_me_statistical_report": {
-    "message": "WhoTracks.Me統計レポート"
+    "message": "Alfra統計レポート"
   },
   "whotracks_me_wheel": {
-    "message": "WhoTracks.Me Wheel"
+    "message": "Alfra Wheel"
+  },
+  "why_paused_": {
+    "message": "なぜ一時停止されたのですか？"
   },
   "with_ghostery_disabled__only_the_basic_functionality_of_naming_trackers_is_available_": {
     "message": "Astianを無効にすると、トラッカーの名前を付ける基本的な機能のみが利用可能です。."
-  },
-  "yes": {
-    "message": "はい"
   },
   "yesterday": {
     "message": "昨日"
@@ -923,6 +947,9 @@
   "you_will_no_longer_see_tracker_wheels_next_to_the_search_results_": {
     "message": "検索結果の横にトラッカーホイールが表示されなくなります。"
   },
+  "your_browser_privacy_report": {
+    "message": "ブラウザのプライバシーレポート"
+  },
   "your_community_powered_privacy_features_": {
     "message": "コミュニティ主導のプライバシー機能:"
   },
@@ -931,5 +958,11 @@
   },
   "youtube_blocking_you_from_watching_ad_free_videos_": {
     "message": "YouTubeが広告なし動画の視聴をブロック？"
+  },
+  "zoom_in": {
+    "message": "拡大"
+  },
+  "zoom_out": {
+    "message": "ズームアウト"
   }
 }

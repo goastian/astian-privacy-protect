@@ -2,13 +2,8 @@
   "@_0__left": {
     "message": "$${0} 남음"
   },
-  "@_0__will_be_blocked_on_this_website_": {
-    "message": "이 웹 사이트에서 $${0} 항목이 차단됩니다.",
-    "description": "A tracker will be trusted on this website."
-  },
   "@_0__will_be_trusted_on_this_website_": {
-    "message": "이 웹 사이트에서 $${0} 항목이 허용됩니다.",
-    "description": "A tracker will be trusted on this website."
+    "message": "이 웹 사이트에서 $${0} 항목이 허용됩니다."
   },
   "1_day": {
     "message": "1 일"
@@ -18,6 +13,9 @@
   },
   "about": {
     "message": "소개"
+  },
+  "access_website_settings": {
+    "message": "웹사이트 설정에 접근"
   },
   "account_details": {
     "message": "계정 세부정보"
@@ -58,9 +56,6 @@
     "message": "변경됨",
     "description": "Plural form - list of adjusted trackers"
   },
-  "ads_and_trackers_will_not_be_blocked_": {
-    "message": "광고와 추적기는 차단되지 않습니다."
-  },
   "adult_advertising": {
     "message": "성인 광고",
     "description": "Tracker category name"
@@ -70,7 +65,7 @@
     "description": "Tracker category name"
   },
   "all_information_displayed_on_the_whotracks_me_tab_or_@_0__is_an_aggregate_of_facts_about_web_trackers__these_reports_power_ghostery_s_anti_tracking_technology__protecting_the_entire_community_": {
-    "message": "WhoTracks.Me 탭 또는 $${0}에 표시된 모든 정보는 웹 추적기에 대한 사실을 집계한 것입니다. 이러한 보고서는 Astian의 추적 방지 기술을 지원하여 전체 커뮤니티를 보호합니다."
+    "message": "Alfra 탭 또는 $${0}에 표시된 모든 정보는 웹 추적기에 대한 사실을 집계한 것입니다. 이러한 보고서는 Astian의 추적 방지 기술을 지원하여 전체 커뮤니티를 보호합니다."
   },
   "all_websites_with_adjusted_protection_status_will_be_listed_here_": {
     "message": "보호 상태를 변경한 모든 웹 사이트가 여기에 표시됩니다."
@@ -104,16 +99,13 @@
     "message": "기여자가 되어보세요"
   },
   "being_an_eu_company__ghostery_strictly_adheres_to_the_gdpr__the_general_data_protection_regulation___which_regulates_data_collection_to_ensure_user_s_privacy_": {
-    "message": "Astian은 사용자의 개인정보 보호를 위해 데이터 수집을 규제하는 GDPR(일반 데이터 보호 규정)을 엄격하게 준수합니다."
+    "message": "Astian는 유럽 연합 기반의 회사로 사용자 개인정보 보호를 위해 데이터 수집을 규제하는 GDPR을 엄격하게 준수합니다."
   },
-  "block_all__recommended_": {
-    "message": "모두 차단 (권장됨)"
+  "block_all": {
+    "message": "모두 차단"
   },
-  "block_on_all_websites": {
-    "message": "모든 웹사이트에서 차단"
-  },
-  "block_on_this_website": {
-    "message": "이 웹 사이트에서 차단됩니다."
+  "block_similar_elements": {
+    "message": "유사 요소 차단"
   },
   "blocked": {
     "message": "차단"
@@ -122,11 +114,20 @@
     "message": "차단됨",
     "description": "Plural form - list of blocked trackers"
   },
+  "blocked_elements_on_this_site": {
+    "message": "이 사이트에서 차단된 요소"
+  },
+  "blocked_manually": {
+    "message": "수동으로 차단됨"
+  },
   "blocked_on_all_websites": {
     "message": "모든 웹 사이트에서 차단됨"
   },
   "blocked_on_this_website": {
     "message": "이 웹 사이트에서 차단됨"
+  },
+  "blocking_has_been_paused_temporarily__and_only_on_this_page__consider_pausing_other_adblockers_for_best_results_": {
+    "message": "차단이 일시적으로 중지되었으며, 이 페이지에서만 적용됩니다. 최상의 결과를 위해 다른 광고 차단기도 일시 중지하는 것을 고려해 보세요."
   },
   "blocks_additional_ads__trackers__and_pop_ups_specific_to_the_language_of_websites_you_visit__enable_only_the_languages_you_need_to_avoid_slowing_down_your_browser_": {
     "message": "사용하시는 언어의 웹 사이트들에 한해 추가로 광고와 트래커, 팝업을 차단합니다. 필요한 언어만 활성화하면 웹 브라우저가 느려지는걸 방지할 수 있습니다."
@@ -155,6 +156,9 @@
   },
   "changes_application_color_theme_": {
     "message": "애플리케이션 색상 테마를 변경합니다."
+  },
+  "clear": {
+    "message": "지우기"
   },
   "click_the_puzzle_icon_next_to_the_search_bar_and_pin_ghostery_to_your_toolbar_": {
     "message": "검색창 옆의 퍼즐 아이콘을 클릭하고 Astian를 툴바에 고정하세요."
@@ -200,10 +204,6 @@
   "create_account": {
     "message": "새 계정 만들기"
   },
-  "current_protection_status_for_@_0__": {
-    "message": "$${0}의 현재 보호 상태",
-    "description": "Current protection status for a tracker"
-  },
   "custom": {
     "message": "사용자 정의"
   },
@@ -244,8 +244,8 @@
   "disabled": {
     "message": "사용 중지됨"
   },
-  "dismiss": {
-    "message": "닫기"
+  "displays_all_content_blocks_manually_hidden_on_this_site__you_can_remove_them_individually_or_clear_the_entire_list_": {
+    "message": "이 사이트에서 수동으로 숨긴 모든 콘텐츠 블록을 표시합니다. 개별적으로 제거하거나 전체 목록을 지울 수 있습니다."
   },
   "displays_the_tracker_count_on_the_ghostery_icon_in_the_browser_toolbar_": {
     "message": "브라우저 툴바의 Astian 아이콘에 트래커 갯수를 표시합니다."
@@ -258,6 +258,9 @@
   },
   "don_t_ask_again": {
     "message": "다시 묻지 않기"
+  },
+  "done": {
+    "message": "완료"
   },
   "due_to_browser_restrictions_and_additional_permissions_missing__ghostery_is_not_able_to_protect_you_": {
     "message": "브라우저 측의 제한과 부가 권한 누락으로 인해 Astian는 여러분을 보호할 수 없습니다."
@@ -277,10 +280,10 @@
     "message": "지금 광고 차단 사용"
   },
   "enable_ghostery": {
-    "message": "Astian Privacy 사용하기"
+    "message": "Astian 사용하기"
   },
   "enable_ghostery_to_get_started": {
-    "message": "시작하려면 Astian Privacy를 사용 설정해주세요"
+    "message": "시작하려면 Astian를 사용 설정해주세요"
   },
   "enable_now": {
     "message": "지금 사용 시작"
@@ -294,8 +297,14 @@
   "enter_website_url": {
     "message": "웹 사이트 URL 입력"
   },
+  "error__invalid_file_format_": {
+    "message": "오류: 잘못된 파일 형식."
+  },
   "error__type__message__stack_trace": {
     "message": "오류: 유형, 메시지, 스택 추적"
+  },
+  "error__unsupported_file_version_@_0____expected___1__": {
+    "message": "지원되지 않는 파일 버전 $${0} - 예상 $${1}."
   },
   "errors__@_0__": {
     "message": "오류 ($${0})"
@@ -316,6 +325,9 @@
   "experimental_filters": {
     "message": "실험적 필터"
   },
+  "export_to_file": {
+    "message": "파일로 내보내기"
+  },
   "extension__version__installation_date__random_install_number__from_1_to_100___basic_settings__contribution_status": {
     "message": "확장 프로그램: 버전, 설치 날짜, 무작위 설치 번호 (1에서 100까지), 기본 설정, 기여 상태"
   },
@@ -332,9 +344,6 @@
   "facts": {
     "message": "사실"
   },
-  "fantastic__thanks_": {
-    "message": "환상적이에요! 감사합니다!"
-  },
   "feedback_sharing": {
     "message": "피드백 공유"
   },
@@ -343,6 +352,9 @@
   },
   "get_help": {
     "message": "도움받기"
+  },
+  "ghostery_added_a_rule_to_keep_this_content_block_hidden__you_can_undo_this_anytime_in_website_settings_": {
+    "message": "고스트리가 이 콘텐츠 블록을 숨기기 위한 규칙을 추가했습니다. 웹사이트 설정에서 언제든지 이를 취소할 수 있습니다."
   },
   "ghostery_has_been_resumed_": {
     "message": "Astian 사용을 다시 시작합니다."
@@ -381,22 +393,25 @@
     "message": "Astian는 광고, 트래커 그리고 쿠키 팝업을 포함한 여러 종류의 데이터 수집을 감지하고 차단하여 개인정보를 보호합니다."
   },
   "ghostery_settings": {
-    "message": "Astian Privacy 설정"
+    "message": "Astian 설정"
   },
   "ghostery_tracker___ad_blocker_is_naming_the_trackers_present_on_websites_you_visit__you_are_browsing_the_web_unprotected_": {
     "message": "현재 보호없이 웹 브라우저 사용 중입니다. Astian 트래커 및 광고 차단기로 방문하는 웹 사이트의 추적기를 파악할 수 있습니다."
   },
-  "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__resume_ghostery_": {
-    "message": "Astian 사용자는 광고 차단기가 더 이상 이 사이트를 방해하지 않는다고 보고합니다. Astian를 재개하십시오."
+  "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__ghostery_will_be_re_enabled_": {
+    "message": "Astian 사용자는 광고 차단기가 더 이상 이 사이트를 방해하지 않는다고 보고합니다. Astian가 다시 활성화됩니다."
   },
-  "ghostery_users_report_that_ad_blockers_break_this_site__try_pausing_ghostery_": {
-    "message": "Astian 사용자는 광고 차단기가 이 사이트를 깨뜨린다고 보고합니다. Astian를 일시 중지해 보세요."
+  "ghostery_users_report_that_adblockers_break_this_page__ghostery_has_been_paused_": {
+    "message": "고스트리 사용자들은 광고 차단기가 이 페이지를 깨뜨린다고 보고합니다. 고스트리가 일시 중지되었습니다."
   },
   "ghostery_uses_this_information_to_provide_its_community_powered_privacy_features__ensuring_that_personal_information_such_as_passwords__browsing_history__and_page_content_is_never_collected_": {
     "message": "Astian는 이 정보를 사용하여 커뮤니티 기반의 개인정보 보호 기능을 제공하며, 비밀번호, 검색 기록, 페이지 내용과 같은 개인 정보가 수집되지 않도록 보장합니다."
   },
   "ghostery_will_show_how_many_trackers_were_blocked_on_a_page__clicking_on_the_ghostery_icon_reveals_more_detailed_information_": {
     "message": "Astian가 이 페이지에서 얼마나 많은 트래커가 차단되었는지 보여줍니다. Astian 아이콘을 클릭하면 더 자세한 정보를 볼 수 있습니다."
+  },
+  "gone_": {
+    "message": "사라졌습니다!"
   },
   "hashes_of_potentially_unique_identifier_in_requests_parameters": {
     "message": "요청 매개변수에 포함된 잠재적 고유 식별자의 해시"
@@ -410,6 +425,15 @@
   "hey__do_you_enjoy_ghostery_and_want_to_support_our_work_": {
     "message": "Astian가 마음에 드셨다면 저희 제품을 함께 개선해보지 않으시겠습니까?"
   },
+  "hide": {
+    "message": "숨기기"
+  },
+  "hide_content_block": {
+    "message": "콘텐츠 블록 숨기기"
+  },
+  "hide_distraction": {
+    "message": "산만함 숨기기"
+  },
   "hosting": {
     "message": "호스팅",
     "description": "Tracker category name"
@@ -419,6 +443,18 @@
   },
   "ignore": {
     "message": "무시"
+  },
+  "import_from_file": {
+    "message": "파일에서 가져오기"
+  },
+  "importing_settings___": {
+    "message": "설정을 가져오는 중..."
+  },
+  "importing_supports_ublock_origin_file_format_with_selected_features_": {
+    "message": "uBlock Origin 파일 형식의 선택된 기능을 지원하는 가져오기."
+  },
+  "in_panel_notifications": {
+    "message": "패널 내 알림"
   },
   "include_a_screenshot_of_the_current_page": {
     "message": "현재 페이지의 스크린샷을 포함하세요"
@@ -430,7 +466,7 @@
     "message": "<a href=\"$${0}\">웹 상 트래커</a>, <a href=\"$${1}\">애드온의 상태</a> 및 <a href=\"$${2}\">성능 측정</a>에 대한 정보는 Astian 커뮤니티의 개인정보 보호를 향상하기 위해 당사의 <a href=\"$${3}\" target=\"_blank\" rel=\"noreferrer\">개인정보 보호정책</a>에 따라 공유됩니다."
   },
   "it_exists_thanks_to_the_micro_contributions_of_every_ghostery_user_who_chooses_to_send_non_personal_information_to_whotracks_me__this_input_enables_ghostery_to_provide_real_time_intel_on_trackers__which__in_turn__delivers_privacy_protection_to_the_entire_ghostery_community_": {
-    "message": "트래커 정보를 WhoTracks.Me로 전송을 허락해 준 모든 Astian 사용자의 이러한 작은 기여들이 모여 Astian는 운영됩니다. 트래커를 입력하면 Astian가 트래커에 대한 실시간 정보를 제공하고 이렇게 전체 Astian 사용자 커뮤니티가 보호받을 수 있습니다."
+    "message": "트래커 정보를 Alfra로 전송을 허락해 준 모든 Astian 사용자의 이러한 작은 기여들이 모여 Astian는 운영됩니다. 트래커를 입력하면 Astian가 트래커에 대한 실시간 정보를 제공하고 이렇게 전체 Astian 사용자 커뮤니티가 보호받을 수 있습니다."
   },
   "join_ghostery": {
     "message": "Astian 가입하기"
@@ -469,7 +505,7 @@
     "message": "더 보기"
   },
   "manifest_name": {
-    "message": "Astian Privacy 트래커 & 광고 차단기 - 개인정보 보호 광고 차단기"
+    "message": "Astian 트래커 & 광고 차단기 - 개인정보 보호 광고 차단기"
   },
   "manifest_short_description": {
     "message": "강력하고 사용하기 쉬운 개인정보 보호 확장 프로그램. 광고와 트래커를 차단해 웹 서핑을 빠르게 해보세요."
@@ -499,8 +535,11 @@
   "more_in_this_organization": {
     "message": "이 단체의 항목 더 보기"
   },
+  "move_the_slider_to_show_or_hide_sections_": {
+    "message": "슬라이더를 움직여 섹션을 표시하거나 숨기세요."
+  },
   "my_ghostery": {
-    "message": "나의 아스티안"
+    "message": "내 고스트리"
   },
   "name": {
     "message": "이름"
@@ -513,9 +552,6 @@
   },
   "never_consent": {
     "message": "Never-Consent"
-  },
-  "no": {
-    "message": "아니요"
   },
   "no_activities_detected": {
     "message": "아무 활동도 감지되지 않음"
@@ -557,9 +593,6 @@
     "message": "분류되지 않음",
     "description": "Tracker category name"
   },
-  "our_recommendation_for_this_activity": {
-    "message": "이 활동에 제시된 권장 사항"
-  },
   "pages_visited": {
     "message": "방문한 페이지"
   },
@@ -571,9 +604,6 @@
   },
   "paused": {
     "message": "일시 중지됨"
-  },
-  "pausing___": {
-    "message": "일시 중지 중..."
   },
   "performance_telemetry": {
     "message": "성능 측정"
@@ -590,8 +620,8 @@
   "please_describe_the_issue": {
     "message": "문제를 설명해 주세요"
   },
-  "prevents_google_from_redirecting_search_result_links_through_their_servers_instead_of_linking_directly_to_pages_": {
-    "message": "Google 검색 결과 링크의 Google 서버 경유를 막고 웹 페이지에 직접 연결합니다."
+  "prevents_google_and_bing_from_redirecting_search_result_links_through_their_servers_instead_of_linking_directly_to_pages_": {
+    "message": "Google과 Bing이 검색 결과 링크를 페이지로 직접 연결하지 않고, 자체 서버를 통해 리디렉션하지 못하도록 방지합니다."
   },
   "prevents_various_tracking_techniques_using_ai_driven_technology_": {
     "message": "AI 기반 기술을 사용하여 여러 추적 기술을 방지합니다."
@@ -615,7 +645,7 @@
     "message": "개인정보 보호의 필수적인 측면에 대한 개요를 제공합니다."
   },
   "read_more_on_whotracks_me": {
-    "message": "WhoTracks.Me에서 더 보기"
+    "message": "Alfra에서 더 보기"
   },
   "regional_filters": {
     "message": "지역 필터"
@@ -632,17 +662,20 @@
   "request_metadata_of_potential_web_trackers": {
     "message": "잠재적인 웹 추적기의 메타데이터 요청"
   },
+  "reselect": {
+    "message": "다시 선택"
+  },
   "resume": {
     "message": "다시 시작 "
   },
-  "resuming___": {
-    "message": "재개 중..."
-  },
   "reveals_what_s_hidden_beneath_the_internet_s_surface__with_whotracks_me__you_can_uncover_the_identities_behind_every_tracker_": {
-    "message": "인터넷의 표면 아래 숨겨진 것을 드러냅니다. WhoTracks.Me를 사용하면 모든 추적기 뒤에 숨겨진 신원을 밝혀낼 수 있습니다."
+    "message": "인터넷의 표면 아래 숨겨진 것을 드러냅니다. Alfra를 사용하면 모든 추적기 뒤에 숨겨진 신원을 밝혀낼 수 있습니다."
   },
   "save": {
     "message": "저장"
+  },
+  "save_your_custom_settings_to_a_file__or_restore_them_from_a_file_": {
+    "message": "사용자 설정을 파일에 저장하거나 파일에서 복원하세요."
   },
   "saves_and_synchronizes_your_custom_settings_between_browsers_and_devices_": {
     "message": "여러 브라우저와 기기에서 설정을 동기화하고 저장합니다."
@@ -656,17 +689,23 @@
   "search_website___": {
     "message": "웹 사이트 검색..."
   },
+  "select_distracting_element": {
+    "message": "산만한 요소 선택"
+  },
   "select_time_frame": {
     "message": "시간 선택"
   },
   "send": {
     "message": "보내기 "
   },
-  "send_feedback": {
-    "message": "피드백 보내기"
-  },
   "sentry_sdk_is_in_use_to_gather_and_send_the_reports__but_sentry_does_only_receive_information_above___no_two_requests_can_be_linked_with_one_another_and_browser_ip_is_never_shared_with_sentry_": {
     "message": "Sentry SDK는 위 정보만을 토대로 보고서를 전송하기 위해 사용됩니다. 요청이 여러 개 전송되더라도 각각은 연관성을 가지지 않으며 IP주소는 Sentry와 공유되지 않습니다."
+  },
+  "settings_backup": {
+    "message": "설정 백업"
+  },
+  "settings_sync": {
+    "message": "설정 동기화"
   },
   "setup_successful": {
     "message": "설정을 끝마쳤습니다"
@@ -690,15 +729,6 @@
     "message": "웹 사이트 분석",
     "description": "Tracker category name"
   },
-  "site_works_fine": {
-    "message": "사이트가 잘 작동합니다"
-  },
-  "skip": {
-    "message": "건너뛰기"
-  },
-  "skip_this_time": {
-    "message": "이번에는 건너뛰기"
-  },
   "social_media": {
     "message": "소셜 미디어",
     "description": "Tracker category name"
@@ -721,9 +751,6 @@
   "suspends_privacy_protection_globally_for_1_day_": {
     "message": "모든 웹 사이트에서 1 일 동안 개인정보 보호를 중지합니다."
   },
-  "sync_settings": {
-    "message": "동기화 설정"
-  },
   "telemetry": {
     "message": "측정 보고",
     "description": "Tracker category name"
@@ -733,6 +760,9 @@
   },
   "thank_you_for_your_support_in_ghostery_s_fight_for_a_web_where_privacy_is_a_basic_human_right_": {
     "message": "Astian가 개인정보 보호가 곧 기본권인 웹 생태계를 위해 싸울 수 있도록 도와주셔서 진심으로 감사드립니다!"
+  },
+  "the_backup_from_@_0__imported_successfully_": {
+    "message": "$${0}에서 가져온 백업이 성공적으로 가져와졌습니다."
   },
   "theme": {
     "message": "테마"
@@ -761,9 +791,6 @@
   "to_provide_privacy_protection_features__the_following_information_about_web_trackers_is_collected_": {
     "message": "개인정보 보호 기능을 제공하기 위해 웹 사이트 트래커 정보가 수집됩니다:"
   },
-  "to_the_benefit_of_the_ghostery_community__let_us_know_if_this_helped_": {
-    "message": "Astian 커뮤니티에 도움이 되었다면 알려주세요!"
-  },
   "top_100": {
     "message": "상위 100개"
   },
@@ -772,6 +799,9 @@
   },
   "top_50": {
     "message": "톱 50"
+  },
+  "tracker___ad_blocking_will_be_active_on_this_page_": {
+    "message": "트래커 및 광고 차단이 이 페이지에서 활성화됩니다."
   },
   "tracker_database": {
     "message": "트래커 데이터베이스"
@@ -797,9 +827,6 @@
   "trends": {
     "message": "동향"
   },
-  "trust_all__recommended_": {
-    "message": "모두 허용 (권장됨)"
-  },
   "trust_on_all_websites": {
     "message": "모든 웹사이트에서 허용"
   },
@@ -818,6 +845,9 @@
   },
   "trusted_on_this_website": {
     "message": "이 웹 사이트에서 허용됨"
+  },
+  "turns_ghostery_notifications_displayed_in_the_panel_on_or_off_": {
+    "message": "Astian 알림을 패널에 표시하거나 끕니다."
   },
   "uncovers_that_no_two_days_are_alike__with_ghostery__you_re_protected_each_day_": {
     "message": "어떤 날도 똑같지 않다는 것을 발견하세요. Astian와 함께라면 매일 보호받을 수 있습니다."
@@ -860,14 +890,8 @@
   "we_know_you_rely_on_ghostery_for_a_smooth_youtube_experience__until_a_more_refined_solution_emerges__here_s_a_temporary_fix_": {
     "message": "더 나은 YouTube 사용 환경을 위해 Astian 사용하는 것을 알고 있습니다. 보다 나은 해결책이 출시되기 전까지 임시 조치를 취할 수 있습니다."
   },
-  "we_ll_continue_working_on_it__thanks_": {
-    "message": "계속 노력하겠습니다! 감사합니다!"
-  },
   "we_re_so_glad_ghostery_has_your_heart__help_others_find_us_too___it_only_takes_a_moment_": {
     "message": "Astian를 마음에 들어해주셔서 감사합니다! 조금의 시간으로 다른 사람들이 저희를 찾게 해주세요."
-  },
-  "we_re_so_glad_ghostery_has_your_heart__let_others_know_leave_a_review_": {
-    "message": "고스트리가 마음에 드셨다니 정말 기쁩니다! 다른 사람들에게도 알려주세요—리뷰를 남겨주세요!"
   },
   "web_trackers": {
     "message": "웹 트래커"
@@ -878,6 +902,9 @@
   "website_exceptions": {
     "message": "예외된 웹 사이트"
   },
+  "website_statistical_report": {
+    "message": "웹사이트 통계 보고서"
+  },
   "websites": {
     "message": "웹 사이트"
   },
@@ -885,31 +912,28 @@
     "message": "주간"
   },
   "welcome_to_ghostery": {
-    "message": "Astian Privacy를 시작합니다"
+    "message": "Astian를 시작합니다"
   },
   "what_s_next_": {
     "message": "또 무엇을 할 수 있을까요?"
   },
   "whotracks_me__operated_by_ghostery__is_a_vital_cornerstone_of_ghostery_s_ai_anti_tracking_technology__playing_a_crucial_role_in_providing_real_time_privacy_protection_for_the_ghostery_community__it_is_a_comprehensive_global_resource_on_trackers__bringing_transparency_to_web_tracking_": {
-    "message": "WhoTracks.Me는 Astian가 운영하는 서비스로, Astian의 AI 기반 추적 방지 기술의 중요한 초석이며, Astian 커뮤니티에 실시간 개인정보 보호를 제공하는 데 중요한 역할을 합니다. 이 서비스는 전 세계의 추적기에 대한 포괄적인 자료로, 웹 추적의 투명성을 제공합니다."
-  },
-  "whotracks_me_privacy_report": {
-    "message": "후트랙스.미 개인정보 보호 보고서"
+    "message": "Alfra는 Astian가 운영하는 서비스로, Astian의 AI 기반 추적 방지 기술의 중요한 초석이며, Astian 커뮤니티에 실시간 개인정보 보호를 제공하는 데 중요한 역할을 합니다. 이 서비스는 전 세계의 추적기에 대한 포괄적인 자료로, 웹 추적의 투명성을 제공합니다."
   },
   "whotracks_me_reports": {
-    "message": "WhoTracks.Me 보고서"
+    "message": "Alfra 보고서"
   },
   "whotracks_me_statistical_report": {
-    "message": "WhoTracks.Me 통계 보고서"
+    "message": "Alfra 통계 보고서"
   },
   "whotracks_me_wheel": {
-    "message": "WhoTracks.Me 휠"
+    "message": "Alfra 휠"
+  },
+  "why_paused_": {
+    "message": "왜 일시 중지되었나요?"
   },
   "with_ghostery_disabled__only_the_basic_functionality_of_naming_trackers_is_available_": {
     "message": "Astian가 사용 중지된 상태에서는 기본적인 트래커 정보 확인만 가능합니다."
-  },
-  "yes": {
-    "message": "예 "
   },
   "yesterday": {
     "message": "어제"
@@ -923,6 +947,9 @@
   "you_will_no_longer_see_tracker_wheels_next_to_the_search_results_": {
     "message": "이제 검색 결과 옆에 트래커 휠을 더 이상 표시하지 않습니다."
   },
+  "your_browser_privacy_report": {
+    "message": "브라우저 개인정보 보호 보고서"
+  },
   "your_community_powered_privacy_features_": {
     "message": "귀하의 커뮤니티 기반 개인정보 보호 기능:"
   },
@@ -931,5 +958,11 @@
   },
   "youtube_blocking_you_from_watching_ad_free_videos_": {
     "message": "YouTube에서 광고없이 동영상을 보지 못하도록 하나요?"
+  },
+  "zoom_in": {
+    "message": "확대하기"
+  },
+  "zoom_out": {
+    "message": "축소"
   }
 }
