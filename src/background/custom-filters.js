@@ -27,7 +27,7 @@ import * as OptionsObserver from '/utils/options-observer.js';
 import Options from '/store/options.js';
 import CustomFilters from '/store/custom-filters.js';
 
-import { setup, reloadMainEngine } from '/background/adblocker.js';
+import { setup, reloadMainEngine } from './adblocker.js';
 
 const convert =
   __PLATFORM__ === 'chromium'
@@ -159,13 +159,14 @@ async function updateEngine(text) {
   };
 }
 
-async function update(text, { trustedScriptlets }) {
+export async function updateCustomFilters(input, options) {
   // Ensure update of the custom filters is done after the main engine is initialized
   setup.pending && (await setup.pending);
 
-  const { networkFilters, cosmeticFilters, errors } = normalizeFilters(text, {
-    trustedScriptlets,
-  });
+  const { networkFilters, cosmeticFilters, errors } = normalizeFilters(
+    input,
+    options,
+  );
 
   const result = await updateEngine(
     [
@@ -215,38 +216,39 @@ async function update(text, { trustedScriptlets }) {
 }
 
 OptionsObserver.addListener('customFilters', async (value, lastValue) => {
-  const { enabled, trustedScriptlets } = value;
-
-  // Background startup
-  if (!lastValue) {
-    // If custom filters are disabled, we don't care if engine was reloaded
-    // as custom filters should be empty
-    if (!enabled) return;
-
-    // If we cannot initialize engine, we need to update it
-    if (!(await engines.init(engines.CUSTOM_ENGINE))) {
-      await update((await store.resolve(CustomFilters)).text, {
-        trustedScriptlets,
-      });
+  // 1. Background startup
+  // 2. Custom filters are enabled
+  // 3. We cannot initialize engine (adblocker version mismatch, etc.)
+  // Result: Re-initialize custom engine
+  if (
+    !lastValue &&
+    value.enabled &&
+    !(await engines.init(engines.CUSTOM_ENGINE))
+  ) {
+    const { text } = await store.resolve(CustomFilters);
+    await updateCustomFilters(text, value);
+  } else if (
+    (__PLATFORM__ === 'chromium' || __PLATFORM__ === 'safari') &&
+    lastValue &&
+    // Omit if `trustedScriptlets` is changed, as user then must click "save" button
+    value.trustedScriptlets === lastValue.trustedScriptlets
+  ) {
+    if (value.enabled) {
+      const { text } = await store.resolve(CustomFilters);
+      await updateCustomFilters(text, value);
+    } else {
+      // When disabling custom filters, we need to remove all DNR rules
+      // as they are not removed automatically
+      // TODO: Save DNR rules after converting to avoid re-converting when enabling
+      await updateDNRRules([]);
     }
-  } else {
-    // If only trustedScriptlets has changed, we don't update automatically.
-    // The user needs to click the update button.
-    if (lastValue.enabled === enabled) {
-      return;
-    }
-
-    await update(enabled ? (await store.resolve(CustomFilters)).text : '', {
-      trustedScriptlets,
-    });
   }
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'customFilters:update') {
     store.resolve(Options).then((options) => {
-      // Update filters
-      update(msg.input, options.customFilters).then(sendResponse);
+      updateCustomFilters(msg.input, options.customFilters).then(sendResponse);
     });
 
     return true;

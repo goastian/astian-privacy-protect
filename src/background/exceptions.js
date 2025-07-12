@@ -9,8 +9,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0
  */
 
+import { store } from 'hybrids';
 import { parseFilter } from '@ghostery/adblocker';
 
+import Options from '/store/options.js';
 import * as OptionsObserver from '/utils/options-observer.js';
 import * as trackerdb from '/utils/trackerdb.js';
 
@@ -19,24 +21,33 @@ import {
   createOffscreenConverter,
 } from '../utils/dnr-converter.js';
 
-// Create in background sync storage for exceptions
-let exceptions = {};
-chrome.storage.local.get(['exceptions']).then(({ exceptions: value }) => {
-  exceptions = value || {};
-});
+// Migrate exceptions from old format
+// TODO: Remove this in the next version
+try {
+  chrome.storage.local
+    .get(['exceptions'])
+    .then(async ({ exceptions: values }) => {
+      if (values) {
+        const exceptions = {};
+        Object.entries(values).forEach(([id, { blocked, trustedDomains }]) => {
+          if (!blocked || trustedDomains.length > 0) {
+            exceptions[id] = { global: !blocked, domains: trustedDomains };
+          }
+        });
 
-chrome.storage.onChanged.addListener((records) => {
-  if (records.exceptions) {
-    exceptions = records.exceptions.newValue || {};
+        await store.set(Options, { exceptions });
+        await chrome.storage.local.remove('exceptions');
 
-    if (__PLATFORM__ === 'chromium' || __PLATFORM__ === 'safari') {
-      updateFilters();
-    }
-  }
-});
+        updateFilters();
 
-export function getException(id) {
-  return exceptions[id];
+        console.log('[exceptions] Migration completed successfully.');
+      }
+    });
+} catch (e) {
+  console.error(
+    '[exceptions] Error while migrating exceptions from old format:',
+    e,
+  );
 }
 
 const convert =
@@ -45,17 +56,15 @@ const convert =
     : createDocumentConverter();
 
 async function updateFilters() {
+  const options = await store.resolve(Options);
   const rules = [];
 
-  for (const exception of Object.values(exceptions)) {
-    if (exception.blocked && exception.trustedDomains.length === 0) {
-      continue;
-    }
-
-    const tracker = (await trackerdb.getTracker(exception.id)) || {
-      domains: [exception.id],
+  for (const [id, exception] of Object.entries(options.exceptions)) {
+    const tracker = (await trackerdb.getTracker(id)) || {
+      domains: [id],
       filters: [],
     };
+    const domains = !exception.global ? exception.domains : undefined;
 
     const filters = tracker.filters
       .concat(tracker.domains.map((domain) => `||${domain}^`))
@@ -63,13 +72,6 @@ async function updateFilters() {
       .filter((filter) => filter.isNetworkFilter())
       // Negate the filters to make them allow rules
       .map((filter) => `@@${filter.toString()}`);
-
-    // Global rule domains/excludedDomains conditions based on the exception
-    const domains = exception.blocked ? exception.trustedDomains : undefined;
-    const excludedDomains =
-      !exception.blocked && exception.blockedDomains.length
-        ? exception.blockedDomains
-        : undefined;
 
     for (const filter of filters) {
       try {
@@ -89,36 +91,20 @@ async function updateFilters() {
             }
           }
 
+          if (domains && domains.length) {
+            if (__PLATFORM__ === 'safari') {
+              rule.condition.domains = domains
+                .map((d) => `*${d}`)
+                .concat(rule.condition.domains || []);
+            } else {
+              rule.condition.initiatorDomains = domains.concat(
+                rule.condition.initiatorDomains || [],
+              );
+            }
+          }
+
           rules.push({
             ...rule,
-            condition: {
-              ...rule.condition,
-              // Add domain condition to the rule
-              ...(__PLATFORM__ === 'safari'
-                ? {
-                    domains:
-                      domains &&
-                      domains
-                        .map((d) => `*${d}`)
-                        .concat(rule.condition.domains || []),
-                    excludedDomains:
-                      excludedDomains &&
-                      excludedDomains
-                        .map((d) => `*${d}`)
-                        .concat(rule.condition.excludedDomains || []),
-                  }
-                : {
-                    initiatorDomains:
-                      domains &&
-                      domains.concat(rule.condition.initiatorDomains || []),
-                    excludedInitiatorDomains:
-                      excludedDomains &&
-                      excludedDomains.concat(
-                        rule.condition.excludedInitiatorDomains || [],
-                      ),
-                  }),
-            },
-            // Internal prefix + priority
             priority: 2000000 + rule.priority,
           });
         }
@@ -158,6 +144,14 @@ if (__PLATFORM__ === 'chromium' || __PLATFORM__ === 'safari') {
       if (lastValue !== undefined && value !== 0) {
         await updateFilters();
       }
+    },
+  );
+
+  OptionsObserver.addListener(
+    'exceptions',
+    async function updateExceptions(value, lastValue) {
+      if (lastValue === undefined) return;
+      await updateFilters();
     },
   );
 }
