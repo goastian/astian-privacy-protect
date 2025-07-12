@@ -19,6 +19,7 @@ import scriptlets from '@ghostery/scriptlets';
 
 import Options, { ENGINES, getPausedDetails } from '/store/options.js';
 
+import * as exceptions from '/utils/exceptions.js';
 import * as engines from '/utils/engines.js';
 import * as trackerdb from '/utils/trackerdb.js';
 import * as OptionsObserver from '/utils/options-observer.js';
@@ -26,9 +27,9 @@ import Request from '/utils/request.js';
 import asyncSetup from '/utils/setup.js';
 
 import { tabStats, updateTabStats } from './stats.js';
-import { getException } from './exceptions.js';
 import Config, {
   FLAG_FIREFOX_CONTENT_SCRIPT_SCRIPTLETS,
+  FLAG_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED,
 } from '/store/config.js';
 
 let options = Options;
@@ -108,6 +109,8 @@ function getEnabledEngines(config) {
       list.push(engines.FIXES_ENGINE);
     }
 
+    list.push(engines.ELEMENT_PICKER_ENGINE);
+
     if (config.customFilters.enabled) {
       list.push(engines.CUSTOM_ENGINE);
     }
@@ -130,10 +133,18 @@ export async function reloadMainEngine() {
   const resolvedEngines = (
     await Promise.all(
       enabledEngines.map((id) =>
-        engines.init(id).catch(() => {
-          console.error(`[adblocker] failed to load engine: ${id}`);
-          return null;
-        }),
+        engines
+          .init(id)
+          .catch(() => {
+            console.error(`[adblocker] failed to load engine: ${id}`);
+            return null;
+          })
+          .then((engine) => {
+            if (!engine) {
+              enabledEngines.splice(enabledEngines.indexOf(id), 1);
+            }
+            return engine;
+          }),
       ),
     )
   ).filter((engine) => engine);
@@ -145,7 +156,7 @@ export async function reloadMainEngine() {
       `[adblocker] Main engine reloaded with: ${enabledEngines.join(', ')}`,
     );
   } else {
-    await engines.create(engines.MAIN_ENGINE);
+    engines.create(engines.MAIN_ENGINE);
     console.info('[adblocker] Main engine reloaded with no filters');
   }
   if (__PLATFORM__ === 'firefox' && ENABLE_FIREFOX_CONTENT_SCRIPT_SCRIPTLETS) {
@@ -166,12 +177,10 @@ async function updateEngines() {
 
       // Update engines from the list of enabled engines
       await Promise.all(
-        enabledEngines
-          .filter((id) => id !== engines.CUSTOM_ENGINE)
-          .map(async (id) => {
-            await engines.init(id);
-            updated = (await engines.update(id)) || updated;
-          }),
+        enabledEngines.filter(engines.isPersistentEngine).map(async (id) => {
+          await engines.init(id);
+          updated = (await engines.update(id)) || updated;
+        }),
       );
 
       // Update TrackerDB engine
@@ -181,7 +190,7 @@ async function updateEngines() {
       // Update timestamp after the engines are updated
       await store.set(Options, { filtersUpdatedAt: Date.now() });
 
-      return updated;
+      if (updated) await reloadMainEngine();
     }
   } finally {
     updating = false;
@@ -195,15 +204,15 @@ export const setup = asyncSetup('adblocker', [
       options = value;
 
       const enabledEngines = getEnabledEngines(value);
-      const prevEnabledEngines = lastValue && getEnabledEngines(lastValue);
+      const lastEnabledEngines = lastValue && getEnabledEngines(lastValue);
 
       if (
         // Reload/mismatched main engine
         !(await engines.init(engines.MAIN_ENGINE)) ||
         // Enabled engines changed
-        (prevEnabledEngines &&
-          (enabledEngines.length !== prevEnabledEngines.length ||
-            enabledEngines.some((id, i) => id !== prevEnabledEngines[i])))
+        (lastEnabledEngines &&
+          (enabledEngines.length !== lastEnabledEngines.length ||
+            enabledEngines.some((id, i) => id !== lastEnabledEngines[i])))
       ) {
         await reloadMainEngine();
       }
@@ -211,7 +220,7 @@ export const setup = asyncSetup('adblocker', [
       // Update engines if filters are outdated (older than 1 hour)
       // and reload the engine if the update happened to at least one of them
       if (options.filtersUpdatedAt < Date.now() - HOUR_IN_MS) {
-        if (await updateEngines()) await reloadMainEngine();
+        await updateEngines();
       }
     },
   ),
@@ -452,30 +461,12 @@ function isTrusted(request, type) {
     return false;
   }
 
-  const metadata = trackerdb.getMetadata(request);
-
-  // Get exception for known tracker (metadata id) or
-  // by the request hostname (unidentified tracker)
-  const exception = getException(metadata?.id || request.hostname);
-
-  if (exception) {
-    // The request is trusted if:
-    // - tracker is blocked, but tab hostname is added to trusted domains
-    // - tracker is not blocked and tab hostname is not found in the blocked domains
-    if (
-      exception.blocked
-        ? exception.trustedDomains.some((id) =>
-            request.sourceHostname.endsWith(id),
-          )
-        : !exception.blockedDomains.some((id) =>
-            request.sourceHostname.endsWith(id.sourceHostname),
-          )
-    ) {
-      return true;
-    }
-  }
-
-  return false;
+  return exceptions.getStatus(
+    options,
+    // Get exception for known tracker (metadata id) or by the request hostname (unidentified tracker)
+    trackerdb.getMetadata(request)?.id || request.hostname,
+    request.sourceHostname,
+  ).trusted;
 }
 
 if (__PLATFORM__ === 'firefox') {
@@ -514,7 +505,17 @@ if (__PLATFORM__ === 'firefox') {
 
         if (redirect !== undefined) {
           request.blocked = true;
-          result = { redirectUrl: redirect.dataUrl };
+          // There's a possibility that redirecting to file URL can expose
+          // extension existence.
+          if (details.type !== 'xmlhttprequest') {
+            result = {
+              redirectUrl: chrome.runtime.getURL(
+                'rule_resources/redirects/' + redirect.filename,
+              ),
+            };
+          } else {
+            result = { redirectUrl: redirect.dataUrl };
+          }
         } else if (match === true) {
           request.blocked = true;
           result = { cancel: true };
@@ -562,5 +563,29 @@ if (__PLATFORM__ === 'firefox') {
     },
     { urls: ['http://*/*', 'https://*/*'] },
     ['blocking', 'responseHeaders'],
+  );
+}
+
+if (__PLATFORM__ === 'chromium') {
+  let ENABLE_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED = false;
+
+  store.resolve(Config).then((config) => {
+    const enabled = config.hasFlag(
+      FLAG_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED,
+    );
+    if (!enabled) contentScripts.unregisterAll();
+
+    ENABLE_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED = enabled;
+  });
+
+  chrome.webRequest.onResponseStarted.addListener(
+    (details) => {
+      if (!ENABLE_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED) return;
+      if (details.tabId === -1) return;
+      if (details.type !== 'main_frame' && details.type !== 'sub_frame') return;
+
+      injectCosmetics(details, { bootstrap: true });
+    },
+    { urls: ['http://*/*', 'https://*/*'] },
   );
 }
