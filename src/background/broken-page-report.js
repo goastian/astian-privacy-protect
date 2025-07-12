@@ -17,12 +17,10 @@ import getBrowserInfo from '/utils/browser-info.js';
 import { SUPPORT_PAGE_URL } from '/utils/urls.js';
 
 import { tabStats } from './stats.js';
+import { parse } from 'tldts-experimental';
 
 async function getMetadata(tab) {
   let result = '\n------\n';
-
-  const { version } = chrome.runtime.getManifest();
-  result += `v${version}\n`;
 
   // Send only not-private options
   const options = Object.fromEntries(
@@ -39,6 +37,13 @@ async function getMetadata(tab) {
   }
 
   return result;
+}
+
+function sliceWithEllipsis(str, maxLength) {
+  if (str.length <= maxLength) {
+    return str.slice(0, maxLength - 3 ) + '...';
+  }
+  return str;
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
