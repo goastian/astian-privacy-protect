@@ -270,40 +270,43 @@ if (manifest.declarative_net_request?.rule_resources) {
       );
     }
   }
+}
 
-  // copy redirect rule resources
-  mkdirSync(resolve(options.outDir, 'rule_resources/redirects'), {
-    recursive: true,
-  });
-  for (const file of readdirSync(
-    resolve(options.srcDir, 'rule_resources', 'redirects'),
-  )) {
-    cpSync(
-      resolve(options.srcDir, 'rule_resources', 'redirects', file),
-      resolve(options.outDir, 'rule_resources', 'redirects', file),
-    );
+// copy redirect rule resources
+mkdirSync(resolve(options.outDir, 'rule_resources/redirects'), {
+  recursive: true,
+});
+for (const file of readdirSync(
+  resolve(options.srcDir, 'rule_resources', 'redirects'),
+)) {
+  if (argv.target !== 'firefox' && file.includes('MIME_TYPE_STUB')) {
+    continue;
   }
-
-  // append web_accessible_resources
-  const redirectResources = readdirSync(
-    resolve(options.srcDir, 'rule_resources/redirects'),
+  cpSync(
+    resolve(options.srcDir, 'rule_resources', 'redirects', file),
+    resolve(options.outDir, 'rule_resources', 'redirects', file),
   );
+}
 
-  if (manifest.manifest_version === 3) {
-    manifest.web_accessible_resources.push({
-      resources: redirectResources.map((filename) =>
-        join('rule_resources/redirects', filename),
-      ),
-      matches: ['<all_urls>'],
-      use_dynamic_url: true,
-    });
-  } else {
-    redirectResources.forEach((filename) =>
-      manifest.web_accessible_resources.push(
-        join('rule_resources/redirects', filename),
-      ),
+// append web_accessible_resources
+const redirectResources = readdirSync(
+  resolve(options.outDir, 'rule_resources/redirects'),
+);
+
+if (manifest.manifest_version === 3) {
+  manifest.web_accessible_resources.push({
+    resources: redirectResources.map((filename) =>
+      join('rule_resources/redirects', filename),
+    ),
+    matches: ['<all_urls>'],
+    use_dynamic_url: true,
+  });
+} else {
+  redirectResources.forEach((filename) => {
+    manifest.web_accessible_resources.push(
+      join('rule_resources/redirects', filename),
     );
-  }
+  });
 }
 
 // --- Generate entry points ---
@@ -441,6 +444,25 @@ const buildPromise = build({
     },
   },
   plugins: [
+    // Keep offscreen documents from @whotracksme/reporting
+    {
+      name: 'copy-reporting-assets',
+      buildStart() {
+        const srcDir = resolve(
+          process.cwd(),
+          'node_modules/@whotracksme/reporting/reporting/src/offscreen/doublefetch/',
+        );
+        const outDir = resolve(process.cwd(), 'dist/offscreen/doublefetch/');
+        if (!existsSync(outDir)) {
+          mkdirSync(outDir, { recursive: true });
+        }
+        const files = readdirSync(srcDir);
+        files.forEach((file) => {
+          cpSync(resolve(srcDir, file), resolve(outDir, file));
+        });
+      },
+    },
+
     // This custom plugin cleans ups chunks imports of the `.html` inputs
     //  to only include CSS files. This is necessary because Vite generates
     // every imported JS file as script tag in the resulting HTML file.
@@ -521,12 +543,19 @@ if (argv.watch) {
           case 'chromium': {
             settings = { target: 'chromium' };
 
-            if (argv.browser === 'opera') {
-              settings.chromiumBinary =
-                '/Applications/Opera.app/Contents/MacOS/Opera';
-            } else if (argv.browser === 'edge') {
-              settings.chromiumBinary =
-                '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge';
+            switch (argv.browser) {
+              case 'brave':
+                settings.chromiumBinary =
+                  '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser';
+                break;
+              case 'edge':
+                settings.chromiumBinary =
+                  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge';
+                break;
+              case 'opera':
+                settings.chromiumBinary =
+                  '/Applications/Opera.app/Contents/MacOS/Opera';
+                break;
             }
 
             break;
