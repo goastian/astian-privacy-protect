@@ -10,64 +10,84 @@
  */
 
 import { html, router, store } from 'hybrids';
+import { parse } from 'tldts-experimental';
+
 import * as labels from '/ui/labels.js';
 
 import Options from '/store/options.js';
-import TrackerException from '/store/tracker-exception.js';
 import Tracker from '/store/tracker.js';
+import ElementPickerSelectors from '/store/element-picker-selectors.js';
 
+import * as exceptions from '/utils/exceptions.js';
 import { WTM_PAGE_URL } from '/utils/urls.js';
 import { hasWTMStats } from '/utils/wtm-stats.js';
 
 import TrackerDetails from './tracker-details.js';
 
 function removeDomain(tracker) {
-  return async ({ domain }) => {
-    const { exception } = tracker;
-    const status = exception.getDomainStatus(domain);
-
-    store.set(
-      exception,
-      status.type === 'block'
-        ? {
-            blockedDomains: exception.blockedDomains.filter(
-              (d) => d !== domain,
-            ),
-          }
-        : {
-            trustedDomains: exception.trustedDomains.filter(
-              (d) => d !== domain,
-            ),
-          },
-    );
-  };
+  return ({ options, domain }) =>
+    exceptions.toggleDomain(options, tracker.id, domain);
 }
 
 function revokePaused({ options, domain }) {
-  store.set(options, {
-    paused: { [domain]: null },
+  store.set(options, { paused: { [domain]: null } });
+}
+
+function enableElementPickerSelectors(host) {
+  const saveButton = host.render().querySelector('#save-custom-content-blocks');
+  saveButton.disabled = false;
+}
+
+async function saveElementPickerSelectors(host, event) {
+  event.preventDefault();
+
+  const selectors = event.target.selectors.value
+    .split('\n')
+    .map((selector) => selector.trim())
+    .filter((selector) => selector);
+
+  await store.set(host.elementPickerSelectors, {
+    hostnames: {
+      [host.domain]: selectors.length > 0 ? selectors : null,
+    },
   });
+
+  host.render().querySelector('#save-custom-content-blocks').disabled = true;
+}
+
+async function clearElementPickerSelectors(host) {
+  const textarea = host.render().querySelector('textarea');
+  textarea.value = '';
+
+  enableElementPickerSelectors(host);
 }
 
 export default {
   [router.connect]: { stack: () => [TrackerDetails] },
   domain: '',
-  trackers: ({ domain }) => {
-    const exceptions = store.get([TrackerException]);
-    if (!store.ready(exceptions)) return [];
-
-    return exceptions
-      .filter(
-        ({ blockedDomains, trustedDomains }) =>
-          blockedDomains.includes(domain) || trustedDomains.includes(domain),
-      )
-      .sort((a, b) => a.id.localeCompare(b.id))
-      .map(({ id }) => store.get(Tracker, id));
-  },
+  topLevelDomain: ({ domain }) => parse(domain).domain,
   options: store(Options),
   paused: ({ options, domain }) =>
     (store.ready(options) && options.paused[domain]) || {},
-  render: ({ domain, trackers, paused }) => html`
+  trackers: ({ options, domain }) =>
+    store.ready(options)
+      ? Object.entries(options.exceptions)
+          .filter(([, { domains }]) => domains.includes(domain))
+          .map(([id]) => id)
+          .sort((a, b) => a.localeCompare(b))
+          .map((id) => store.get(Tracker, id))
+          .map((tracker) =>
+            store.error(tracker)
+              ? { id: tracker.id, name: tracker.id }
+              : tracker,
+          )
+      : [],
+  elementPickerSelectors: store(ElementPickerSelectors),
+  selectors: ({ elementPickerSelectors, domain }) =>
+    (store.ready(elementPickerSelectors) &&
+      elementPickerSelectors.hostnames[domain]?.join('\n')) ||
+    '',
+  render: ({ domain, topLevelDomain, trackers, paused, selectors }) => html`
     <template layout="contents">
       <settings-page-layout layout="gap:4">
         <div layout="column items:start gap">
@@ -143,31 +163,35 @@ export default {
             `}
             ${trackers.map(
               (tracker) =>
-                store.ready(tracker) &&
+                !store.pending(tracker) &&
                 html`
                   <div
                     layout="grid:2 gap:2"
                     layout@768px="grid:2fr|2fr|3fr gap:4"
                   >
-                    <div layout="column gap:0.5">
-                      <ui-action>
-                        <a
-                          href="${router.url(TrackerDetails, {
-                            tracker: tracker.id,
-                          })}"
-                        >
-                          <ui-text type="label-m" mobile-type="label-s">
-                            ${tracker.name}
-                          </ui-text>
-                        </a>
-                      </ui-action>
-                      ${tracker.organization &&
-                      html`
-                        <ui-text type="body-s" color="secondary">
-                          ${tracker.organization.name}
+                    ${store.ready(tracker) &&
+                    html`<ui-action>
+                      <a
+                        href="${router.url(TrackerDetails, {
+                          tracker: tracker.id,
+                        })}"
+                        layout="column gap:0.5"
+                      >
+                        <ui-text type="label-m" mobile-type="label-s">
+                          ${tracker.name}
                         </ui-text>
-                      `}
-                    </div>
+                        ${tracker.organization &&
+                        html`
+                          <ui-text type="body-s" color="secondary">
+                            ${tracker.organization.name}
+                          </ui-text>
+                        `}
+                      </a>
+                    </ui-action>`}
+                    ${!store.ready(tracker) &&
+                    html`<ui-text type="label-m" mobile-type="label-s">
+                      ${tracker.name}
+                    </ui-text>`}
                     <ui-text
                       type="label-m"
                       layout="hidden"
@@ -176,14 +200,9 @@ export default {
                       ${labels.categories[tracker.category]}
                     </ui-text>
                     <div layout="row gap items:center content:space-between">
-                      ${tracker.exception.getDomainStatus(domain).type ===
-                      'block'
-                        ? html`<settings-badge>
-                            <ui-icon name="block-s"></ui-icon> Blocked
-                          </settings-badge>`
-                        : html`<settings-badge>
-                            <ui-icon name="trust-s"></ui-icon> Trusted
-                          </settings-badge>`}
+                      <settings-badge>
+                        <ui-icon name="trust-s"></ui-icon> Trusted
+                      </settings-badge>
                       <ui-action>
                         <button layout@768px="order:1">
                           <ui-icon
@@ -200,13 +219,44 @@ export default {
             )}
           </settings-table>
         </div>
-        ${hasWTMStats(domain) &&
+        <form layout="column gap:2" onsubmit="${saveElementPickerSelectors}">
+          <div layout="column gap:0.5">
+            <ui-text type="label-l">Blocked elements on this site</ui-text>
+            <ui-text>
+              Displays all content blocks manually hidden on this site. You can
+              remove them individually or clear the entire list.
+            </ui-text>
+          </div>
+          <ui-input>
+            <textarea
+              name="selectors"
+              rows="8"
+              value="${selectors}"
+              spellcheck="false"
+              autocorrect="off"
+              oninput="${enableElementPickerSelectors}"
+              style="white-space:pre"
+            ></textarea>
+          </ui-input>
+          <div layout="row gap:2">
+            <ui-button id="save-custom-content-blocks" type="success" disabled>
+              <button type="submit">Save</button>
+            </ui-button>
+            <ui-button onclick="${clearElementPickerSelectors}">
+              <button type="button">Clear</button>
+            </ui-button>
+          </div>
+        </form>
+        ${hasWTMStats(topLevelDomain) &&
         html`
           <div layout="margin:3:0">
             <ui-action>
-              <a href="${`${WTM_PAGE_URL}/websites/${domain}`}" target="_blank">
+              <a
+                href="${`${WTM_PAGE_URL}/websites/${topLevelDomain}`}"
+                target="_blank"
+              >
                 <settings-wtm-link>
-                  Alfra Statistical Report
+                  WhoTracks.Me Statistical Report
                 </settings-wtm-link>
               </a>
             </ui-action>

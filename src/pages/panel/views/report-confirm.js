@@ -11,14 +11,16 @@
 
 import { html, router } from 'hybrids';
 
+import contributionImage from '../assets/contribution.svg';
+
 export default {
   render: () => html`
     <template layout="column grow">
       <ui-header>
-        <div layout="row gap items:center">
+        <ui-text type="label-m" layout="row gap items:center">
           <ui-icon name="report" layout="size:2"></ui-icon>
           Report a broken page
-        </div>
+        </ui-text>
         <ui-action slot="actions">
           <a href="${router.backUrl()}">
             <ui-icon name="close" color="primary" layout="size:3"></ui-icon>
@@ -38,7 +40,7 @@ export default {
           </ui-text>
           <ui-text type="body-m" layout="block:center width:::36">
             Your contribution helps build a more private and safe internet for
-            the entire Astian Privacy community.
+            the entire Ghostery community.
           </ui-text>
         </div>
       </panel-container>
