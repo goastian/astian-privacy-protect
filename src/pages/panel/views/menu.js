@@ -26,7 +26,7 @@ export default {
   render: ({ options, session, stats }) => html`
     <template layout="grid grow">
       <ui-header>
-        Menu
+        <ui-text type="label-m">Menu</ui-text>
         <ui-action slot="actions">
           <a href="${router.backUrl()}">
             <ui-icon name="close" color="primary" layout="size:3"></ui-icon>
@@ -37,16 +37,14 @@ export default {
         ${store.ready(options, stats) &&
         html`
           <div layout="column gap:0.5 padding:1:0">
-            ${!options.managed &&
-            html`
-              <ui-text
-                type="label-s"
-                color="secondary"
-                uppercase
-                layout="padding:1:1:0 margin:0:1"
-              >
-                Astian settings
-              </ui-text>
+            <ui-text
+              type="label-s"
+              color="secondary"
+              uppercase
+              layout="padding:1:1:0 margin:0:1"
+            >
+              Astian settings
+            </ui-text>
 
               <panel-menu-item
                 href="${chrome.runtime.getURL(
@@ -102,24 +100,23 @@ export default {
                 </div>
               </panel-menu-item>
 
-              ${__PLATFORM__ !== 'safari' &&
-              store.ready(session) &&
-              session.enabled &&
-              !session.contributor &&
-              html`
-                <ui-button type="outline-primary" layout="margin:1:1.5">
-                  <a
-                    href="https://astian.org/midori-browser/donate-to-midori/?mtm_campaign=Astian%20Privacy%20Extension"
-                    onclick="${openTabWithUrl}"
-                  >
-                    <ui-icon name="heart"></ui-icon>
-                    Become a Contributor
-                  </a>
-                </ui-button>
-              `}
-
-              <ui-line></ui-line>
+            ${__PLATFORM__ !== 'safari' &&
+            store.ready(session) &&
+            session.enabled &&
+            !session.contributor &&
+            html`
+              <ui-button type="outline-primary" layout="margin:1:1.5">
+                <a
+                  href="https://astian.org/midori-browser/donate-to-midori/?mtm_campaign=Astian%20Privacy%20Extension"
+                  onclick="${openTabWithUrl}"
+                >
+                  <ui-icon name="heart"></ui-icon>
+                  Become a Contributor
+                </a>
+              </ui-button>
             `}
+
+            <ui-line></ui-line>
 
             <ui-text
               type="label-s"
@@ -130,27 +127,17 @@ export default {
               Support
             </ui-text>
 
-            ${stats.hostname &&
-            html`
-              <panel-menu-item
-                href="${router.url(ReportForm)}"
-                icon="report"
-                internal
-              >
-                Report a broken page
-              </panel-menu-item>
-            `}
 
             <panel-menu-item
-              href="https://www.ghostery.com/submit-a-tracker?utm_source=gbe&utm_campaign=menu-submittracker"
+              href="https://t.me/midoriweb"
               icon="send"
               suffix-icon="link-external-m"
             >
-              Submit a new tracker
+              Community on Telegram
             </panel-menu-item>
 
             <panel-menu-item
-              href="https://www.ghostery.com/support?utm_source=gbe&utm_campaign=menu-contact"
+              href="https://astian.org/support/"
               icon="help"
               suffix-icon="link-external-m"
             >
@@ -169,7 +156,7 @@ export default {
             </ui-text>
 
             <panel-menu-item
-              href="https://www.ghostery.com/?utm_source=gbe&utm_campaign=menu-website"
+              href="https://astian.org"
               icon="ghosty-m"
               suffix-icon="link-external-m"
             >
@@ -178,7 +165,7 @@ export default {
 
             <panel-menu-item
               href="${__PLATFORM__ === 'firefox'
-                ? 'https://addons.mozilla.org/es-ES/firefox/addon/astian-privacy-protect/privacy/'
+                ? 'https://addons.mozilla.org/firefox/addon/astian-privacy-protect/privacy/'
                 : 'https://www.ghostery.com/privacy-policy?utm_source=gbe&utm_campaign=menu-privacypolicy'}"
               icon="privacy-m"
               suffix-icon="link-external-m"
@@ -187,7 +174,7 @@ export default {
             </panel-menu-item>
 
             <panel-menu-item
-              href="https://www.ghostery.com/privacy/ghostery-terms-and-conditions/?utm_source=gbe&utm_campaign=menu-terms"
+              href="https://astian.org/terms-conditions/"
               icon="doc-m"
               suffix-icon="link-external-m"
             >
@@ -195,7 +182,7 @@ export default {
             </panel-menu-item>
 
             <panel-menu-item
-              href="https://www.ghostery.com/privacy/imprint?utm_source=gbe&utm_campaign=menu-imprint"
+              href="https://astian.org/astian-privacy-policies/"
               icon="imprint-m"
               suffix-icon="link-external-m"
               translate="no"

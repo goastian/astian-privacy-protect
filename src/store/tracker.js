@@ -11,15 +11,13 @@
 
 import { store } from 'hybrids';
 
-import TrackerException from '/store/tracker-exception.js';
 import { getTracker, getSimilarTrackers } from '/utils/trackerdb.js';
 
-export default {
+const Tracker = {
   id: true,
   name: '',
   category: '',
   categoryDescription: '',
-  exception: TrackerException,
   organization: {
     id: true,
     name: '',
@@ -29,19 +27,12 @@ export default {
     websiteUrl: '',
     privacyPolicyUrl: '',
   },
-  blockedByDefault: false,
-  adjusted: ({ exception, blockedByDefault }) =>
-    store.ready(exception) &&
-    (exception.blocked !== blockedByDefault ||
-      exception.blockedDomains.length > 0 ||
-      exception.trustedDomains.length > 0),
   [store.connect]: {
     async get(id) {
-      // Load exceptions to memory
-      await store.resolve([TrackerException]);
-
       return getTracker(id);
     },
     list: ({ tracker: id }) => getSimilarTrackers(id),
   },
 };
+
+export default Tracker;

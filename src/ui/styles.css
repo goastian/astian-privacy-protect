@@ -38,10 +38,10 @@ html {
   --color-base-white: #ffffff;
   --color-brand-100: #ebf7fd;
   --color-brand-200: #daf3ff;
-  --color-brand-300: #9affd0;
-  --color-brand-400: #4fffe8;
-  --color-brand-500: hsl(160, 100%, 47%);
-  --color-brand-600: #00b984;
+  --color-brand-300: #9adeff;
+  --color-brand-400: #4fc5ff;
+  --color-brand-500: #00aef0;
+  --color-brand-600: #0077cc;
   --color-brand-700: #004f88;
   --color-brand-800: #00365c;
   --color-brand-900: #0a1e31;
@@ -294,7 +294,7 @@ input {
     --shadow-panel: var(--color-alpha-black-50);
   }
 
-  input {
+  html:not([data-theme='light']) input {
     color-scheme: dark;
   }
 }
@@ -325,6 +325,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+a {
+  outline-color: var(--border-brand-solid);
+}
+
 input::-webkit-search-cancel-button {
   -webkit-appearance: none;
   height: 16px;
@@ -335,11 +339,18 @@ input::-webkit-search-cancel-button {
   background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 4L4 12M4 4L12 12' stroke='%2349556e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
+input::-webkit-file-upload-button,
+input::file-selector-button {
+  width: 0;
+  height: 0;
+  padding: 0;
+  margin: 0;
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}
+
 select option {
   background: var(--background-primary);
   color: var(--color-primary);
-}
-
-a {
-  outline-color: var(--border-brand-solid);
 }

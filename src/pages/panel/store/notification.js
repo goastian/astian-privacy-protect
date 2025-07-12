@@ -37,7 +37,7 @@ const NOTIFICATIONS = {
     action: msg`Enable Ad Blocking Now`,
   },
   review: {
-    icon: 'heart',
+    icon: 'call-for-review',
     type: 'review',
     text: msg`We're so glad Ghostery has your heart! Help others find us too - it only takes a moment.`,
     url: REVIEW_PAGE_URL,
@@ -53,20 +53,19 @@ const CONTRIBUTOR_NOTIFICATION = {
   action: msg`Become a Contributor`,
 };
 
-export default {
+const Notification = {
   icon: '',
   type: '',
   text: '',
   url: '',
   action: '',
   [store.connect]: async () => {
-    const {terms, panel } = await store.resolve(Options);
+    const { terms, panel } = await store.resolve(Options);
 
     // Enable extension notification
-    if(!terms) return NOTIFICATIONS.terms;
-    
-    // Opera SERP support notification
+    if (!terms) return NOTIFICATIONS.terms;
 
+    // Opera SERP support notification
     if (
       __PLATFORM__ === 'chromium' &&
       isOpera() &&
@@ -75,7 +74,7 @@ export default {
       return NOTIFICATIONS.opera;
     }
 
-    //Disable in-panel notifications
+    // Disabled in-panel notifications
     if (!panel.notifications) return null;
 
     // Randomly show review notification (50% chance)
@@ -96,3 +95,5 @@ export default {
     return NOTIFICATIONS.review;
   },
 };
+
+export default Notification;
