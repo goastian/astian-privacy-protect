@@ -16,12 +16,13 @@ import './elements.js';
 import './styles.css';
 
 import Main from './views/main.js';
-import { getBrowserName } from '/utils/browser-info.js';
+import { getBrowser, getOS } from '/utils/browser-info.js';
 
 // Mount the app
 mount(document.body, {
   stack: router([Main]),
-  browserName: { value: getBrowserName, reflect: true },
+  browserName: { value: getBrowser().name, reflect: true },
+  platformName: { value: getOS(), reflect: true },
   render: ({ stack }) => html`<template layout="row">${stack}</template>`,
 });
 
@@ -30,23 +31,6 @@ chrome.runtime.sendMessage({ action: 'telemetry', event: 'engaged' });
 
 // Sync options with background
 chrome.runtime.sendMessage({ action: 'syncOptions' });
-
-// Safari extension popup has a bug, which focuses visibly the first element on the page
-// when the popup is opened. This is a workaround to remove the focus.
-if (__PLATFORM__ === 'safari') {
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      document.body.focus();
-      document.body.addEventListener(
-        'focus',
-        () => {
-          document.body.removeAttribute('tabIndex');
-        },
-        { once: true },
-      );
-    }, 100);
-  });
-}
 
 // Close window when anchor is clicked
 document.addEventListener('click', (event) => {
