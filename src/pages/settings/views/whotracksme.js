@@ -12,6 +12,8 @@
 import { html, msg, store, router } from 'hybrids';
 
 import Options from '/store/options.js';
+import ManagedConfig from '/store/managed-config.js';
+
 import assets from '../assets/index.js';
 
 import Preview from './preview.js';
@@ -36,13 +38,14 @@ const PREVIEWS = {
 
 export default {
   options: store(Options),
-  render: ({ options }) => html`
+  managedConfig: store(ManagedConfig),
+  render: ({ options, managedConfig }) => html`
     <template layout="contents">
       <settings-page-layout layout="gap:4" layout@768px="gap:4">
         <div layout="column gap" layout@992px="margin:bottom">
-          <ui-text type="headline-m" translate="no">Alfra</ui-text>
+          <ui-text type="headline-m" translate="no">WhoTracks.Me</ui-text>
           <ui-text type="body-l" mobile-type="body-m" color="secondary">
-            Alfra, operated by Ghostery, is a vital cornerstone of
+            WhoTracks.Me, operated by Ghostery, is a vital cornerstone of
             Ghostery’s AI anti-tracking technology, playing a crucial role in
             providing real-time privacy protection for the Ghostery community.
             It is a comprehensive global resource on trackers, bringing
@@ -50,13 +53,13 @@ export default {
           </ui-text>
           <ui-text type="body-l" mobile-type="body-m" color="secondary">
             It exists thanks to the micro-contributions of every Ghostery user
-            who chooses to send non-personal information to Alfra. This
+            who chooses to send non-personal information to WhoTracks.Me. This
             input enables Ghostery to provide real-time intel on trackers,
             which, in turn, delivers privacy protection to the entire Ghostery
             community.
           </ui-text>
         </div>
-        ${store.ready(options) &&
+        ${store.ready(options, managedConfig) &&
         html`
           <section layout="column gap:4">
             <ui-toggle
@@ -69,12 +72,12 @@ export default {
                   <settings-help-image>
                     <img
                       src="${assets.wtm_wheel_small}"
-                      alt="Alfra Wheel"
+                      alt="WhoTracks.Me Wheel"
                     />
                   </settings-help-image>
                 </a>
                 <settings-option>
-                  Alfra Wheel
+                  WhoTracks.Me Wheel
                   <span slot="description">
                     Replaces the Ghostery icon in the browser toolbar with the
                     tracker wheel.
@@ -112,6 +115,7 @@ export default {
               value="${options.wtmSerpReport}"
               onchange="${html.set(options, 'wtmSerpReport')}"
               data-qa="toggle:wtmSerpReport"
+              disabled="${managedConfig.disableTrackersPreview}"
             >
               <div layout="row items:start gap:2 grow" layout@768px="gap:3">
                 <a href="${router.url(Preview, PREVIEWS['trackers_preview'])}">
@@ -187,7 +191,7 @@ export default {
                     />
                   </settings-help-image>
                   <settings-option>
-                    Alfra Privacy Report
+                    Your Browser Privacy Report
                     <span slot="description">
                       Generates a global transparency report on web tracking in
                       your Ghostery-protected browser.
