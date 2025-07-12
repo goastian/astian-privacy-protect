@@ -1,19 +1,40 @@
+# Numerous always-ignore extensions
+*.diff
+*.err
+*.orig
+*.log
+*.rej
+*.swo
+*.swp
+*.vi
+*~
+
+# OS or Editor folders
 .DS_Store
-build/
-Compiler/target
-Compiler/deploy
-Compiler/scripts/oneskyapp
-Compiler/bin
-Compiler/.project
-.idea/
-.vscode/
-Compiler/certificate.pem
-*.iml
-tags
-extensions
+.cache
+.eslintcache
+.project
+.settings
+.tmproj
+nbproject
+Thumbs.db
+.tern-project
+.vscode
+
+# NPMs
+node_modules/
+npm-debug.log
+
+# Source
+src/rule_resources
+src/static_pages
+
+# Build
 dist/
-yarn-error.log
-node_modules
-private
-tmp
-output.md
+web-ext-artifacts/
+
+# xcode
+*.xcuserstate
+xcuserdata
+*.xcloc
+xcode/**/*/Package.resolved
