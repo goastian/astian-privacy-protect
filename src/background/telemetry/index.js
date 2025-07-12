@@ -17,7 +17,6 @@ import asyncSetup from '/utils/setup.js';
 import * as OptionsObserver from '/utils/options-observer.js';
 
 import Metrics, { processUrlQuery } from './metrics.js';
-import options from '/pages/panel/components/options.js';
 
 async function detectUTMs() {
   const tabs = await chrome.tabs.query({
@@ -71,11 +70,10 @@ const setup = asyncSetup('telemetry', [
       EXTENSION_VERSION: version,
       storage: metrics,
       saveStorage,
-      getConf: () => store.resolve(Options),
       getConf: async () => ({
         options: await store.resolve(Options),
         userSettings: await chrome.action?.getUserSettings?.(),
-        }),
+      }),
       log: console.log.bind(console, '[telemetry]'),
     });
   })(),

@@ -57,7 +57,7 @@ function addSelector(type, selector) {
   }
 }
 
-function addSelectors(el){
+function addSelectors(el) {
   if (el.className) {
     el.classList.forEach((c) => addSelector('classes', c));
   }
