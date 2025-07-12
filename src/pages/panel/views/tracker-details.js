@@ -9,12 +9,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0
  */
 
-import { html, msg, router, store } from 'hybrids';
+import { html, router, store } from 'hybrids';
 import * as labels from '/ui/labels.js';
 
 import Options, { getPausedDetails } from '/store/options.js';
 import TabStats from '/store/tab-stats.js';
+import ManagedConfig from '/store/managed-config.js';
 
+import * as exceptions from '/utils/exceptions.js';
 import { openTabWithUrl } from '/utils/tabs.js';
 
 import ProtectionStatus from './protection-status.js';
@@ -41,21 +43,30 @@ function showCopyNotification(host) {
 
 export default {
   [router.connect]: { dialog: true },
-  stats: store(TabStats),
   options: store(Options),
+  stats: store(TabStats),
+  managedConfig: store(ManagedConfig),
   trackerId: '',
   tracker: ({ stats, trackerId }) =>
     stats.trackers.find((t) => t.id === trackerId),
-  status: ({ stats, tracker }) =>
-    store.ready(tracker.exception)
-      ? tracker.exception.getDomainStatus(stats.hostname)
-      : { type: tracker.blockedByDefault ? 'block' : 'trust' },
+  exceptionStatus: ({ options, stats, tracker }) =>
+    exceptions.getStatus(options, tracker.id, stats.hostname),
+  exceptionLabel: ({ options, stats, tracker }) =>
+    exceptions.getLabel(options, tracker.id, stats.hostname),
   wtmUrl: ({ tracker }) =>
     tracker.category !== 'unidentified' &&
     `https://www.ghostery.com/whotracksme/trackers/${tracker.id}`,
   paused: ({ options, stats }) =>
     store.ready(options, stats) && !!getPausedDetails(options, stats.hostname),
-  render: ({ tracker, status, wtmUrl, paused, options }) => html`
+  render: ({
+    options,
+    managedConfig,
+    tracker,
+    exceptionStatus,
+    exceptionLabel,
+    wtmUrl,
+    paused,
+  }) => html`
     <template layout="column">
       <panel-dialog>
         <div
@@ -80,7 +91,7 @@ export default {
           </ui-text>
         </div>
         ${options.terms &&
-        !options.managed &&
+        !managedConfig.disableUserControl &&
         html`
           <div
             layout="grid:1|max gap:0.5 padding:1.5 margin:-2 ::background:secondary"
@@ -104,7 +115,7 @@ export default {
                     layout="row gap padding:0:1.5"
                   >
                     <ui-icon
-                      name="${status.type}-m"
+                      name="${exceptionStatus.trusted ? 'trust' : 'block'}-m"
                       color="secondary"
                       layout="size:2"
                     ></ui-icon>
@@ -112,15 +123,7 @@ export default {
                       type="label-m"
                       layout="block:center row gap center padding:2px:0"
                     >
-                      ${status.website
-                        ? (status.type === 'trust' &&
-                            msg`Trusted on this website`) ||
-                          (status.type === 'block' &&
-                            msg`Blocked on this website`)
-                        : (status.type === 'trust' &&
-                            msg`Trusted on all websites`) ||
-                          (status.type === 'block' &&
-                            msg`Blocked on all websites`)}
+                      ${exceptionLabel}
                     </ui-text>
                   </a>
                 </ui-button>`}
