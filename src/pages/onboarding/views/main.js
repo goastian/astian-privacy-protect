@@ -39,7 +39,7 @@ export default {
     <template layout="column gap:2">
       <ui-card layout="gap:2" layout@390px="gap:3">
         <section layout="block:center column gap" layout@390px="margin:2:0:1">
-          <ui-text type="body-m">Welcome to Astian</ui-text>
+          <ui-text type="body-m">Welcome to Astian Privacy</ui-text>
           <ui-text type="display-m">Enable Astian to get started</ui-text>
         </section>
         <div layout="column gap:2">
@@ -74,8 +74,8 @@ export default {
                 ${msg.html`
                   By sharing insights on <a href="${router.url(AddonHealth)}">add-on's health</a> and
                   <a href="${router.url(Performance)}">performance telemetry</a>
-                  as outlined in our <a href="${'https://addons.mozilla.org/es-ES/firefox/addon/astian-privacy-protect/privacy/'}" target="_blank" rel="noreferrer">Privacy Policy</a>,
-                  you help advance privacy protections for the entire Astian Privacy community.
+                  as outlined in our <a href="${'https://addons.mozilla.org/firefox/addon/astian-privacy-protect//'}" target="_blank" rel="noreferrer">Privacy Policy</a>,
+                  you help advance privacy protections for the entire Astian community.
                 `}
               </ui-text>
             </div>
@@ -88,7 +88,7 @@ export default {
                 <a href="${router.url(AddonHealth)}">add-on's health</a>, and
                 <a href="${router.url(Performance)}">performance telemetry</a>
                 will be shared in accordance with our <a href="${router.url(Privacy)}" target="_blank" rel="noreferrer">Privacy Policy</a>,
-                advancing privacy protection for the Astian Privacy community.
+                advancing privacy protection for the Astian community.
               `}
             </ui-text>
           `}
