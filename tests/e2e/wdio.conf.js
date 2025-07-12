@@ -93,10 +93,7 @@ export const config = {
     [
       // Must be the first to enable the extension
       'spec/onboarding.spec.js',
-      'spec/main.spec.js',
-      'spec/advanced.spec.js',
-      'spec/panel.spec.js',
-      'spec/whotracksme.spec.js',
+      'spec/index.spec.js',
     ],
   ],
   reporters: [['spec', { showPreface: false }]],
@@ -122,10 +119,12 @@ export const config = {
     },
     {
       browserName: 'chrome',
+      browserVersion: 'stable',
       'goog:chromeOptions': {
         args: (argv.debug ? [] : ['headless', 'disable-gpu']).concat([
           `--load-extension=${CHROME_PATH}`,
           '--accept-lang=en-GB',
+          '--no-sandbox',
         ]),
       },
     },
