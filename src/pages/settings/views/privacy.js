@@ -82,7 +82,7 @@ export default {
               data-qa="toggle:global-pause"
             >
               <settings-option icon="pause">
-                Pause Ghostery
+                Pause Astian
                 <span slot="description">
                   Suspends privacy protection globally for 1 day.
                 </span>
@@ -281,19 +281,13 @@ export default {
                           You are awesome!
                         </ui-text>
                         <ui-text type="body-s" color="secondary">
-                          Thank you for your support in Ghostery's fight for a
+                          Thank you for your support in Astian's fight for a
                           web where privacy is a basic human right!
                         </ui-text>
                       </div>
                     </div>
                   `
                 : html`
-                    <img
-                      src="${assets['hands']}"
-                      layout="size:12"
-                      alt="Contribution"
-                      slot="picture"
-                    />
                     <div
                       layout="block:center column gap:0.5"
                       layout@768px="block:left row grow gap:5 content:space-between"
@@ -303,7 +297,7 @@ export default {
                           Become a Contributor
                         </ui-text>
                         <ui-text type="body-s" color="secondary">
-                          Help Ghostery fight for a web where privacy is a basic
+                          Help Astian fight for a web where privacy is a basic
                           human right.
                         </ui-text>
                       </div>
