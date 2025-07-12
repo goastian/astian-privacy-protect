@@ -61,7 +61,7 @@ function getWheelElement(stats, popupUrl) {
   const container = document.createElement('div');
   container.classList.add('wtm-tracker-wheel-container');
 
-  const label = document.createElement('label');
+  const label = document.createElement('div');
   label.innerText = count;
 
   const canvas = document.createElement('canvas');
@@ -83,19 +83,44 @@ function getWheelElement(stats, popupUrl) {
   return container;
 }
 
+const SELECTORS = [
+  // Google
+  '[data-hveid] div.yuRUbf > div > span > a',
+  '[data-hveid] div.yuRUbf > div > a',
+  '[data-hveid] div.xpd a.cz3goc',
+  '[data-hveid] > .xpd > div.kCrYT:first-child > a',
+  '[data-hveid] div.OhZyZc > a',
+  // Bing
+  'li[data-id] h2 > a',
+  'li[data-id] div.b_algoheader > a',
+].join(', ');
+
 function setupTrackersPreview(popupUrl) {
-  const elements = [
-    ...window.document.querySelectorAll(
-      '[data-hveid] div.yuRUbf > div > span > a, [data-hveid] div.yuRUbf > div > a, [data-hveid] div.xpd a.cz3goc, [data-hveid] > .xpd > div.kCrYT:first-child > a',
-    ),
-  ].filter((el) => !el.dataset.wtm);
+  const elements = [...window.document.querySelectorAll(SELECTORS)].filter(
+    (el) => !el.dataset.wtm,
+  );
 
   if (elements.length) {
     const links = elements.map((el) => {
       if (el.hostname === window.location.hostname) {
         const url = new URL(el.href);
-        return url.searchParams.get('url') || url.searchParams.get('q');
+
+        // Google
+        if (url.pathname === '/url') {
+          return url.searchParams.get('url') || url.searchParams.get('q');
+        }
+
+        // Bing
+        if (url.pathname === '/ck/a' && url.searchParams.has('u')) {
+          try {
+            const base64Str = url.searchParams.get('u').slice(2);
+            return atob(base64Str) || '';
+          } catch {
+            return '';
+          }
+        }
       }
+
       return el.href;
     });
 
@@ -118,13 +143,16 @@ function setupTrackersPreview(popupUrl) {
               if (!wheelEl) return;
 
               const container =
+                /* Google */
                 // Desktop
                 anchor.parentElement.querySelector('.B6fmyf') ||
                 anchor.parentElement.parentElement.querySelector('.B6fmyf') ||
                 // Mobile
                 anchor.querySelector('span.yIn8Od') ||
                 anchor.querySelector('div[role="link"]') ||
-                anchor.querySelector('div.UPmit.AP7Wnd');
+                anchor.querySelector('div.UPmit.AP7Wnd') ||
+                /* Bing */
+                anchor.parentElement.parentElement.querySelector('.b_tpcn');
 
               if (!container) return;
 
