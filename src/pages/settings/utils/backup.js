@@ -36,7 +36,7 @@ export async function exportToFile() {
 
   const link = Object.assign(document.createElement('a'), {
     href: url,
-    download: `ghostery-settings-${new Date().toISOString()}.json`,
+    download: `astian-settings-${new Date().toISOString()}.json`,
     style: 'display: none',
   });
 
