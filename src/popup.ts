@@ -16,35 +16,80 @@ class PopupManager {
         this.setupEventListeners();
         this.updateUI();
 
+        // Forzar actualización del badge al abrir el popup
+        await this.sendMessage({ action: 'updateBadge' });
+
+        // Escuchar cambios de pestaña para actualizar inmediatamente
+        this.setupTabChangeListener();
+
         // Actualizar datos cada 2 segundos
         setInterval(() => {
             this.loadData().then(() => this.updateUI());
         }, 2000);
     }
 
+    private setupTabChangeListener(): void {
+        // Escuchar cambios de pestaña desde el background script
+        const runtimeAPI = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
+        if (runtimeAPI && runtimeAPI.onMessage) {
+            runtimeAPI.onMessage.addListener((message: any) => {
+                if (message.action === 'tabChanged' || message.action === 'statsUpdated') {
+                    // Actualizar inmediatamente cuando cambie la pestaña
+                    this.forceRefresh();
+                }
+            });
+        }
+
+        // Detectar cuando el popup se vuelve visible para refrescar
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                this.forceRefresh();
+            }
+        });
+    }
+
+    private async forceRefresh(): Promise<void> {
+        try {
+            await this.loadData();
+            this.updateUI();
+        } catch (error) {
+            console.warn('Error refreshing popup:', error);
+            // Mostrar valores por defecto en caso de error
+            this.showDefaultValues();
+        }
+    }
+
+    private showDefaultValues(): void {
+        this.updateElement('currentTabBlocked', '0');
+        this.updateElement('currentTabDataSaved', '0 B');
+        this.updateElement('currentTabTimeSaved', '0ms');
+        this.updateElement('totalBlocked', '0');
+        this.updateElement('dataSaved', '0 B');
+        this.updateElement('timeSaved', '0ms');
+    }
+
     private async loadData(): Promise<void> {
         try {
-            // Cargar estadísticas directamente desde storage
-            const storageAPI = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
-            const statsResult = await new Promise<any>((resolve) => {
-                storageAPI.local.get(['ghosteryStats'], resolve);
-            });
-            if (statsResult.ghosteryStats) {
-                this.stats = statsResult.ghosteryStats;
+            // Obtener estadísticas desde el background script para sincronización
+            const statsResponse = await this.sendMessage({ action: 'getStats' });
+            if (statsResponse) {
+                this.stats = statsResponse;
+            }
 
-                // Obtener estadísticas de la pestaña actual
-                const currentTabId = await this.getCurrentTabId();
-                if (currentTabId && this.stats.tabStats && this.stats.tabStats[currentTabId]) {
-                    this.currentTabStats = this.stats.tabStats[currentTabId];
-                }
+            // Obtener estadísticas de la pestaña actual desde el background script
+            const currentTabResponse = await this.sendMessage({ action: 'getCurrentTabStats' });
+            if (currentTabResponse && currentTabResponse.success) {
+                this.currentTabStats = currentTabResponse.stats;
+            }
 
-                // Preparar estadísticas globales
-                this.globalStats = {
-                    totalBlocked: this.stats.totalBlocked || 0,
-                    totalDataSaved: this.stats.totalDataSaved || 0,
-                    totalTimeSaved: this.stats.totalTimeSaved || 0,
-                    blockedByType: this.stats.blockedByType || { ads: 0, trackers: 0, social: 0, other: 0 }
-                };
+            // Obtener estadísticas globales desde el background script
+            const globalResponse = await this.sendMessage({ action: 'getGlobalStats' });
+            console.log('Global response:', globalResponse);
+            if (globalResponse && globalResponse.success) {
+                this.globalStats = globalResponse.stats;
+                console.log('Global stats loaded:', this.globalStats);
+            } else {
+                console.warn('Failed to load global stats:', globalResponse);
             }
 
             // Cargar configuración
@@ -132,7 +177,7 @@ class PopupManager {
     }
 
     private updateCurrentTabStats(): void {
-        if (this.currentTabStats) {
+        if (this.currentTabStats && this.currentTabStats.blocked !== undefined) {
             this.updateElement('currentTabBlocked', this.currentTabStats.blocked?.toString() || '0');
             this.updateElement('currentTabDataSaved', this.formatBytes(this.currentTabStats.dataSaved || 0));
             this.updateElement('currentTabTimeSaved', this.formatTime(this.currentTabStats.timeSaved || 0));
@@ -140,9 +185,16 @@ class PopupManager {
             // Actualizar gráficos por tipo para pestaña actual
             this.updateCurrentTabTypeCharts();
         } else {
+            // Mostrar valores por defecto cuando no hay datos
             this.updateElement('currentTabBlocked', '0');
             this.updateElement('currentTabDataSaved', '0 B');
             this.updateElement('currentTabTimeSaved', '0ms');
+
+            // Limpiar gráficos
+            this.updateElement('currentTabAdsCount', '0');
+            this.updateElement('currentTabTrackersCount', '0');
+            this.updateElement('currentTabSocialCount', '0');
+            this.updateElement('currentTabOtherCount', '0');
         }
     }
 
@@ -292,6 +344,7 @@ class PopupManager {
     }
 
     private switchView(view: 'currentTab' | 'global'): void {
+        console.log('Switching view to:', view);
         this.currentView = view;
 
         // Actualizar botones de toggle
@@ -318,6 +371,7 @@ class PopupManager {
             document.getElementById('currentTabTypes')?.classList.add('hidden');
         }
 
+        console.log('Global stats available:', this.globalStats);
         this.updateUI();
     }
 
