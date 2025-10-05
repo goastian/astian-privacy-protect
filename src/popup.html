@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdBlock Optimizado</title>
+    <link rel="stylesheet" href="styles/popup.css">
+</head>
+
+<body>
+    <div class="popup-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <img src="icons/icon-32.png" alt="AdBlock" class="logo-icon">
+                <h1>AdBlock Optimizado</h1>
+            </div>
+            <div class="status">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span class="status-text" id="statusText">Activo</span>
+            </div>
+        </header>
+
+        <!-- Stats Toggle -->
+        <section class="stats-toggle">
+            <div class="toggle-buttons">
+                <button class="toggle-btn active" id="currentTabToggle">Pestaña Actual</button>
+                <button class="toggle-btn" id="globalToggle">Global</button>
+            </div>
+        </section>
+
+        <!-- Current Tab Stats -->
+        <section class="stats-overview" id="currentTabStats">
+            <h3>Pestaña Actual</h3>
+            <div class="stat-card">
+                <div class="stat-icon">🚫</div>
+                <div class="stat-content">
+                    <div class="stat-number" id="currentTabBlocked">0</div>
+                    <div class="stat-label">Bloqueados</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">💾</div>
+                <div class="stat-content">
+                    <div class="stat-number" id="currentTabDataSaved">0 B</div>
+                    <div class="stat-label">Datos Ahorrados</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-content">
+                    <div class="stat-number" id="currentTabTimeSaved">0ms</div>
+                    <div class="stat-label">Tiempo Ahorrado</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Global Stats -->
+        <section class="stats-overview hidden" id="globalStats">
+            <h3>Estadísticas Globales</h3>
+            <div class="stat-card">
+                <div class="stat-icon">🚫</div>
+                <div class="stat-content">
+                    <div class="stat-number" id="totalBlocked">0</div>
+                    <div class="stat-label">Bloqueados</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">💾</div>
+                <div class="stat-content">
+                    <div class="stat-number" id="dataSaved">0 B</div>
+                    <div class="stat-label">Datos Ahorrados</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-content">
+                    <div class="stat-number" id="timeSaved">0ms</div>
+                    <div class="stat-label">Tiempo Ahorrado</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Today's Stats -->
+        <section class="today-stats">
+            <h3>Hoy</h3>
+            <div class="today-grid">
+                <div class="today-item">
+                    <span class="today-number" id="blockedToday">0</span>
+                    <span class="today-label">Bloqueados</span>
+                </div>
+                <div class="today-item">
+                    <span class="today-number" id="dataToday">0 B</span>
+                    <span class="today-label">Datos</span>
+                </div>
+                <div class="today-item">
+                    <span class="today-number" id="timeToday">0ms</span>
+                    <span class="today-label">Tiempo</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Blocked by Type - Current Tab -->
+        <section class="blocked-types" id="currentTabTypes">
+            <h3>Bloqueados por Tipo - Pestaña Actual</h3>
+            <div class="type-chart">
+                <div class="type-item">
+                    <div class="type-bar">
+                        <div class="type-fill" id="currentTabAdsBar" style="width: 0%"></div>
+                    </div>
+                    <span class="type-label">Anuncios <span id="currentTabAdsCount">0</span></span>
+                </div>
+                <div class="type-item">
+                    <div class="type-bar">
+                        <div class="type-fill" id="currentTabTrackersBar" style="width: 0%"></div>
+                    </div>
+                    <span class="type-label">Rastreadores <span id="currentTabTrackersCount">0</span></span>
+                </div>
+                <div class="type-item">
+                    <div class="type-bar">
+                        <div class="type-fill" id="currentTabSocialBar" style="width: 0%"></div>
+                    </div>
+                    <span class="type-label">Social <span id="currentTabSocialCount">0</span></span>
+                </div>
+                <div class="type-item">
+                    <div class="type-bar">
+                        <div class="type-fill" id="currentTabOtherBar" style="width: 0%"></div>
+                    </div>
+                    <span class="type-label">Otros <span id="currentTabOtherCount">0</span></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Blocked by Type - Global -->
+        <section class="blocked-types hidden" id="globalTypes">
+            <h3>Bloqueados por Tipo - Global</h3>
+            <div class="type-chart">
+                <div class="type-item">
+                    <div class="type-bar">
+                        <div class="type-fill" id="adsBar" style="width: 0%"></div>
+                    </div>
+                    <span class="type-label">Anuncios <span id="adsCount">0</span></span>
+                </div>
+                <div class="type-item">
+                    <div class="type-bar">
+                        <div class="type-fill" id="trackersBar" style="width: 0%"></div>
+                    </div>
+                    <span class="type-label">Rastreadores <span id="trackersCount">0</span></span>
+                </div>
+                <div class="type-item">
+                    <div class="type-bar">
+                        <div class="type-fill" id="socialBar" style="width: 0%"></div>
+                    </div>
+                    <span class="type-label">Social <span id="socialCount">0</span></span>
+                </div>
+                <div class="type-item">
+                    <div class="type-bar">
+                        <div class="type-fill" id="otherBar" style="width: 0%"></div>
+                    </div>
+                    <span class="type-label">Otros <span id="otherCount">0</span></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance -->
+        <section class="performance">
+            <h3>Rendimiento</h3>
+            <div class="perf-grid">
+                <div class="perf-item">
+                    <span class="perf-label">Memoria</span>
+                    <span class="perf-value" id="memoryUsage">0 MB</span>
+                </div>
+                <div class="perf-item">
+                    <span class="perf-label">CPU</span>
+                    <span class="perf-value" id="cpuUsage">0%</span>
+                </div>
+                <div class="perf-item">
+                    <span class="perf-label">Filtros</span>
+                    <span class="perf-value" id="filterTime">0ms</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Controls -->
+        <section class="controls">
+            <button class="btn btn-primary" id="toggleBtn">
+                <span class="btn-text">Desactivar</span>
+            </button>
+            <button class="btn btn-secondary" id="optionsBtn">Opciones</button>
+            <button class="btn btn-danger" id="resetBtn">Resetear</button>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-stats">
+                <span>Promedio por bloqueo: <span id="avgBlockTime">0ms</span></span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

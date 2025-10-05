@@ -32,6 +32,8 @@ src/static_pages
 # Build
 dist/
 web-ext-artifacts/
+dist-firefox/
+dist-chromium/
 
 # xcode
 *.xcuserstate

@@ -1,0 +1,44 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "lib": [
+            "ES2020",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "module": "ESNext",
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "allowJs": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true,
+        "noEmit": false,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "exactOptionalPropertyTypes": false,
+        "noImplicitReturns": false,
+        "noFallthroughCasesInSwitch": false,
+        "noUncheckedIndexedAccess": false,
+        "noImplicitOverride": false,
+        "allowUnusedLabels": true,
+        "allowUnreachableCode": true
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "dist-firefox",
+        "dist-chromium"
+    ]
+}

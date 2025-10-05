@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página de Prueba - AdBlock</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        .ad-placeholder {
+            background: #ff6b6b;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .tracker-test {
+            background: #4ecdc4;
+            color: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🧪 Página de Prueba para AdBlock</h1>
+
+        <div class="test-section">
+            <h2>📊 Estadísticas del Bloqueador</h2>
+            <p>Esta página contiene elementos que deberían ser bloqueados por el AdBlock:</p>
+
+            <div class="ad-placeholder">
+                🚫 Anuncio Simulado (debería ser bloqueado)
+            </div>
+
+            <div class="tracker-test">
+                📈 Tracker de Google Analytics (debería ser bloqueado)
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 Elementos de Prueba</h2>
+            <p>Los siguientes elementos simulan anuncios y trackers comunes:</p>
+
+            <ul>
+                <li>Google AdSense (doubleclick.net)</li>
+                <li>Google Analytics (analytics.google.com)</li>
+                <li>Facebook Pixel (facebook.com/tr)</li>
+                <li>Amazon Ads (amazon-adsystem.com)</li>
+                <li>Outbrain (outbrain.com)</li>
+                <li>Taboola (taboola.com)</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>📱 Cómo Probar</h2>
+            <ol>
+                <li>Instala la extensión AdBlock en tu navegador</li>
+                <li>Abre las herramientas de desarrollador (F12)</li>
+                <li>Ve a la pestaña "Network" o "Red"</li>
+                <li>Recarga esta página</li>
+                <li>Verifica que las requests a dominios de anuncios sean bloqueadas</li>
+                <li>Abre el popup de la extensión para ver las estadísticas</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 URLs de Prueba</h2>
+            <p>Estas URLs deberían ser bloqueadas:</p>
+            <ul>
+                <li>https://doubleclick.net/ads</li>
+                <li>https://googlesyndication.com/ads</li>
+                <li>https://amazon-adsystem.com/ads</li>
+                <li>https://analytics.google.com/analytics</li>
+                <li>https://facebook.com/tr</li>
+                <li>https://outbrain.com/content</li>
+                <li>https://taboola.com/recommendations</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Scripts de prueba que deberían ser bloqueados -->
+    <script>
+        // Simular carga de anuncios
+        console.log('Cargando página de prueba...');
+
+        // Intentar cargar recursos que deberían ser bloqueados
+        const testUrls = [
+            'https://doubleclick.net/ads',
+            'https://googlesyndication.com/ads',
+            'https://amazon-adsystem.com/ads',
+            'https://analytics.google.com/analytics',
+            'https://facebook.com/tr',
+            'https://outbrain.com/content',
+            'https://taboola.com/recommendations'
+        ];
+
+        testUrls.forEach(url => {
+            fetch(url).catch(error => {
+                console.log(`✅ Bloqueado: ${url}`, error);
+            });
+        });
+    </script>
+</body>
+
+</html>

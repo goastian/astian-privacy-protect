@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opciones - AdBlock Optimizado</title>
+    <link rel="stylesheet" href="styles/options.css">
+</head>
+
+<body>
+    <div class="options-container">
+        <header class="header">
+            <div class="logo">
+                <img src="icons/icon-64.png" alt="AdBlock" class="logo-icon">
+                <h1>AdBlock Optimizado - Opciones</h1>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="settings-section">
+                <h2>Configuración General</h2>
+
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="enabled" checked>
+                        <span class="checkmark"></span>
+                        Habilitar AdBlock
+                    </label>
+                    <p class="setting-description">Activa o desactiva el bloqueador de anuncios</p>
+                </div>
+
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="blockAds" checked>
+                        <span class="checkmark"></span>
+                        Bloquear Anuncios
+                    </label>
+                    <p class="setting-description">Bloquea anuncios publicitarios</p>
+                </div>
+
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="blockTrackers" checked>
+                        <span class="checkmark"></span>
+                        Bloquear Rastreadores
+                    </label>
+                    <p class="setting-description">Bloquea scripts de seguimiento y analytics</p>
+                </div>
+
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="blockSocial">
+                        <span class="checkmark"></span>
+                        Bloquear Redes Sociales
+                    </label>
+                    <p class="setting-description">Bloquea botones y widgets de redes sociales</p>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h2>Listas de Filtros</h2>
+
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="performanceMode" checked>
+                        <span class="checkmark"></span>
+                        Modo de Alto Rendimiento
+                    </label>
+                    <p class="setting-description">Optimiza el rendimiento sacrificando algunas funciones</p>
+                </div>
+
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="showStats" checked>
+                        <span class="checkmark"></span>
+                        Mostrar Estadísticas
+                    </label>
+                    <p class="setting-description">Muestra estadísticas de bloqueo en el popup</p>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h2>Lista Blanca</h2>
+                <div class="whitelist-container">
+                    <div class="input-group">
+                        <input type="text" id="whitelistInput" placeholder="ejemplo.com">
+                        <button id="addWhitelist" class="btn btn-primary">Agregar</button>
+                    </div>
+                    <div id="whitelistItems" class="whitelist-items"></div>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h2>Lista Negra</h2>
+                <div class="blacklist-container">
+                    <div class="input-group">
+                        <input type="text" id="blacklistInput" placeholder="sitio-malicioso.com">
+                        <button id="addBlacklist" class="btn btn-danger">Agregar</button>
+                    </div>
+                    <div id="blacklistItems" class="blacklist-items"></div>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h2>Actualizaciones</h2>
+                <div class="setting-item">
+                    <label for="updateInterval" class="setting-label">Intervalo de Actualización (horas)</label>
+                    <select id="updateInterval" class="select-input">
+                        <option value="6">6 horas</option>
+                        <option value="12">12 horas</option>
+                        <option value="24" selected>24 horas</option>
+                        <option value="48">48 horas</option>
+                        <option value="168">1 semana</option>
+                    </select>
+                    <p class="setting-description">Con qué frecuencia actualizar las listas de filtros</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <div class="footer-actions">
+                <button id="saveSettings" class="btn btn-primary">Guardar Configuración</button>
+                <button id="resetSettings" class="btn btn-secondary">Restaurar Predeterminados</button>
+                <button id="exportSettings" class="btn btn-secondary">Exportar Configuración</button>
+                <button id="importSettings" class="btn btn-secondary">Importar Configuración</button>
+            </div>
+            <div class="footer-info">
+                <p>AdBlock Optimizado v2.0.5</p>
+                <p>Compatible con Firefox y Chrome</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+
+</html>
