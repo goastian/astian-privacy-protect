@@ -102,7 +102,7 @@ runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) 
         case 'getCurrentTabStats':
             try {
                 const astianStats = AstianStats.getInstance();
-                const currentTabStats = AstianStats.getCurrentTabStats();
+                const currentTabStats = astianStats.getCurrentTabStats();
                 sendResponse({ success: true, stats: currentTabStats });
             } catch (error) {
                 sendResponse({ success: false, error: (error as Error).message });
@@ -112,7 +112,7 @@ runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) 
         case 'getGlobalStats':
             try {
                 const astianStats = AstianStats.getInstance();
-                const globalStats = AstianStats.getGlobalStats();
+                const globalStats = astianStats.getGlobalStats();
                 sendResponse({ success: true, stats: globalStats });
             } catch (error) {
                 sendResponse({ success: false, error: (error as Error).message });
@@ -122,7 +122,7 @@ runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) 
         case 'getTabStats':
             try {
                 const astianStats = AstianStats.getInstance();
-                const tabStats = AstianStats.getTabStats(request.tabId);
+                const tabStats = astianStats.getTabStats(request.tabId);
                 sendResponse({ success: true, stats: tabStats });
             } catch (error) {
                 sendResponse({ success: false, error: (error as Error).message });
@@ -149,7 +149,7 @@ const tabsAPI = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
     if (changeInfo.status === 'complete' && tab.url) {
         // Establecer la pestaña actual en el sistema de estadísticas
         const astianStats = AstianStats.getInstance();
-        AstianStats.setCurrentTab(tabId.toString());
+        astianStats.setCurrentTab(tabId.toString());
 
         // Actualizar badge con estadísticas de la pestaña actual
         updateBadge();
@@ -159,7 +159,7 @@ const tabsAPI = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
 // Manejar cuando se activa una pestaña
 (tabsAPI as any).onActivated.addListener(async (activeInfo: any) => {
     const astianStats = AstianStats.getInstance();
-    AstianStats.setCurrentTab(activeInfo.tabId.toString());
+    astianStats.setCurrentTab(activeInfo.tabId.toString());
 
     // Actualizar badge con estadísticas de la pestaña actual
     updateBadge();
@@ -183,7 +183,7 @@ async function updateBadge(): Promise<void> {
 
         const currentTabId = tabs[0].id.toString();
         const astianStats = AstianStats.getInstance();
-        const currentTabStats = AstianStats.getTabStats(currentTabId);
+        const currentTabStats = astianStats.getTabStats(currentTabId);
 
         // Mostrar número de bloqueos de la pestaña actual en el badge
         const blockedCount = currentTabStats ? currentTabStats.blocked : 0;
