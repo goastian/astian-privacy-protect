@@ -1,76 +1,64 @@
 {
-  "name": "astian-privacy-protect",
-  "private": true,
-  "version": "2.0.6",
-  "type": "module",
-  "scripts": {
-    "build": "node scripts/build.js",
-    "start": "npm run build -- --watch",
-    "start:update": "./scripts/update.sh",
-    "debug": "npm run build -- --watch --debug",
-    "lint": "npm run lint:src && npm run lint:build",
-    "lint:src": "eslint",
-    "lint:build": "npm run build firefox -- --silent && addons-linter dist",
-    "test": "npm run wdio && npm run wdio:update",
-    "wdio": "wdio tests/e2e/wdio.conf.js",
-    "wdio:update": "wdio tests/e2e/wdio.update.conf.js",
-    "locales:setup": "cp -f ./src/messages.json ./src/_locales/en/messages.json",
-    "locales.src": "hybrids extract -c --format=chrome.i18n ./src ./src/_locales/en/messages.json",
-    "locales": "npm run locales:setup && npm run locales.src",
-    "xcode-export-locales": "rm -rf ./xcode/en.xcloc && xcodebuild -exportLocalizations -project ./xcode/Ghostery.xcodeproj -localizationPath ./xcode",
-    "release": "./scripts/release.sh",
-    "package": "./scripts/package.sh"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.30.0",
-    "@types/chrome": "^0.0.328",
-    "@wdio/browser-runner": "^9.16.2",
-    "@wdio/cli": "^9.16.2",
-    "@wdio/globals": "^9.12.7",
-    "@wdio/mocha-framework": "^9.12.6",
-    "@wdio/spec-reporter": "^9.16.2",
-    "addons-linter": "^7.15.0",
-    "eslint": "^9.30.0",
-    "eslint-config-prettier": "^10.1.5",
-    "eslint-plugin-prettier": "^5.5.1",
-    "globals": "^16.2.0",
-    "license-report": "^6.8.0",
-    "prettier": "^3.5.3",
-    "sinon-chrome": "^3.0.1",
-    "vite": "^7.0.0",
-    "web-ext": "^8.8.0",
-    "webextension-polyfill": "^0.12.0"
-  },
-  "dependencies": {
-    "@duckduckgo/autoconsent": "^14.5.0",
-    "@ghostery/adblocker": "^2.8.0",
-    "@ghostery/adblocker-webextension": "^2.8.0",
-    "@ghostery/scriptlets": "github:ghostery/scriptlets",
-    "@github/relative-time-element": "^4.4.8",
-    "@sentry/browser": "^9.33.0",
-    "@whotracksme/reporting": "^7.4.0",
-    "apexsankey": "github:ghostery/apexsankey",
-    "bowser": "^2.11.0",
-    "hybrids": "^9.1.18",
-    "idb": "^8.0.2",
-    "jwt-decode": "^4.0.0",
-    "plotly.js-basic-dist": "^3.0.1",
-    "tldts-experimental": "^7.0.9"
-  },
-  "dataDependencies": {
-    "wtm-stats": "3945e726252be455fbdd26be41e8c25d4c248320"
-  },
-  "engineStrict": true,
-  "engines": {
-    "npm": ">=9.6.7"
-  },
-  "webExt": {
-    "sourceDir": "./dist/"
-  },
-  "author": {
-    "name": "Astian Inc",
-    "email": "contact@astian.org",
-    "url": "https://astian.org"
-  },
-  "license": "GPL-3.0"
+    "name": "astian-privacy-protect",
+    "version": "2.0.5",
+    "description": "Lightweight, fast, and secure ad blocker.",
+    "main": "index.js",
+    "scripts": {
+        "build": "webpack --mode=production",
+        "dev": "webpack --mode=development --watch",
+        "build:firefox": "npm run build && node build-firefox.js",
+        "build:chromium": "npm run build && node build-chromium.js",
+        "build:all": "npm run build:firefox && npm run build:chromium",
+        "package:firefox": "npm run build:firefox && cd dist-firefox && zip -r ../adblock-firefox.xpi .",
+        "package:chromium": "npm run build:chromium && cd dist-chromium && zip -r ../adblock-chromium.zip .",
+        "package:all": "npm run package:firefox && npm run package:chromium",
+        "test": "jest",
+        "lint": "eslint src/",
+        "lint:fix": "eslint src/ --fix",
+        "clean": "rm -rf dist dist-firefox dist-chromium *.xpi *.zip"
+    },
+    "keywords": [
+        "adblocker",
+        "privacy",
+        "extension",
+        "firefox",
+        "chromium",
+        "astian",
+        "midori block",
+        "midori browser adblock",
+        "adblock extension",
+        "adblocker with stats",
+        "adblocker with detailed statistics",
+        "astian privacy protect",
+        "astian adblock",
+        "astian adblock extension",
+        "astian adblocker",
+        "astian privacy"
+    ],
+    "author": "AdBlock Extension",
+    "license": "MPL-2.0",
+    "devDependencies": {
+        "@types/chrome": "^0.0.254",
+        "@types/webextension-polyfill": "^0.10.4",
+        "@types/node": "^20.10.0",
+        "@types/jest": "^29.5.8",
+        "jest": "^29.7.0",
+        "ts-jest": "^29.1.1",
+        "jest-dom": "^5.16.5",
+        "webpack": "^5.89.0",
+        "webpack-cli": "^5.1.4",
+        "ts-loader": "^9.5.1",
+        "typescript": "^5.3.3",
+        "eslint": "^8.56.0",
+        "@typescript-eslint/eslint-plugin": "^6.13.0",
+        "@typescript-eslint/parser": "^6.13.0",
+        "web-ext": "^7.8.0",
+        "copy-webpack-plugin": "^11.0.0",
+        "css-loader": "^6.8.1",
+        "style-loader": "^3.3.3"
+    },
+    "dependencies": {
+        "@ghostery/adblocker-webextension": "^2.12.1",
+        "webextension-polyfill": "^0.10.0"
+    }
 }
