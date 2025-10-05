@@ -191,7 +191,6 @@ class ContentAdBlocker {
             this.observer = null;
         }
     }
-
 }
 
 // Inicializar el content blocker

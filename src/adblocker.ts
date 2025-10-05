@@ -1,40 +1,19 @@
 import { WebExtensionBlocker } from '@ghostery/adblocker-webextension';
 import { GhosteryStats } from './ghostery-stats';
-
-export interface AdBlockerConfig {
-    enabled: boolean;
-    whitelist: string[];
-    blacklist: string[];
-    blockAds: boolean;
-    blockTrackers: boolean;
-    blockSocial: boolean;
-    blockOther: boolean;
-}
-
-const defaultConfig: AdBlockerConfig = {
-    enabled: true,
-    whitelist: [],
-    blacklist: [],
-    blockAds: true,
-    blockTrackers: true,
-    blockSocial: true,
-    blockOther: true
-};
+import { AdBlockConfig } from './types';
 
 export class AdBlocker {
     private static instance: AdBlocker;
     private blocker: WebExtensionBlocker | null = null;
     private statsManager: GhosteryStats;
-    private config: AdBlockerConfig = defaultConfig;
+    private config: AdBlockConfig;
     private isInitialized = false;
+    private webRequestListener: ((details: any) => Promise<chrome.webRequest.BlockingResponse | undefined>) | null = null;
 
     private constructor() {
         this.statsManager = GhosteryStats.getInstance();
-        this.loadConfig().then(() => {
-            if (this.config.enabled) {
-                this.initialize();
-            }
-        });
+        this.config = this.getDefaultConfig();
+        this.loadConfig();
     }
 
     public static getInstance(): AdBlocker {
@@ -44,11 +23,27 @@ export class AdBlocker {
         return AdBlocker.instance;
     }
 
+    private getDefaultConfig(): AdBlockConfig {
+        return {
+            enabled: true,
+            blockAds: true,
+            blockTrackers: true,
+            blockSocial: false,
+            whitelist: [],
+            blacklist: [],
+            updateInterval: 24, // 24 horas
+            showStats: true,
+            performanceMode: true
+        };
+    }
+
     private async loadConfig(): Promise<void> {
         try {
-            const result = await browser.storage.local.get(['adBlockerConfig']);
-            if (result.adBlockerConfig) {
-                this.config = { ...defaultConfig, ...result.adBlockerConfig };
+            const result = await new Promise<any>((resolve) => {
+                chrome.storage.local.get(['adblockConfig'], resolve);
+            });
+            if (result.adblockConfig) {
+                this.config = { ...this.getDefaultConfig(), ...result.adblockConfig };
             }
         } catch (error) {
             console.error('Error loading config:', error);
@@ -57,7 +52,9 @@ export class AdBlocker {
 
     private async saveConfig(): Promise<void> {
         try {
-            await browser.storage.local.set({ adBlockerConfig: this.config });
+            await new Promise<void>((resolve) => {
+                chrome.storage.local.set({ adblockConfig: this.config }, resolve);
+            });
         } catch (error) {
             console.error('Error saving config:', error);
         }
@@ -74,7 +71,7 @@ export class AdBlocker {
             // Crear el bloqueador de Ghostery
             this.blocker = await WebExtensionBlocker.fromPrebuiltAdsAndTracking();
 
-            // Configurar el bloqueador
+            // Configurar el bloqueador (sin parámetros para evitar el error de WeakMap)
             try {
                 await (this.blocker as any).enableBlockingInBrowser();
             } catch (blockerError) {
@@ -104,12 +101,22 @@ export class AdBlocker {
         try {
             const webRequest = browser.webRequest;
 
+            // Remover listeners existentes primero
+            if (this.webRequestListener) {
+                webRequest.onBeforeRequest.removeListener(this.webRequestListener);
+            }
+
+            // Crear nuevo listener
+            this.webRequestListener = (details: any) => this.handleRequest(details);
+
             // Firefox: con blocking
             (webRequest.onBeforeRequest as any).addListener(
-                (details: any) => this.handleRequest(details),
+                this.webRequestListener,
                 { urls: ['<all_urls>'] },
                 ['blocking']
             );
+
+            console.log('WebRequest blocking listener added');
         } catch (error) {
             console.warn('Could not setup webRequest blocking:', error);
         }
@@ -120,6 +127,7 @@ export class AdBlocker {
             const shouldBlock = await this.shouldBlockRequest(details.url);
 
             if (shouldBlock) {
+                console.log('Blocking request:', details.url);
                 await this.recordBlockedRequest(details);
                 return { cancel: true };
             }
@@ -132,15 +140,20 @@ export class AdBlocker {
     }
 
     private async shouldBlockRequest(url: string): Promise<boolean> {
-        if (!this.config.enabled) return false;
+        if (!this.config.enabled) {
+            console.log('AdBlocker disabled, not blocking:', url);
+            return false;
+        }
 
         // Verificar si la URL está en la lista blanca
         if (this.config.whitelist.some(domain => url.includes(domain))) {
+            console.log('URL whitelisted:', url);
             return false;
         }
 
         // Verificar si la URL está en la lista negra
         if (this.config.blacklist.some(domain => url.includes(domain))) {
+            console.log('URL blacklisted:', url);
             return true;
         }
 
@@ -168,7 +181,13 @@ export class AdBlocker {
         ];
 
         const urlLower = url.toLowerCase();
-        return adPatterns.some(pattern => urlLower.includes(pattern.toLowerCase()));
+        const shouldBlock = adPatterns.some(pattern => urlLower.includes(pattern.toLowerCase()));
+
+        if (shouldBlock) {
+            console.log('Should block URL:', url);
+        }
+
+        return shouldBlock;
     }
 
     private async recordBlockedRequest(details: chrome.webRequest.WebRequestBodyDetails): Promise<void> {
@@ -188,7 +207,8 @@ export class AdBlocker {
 
         // Notificar al background script para actualizar el badge
         try {
-            browser.runtime.sendMessage({ action: 'updateBadge' });
+            const runtimeAPI = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
+            runtimeAPI.sendMessage({ action: 'updateBadge' });
         } catch (error) {
             console.warn('Could not update badge:', error);
         }
@@ -198,21 +218,36 @@ export class AdBlocker {
         const urlLower = url.toLowerCase();
 
         // Patrones para detectar tipos de contenido
-        if (urlLower.includes('doubleclick') || urlLower.includes('googlesyndication') ||
-            urlLower.includes('amazon-adsystem') || urlLower.includes('outbrain') ||
-            urlLower.includes('taboola') || urlLower.includes('googleadservices') ||
-            urlLower.includes('googletagservices')) {
+        const adPatterns = [
+            'ads', 'advertisement', 'banner', 'popup', 'sponsor',
+            'doubleclick', 'googlesyndication', 'amazon-adsystem',
+            'adsystem', 'adnxs', 'adsafeprotected', 'outbrain'
+        ];
+
+        const trackerPatterns = [
+            'analytics', 'tracking', 'metrics', 'telemetry',
+            'google-analytics', 'googletagmanager', 'facebook.com/tr',
+            'doubleclick', 'googlesyndication', 'quantserve'
+        ];
+
+        const socialPatterns = [
+            'facebook.com', 'twitter.com', 'instagram.com',
+            'linkedin.com', 'pinterest.com', 'tiktok.com',
+            'youtube.com', 'snapchat.com'
+        ];
+
+        // Verificar patrones de anuncios
+        if (adPatterns.some(pattern => urlLower.includes(pattern))) {
             return 'ads';
         }
 
-        if (urlLower.includes('analytics') || urlLower.includes('googletagmanager') ||
-            urlLower.includes('quantserve') || urlLower.includes('scorecardresearch') ||
-            urlLower.includes('hotjar') || urlLower.includes('mixpanel') ||
-            urlLower.includes('segment') || urlLower.includes('amplitude')) {
+        // Verificar patrones de rastreadores
+        if (trackerPatterns.some(pattern => urlLower.includes(pattern))) {
             return 'trackers';
         }
 
-        if (urlLower.includes('facebook.com/tr')) {
+        // Verificar patrones de redes sociales
+        if (socialPatterns.some(pattern => urlLower.includes(pattern))) {
             return 'social';
         }
 
@@ -221,71 +256,83 @@ export class AdBlocker {
 
     private estimateRequestSize(details: any): number {
         // Estimación básica del tamaño de la request
-        const urlLength = details.url.length;
-        const headersSize = 200; // Tamaño estimado de headers
-        return urlLength + headersSize;
+        const baseSize = 1024; // 1KB base
+        const urlLength = details.url?.length || 0;
+        const headersSize = 500; // Estimación de headers
+
+        return baseSize + urlLength + headersSize;
     }
 
     private estimateLoadTime(details: any): number {
         // Estimación del tiempo de carga basada en el tipo de request
-        const url = details.url.toLowerCase();
-        if (url.includes('script') || url.includes('js')) {
-            return 50; // Scripts suelen tardar más
-        } else if (url.includes('image') || url.includes('img')) {
-            return 30; // Imágenes medianas
-        } else {
-            return 20; // Otros recursos
+        const baseTime = 100; // 100ms base
+
+        if (details.type === 'image') {
+            return baseTime + 200; // Imágenes toman más tiempo
+        } else if (details.type === 'script') {
+            return baseTime + 300; // Scripts pueden ser pesados
+        } else if (details.type === 'stylesheet') {
+            return baseTime + 150; // CSS es más rápido
         }
+
+        return baseTime;
     }
 
-    public async enable(): Promise<void> {
-        if (this.blocker) {
-            try {
-                await (this.blocker as any).enableBlockingInBrowser();
-            } catch (error) {
-                console.warn('Ghostery blocker failed to enable, using fallback:', error);
-            }
-        }
-        this.config.enabled = true;
+    public async toggle(): Promise<void> {
+        this.config.enabled = !this.config.enabled;
         await this.saveConfig();
-        this.setupStatsListeners(); // Re-setup listeners to ensure blocking is active
+
+        if (this.config.enabled) {
+            await this.initialize();
+        } else {
+            await this.disable();
+        }
     }
 
     public async disable(): Promise<void> {
         if (this.blocker) {
-            try {
-                await (this.blocker as any).disableBlockingInBrowser();
-            } catch (error) {
-                console.warn('Ghostery blocker failed to disable, using fallback:', error);
-            }
+            await (this.blocker as any).disableBlockingInBrowser();
         }
         this.config.enabled = false;
         await this.saveConfig();
-        // Remove listeners if needed, or ensure they don't block when disabled
+        this.cleanupListeners();
+    }
+
+    private cleanupListeners(): void {
+        try {
+            if (this.webRequestListener) {
+                browser.webRequest.onBeforeRequest.removeListener(this.webRequestListener);
+                this.webRequestListener = null;
+                console.log('WebRequest listeners cleaned up');
+            }
+        } catch (error) {
+            console.warn('Error cleaning up listeners:', error);
+        }
     }
 
     public isEnabled(): boolean {
         return this.config.enabled;
     }
 
-    public getConfig(): AdBlockerConfig {
+    public getConfig(): AdBlockConfig {
         return { ...this.config };
     }
 
-    public async updateConfig(newConfig: Partial<AdBlockerConfig>): Promise<void> {
+    public async updateConfig(newConfig: Partial<AdBlockConfig>): Promise<void> {
         this.config = { ...this.config, ...newConfig };
         await this.saveConfig();
-        // Re-initialize if enabled state changes
-        if (newConfig.enabled !== undefined) {
-            if (newConfig.enabled) {
-                await this.enable();
-            } else {
-                await this.disable();
-            }
-        }
     }
 
     public getStats(): any {
         return this.statsManager.getFormattedStats();
+    }
+
+    public async resetStats(): Promise<void> {
+        await this.statsManager.resetStats();
+    }
+
+    public async reinitialize(): Promise<void> {
+        this.isInitialized = false;
+        await this.initialize();
     }
 }

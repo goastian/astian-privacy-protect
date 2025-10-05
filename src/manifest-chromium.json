@@ -1,5 +1,5 @@
 {
-    "manifest_version": 2,
+    "manifest_version": 3,
     "name": "AdBlock Optimizado",
     "version": "2.0.5",
     "description": "Bloqueador de anuncios avanzado con estadísticas por pestaña y globales",
@@ -9,13 +9,14 @@
         "webRequest",
         "webRequestBlocking",
         "activeTab",
+        "scripting"
+    ],
+    "host_permissions": [
         "<all_urls>"
     ],
     "background": {
-        "scripts": [
-            "background.js"
-        ],
-        "persistent": true
+        "service_worker": "background.js",
+        "type": "module"
     },
     "content_scripts": [
         {
@@ -28,7 +29,7 @@
             "run_at": "document_start"
         }
     ],
-    "browser_action": {
+    "action": {
         "default_popup": "popup.html",
         "default_title": "AdBlock Optimizado",
         "default_icon": {
@@ -46,6 +47,13 @@
         "128": "icons/icon-128.png"
     },
     "web_accessible_resources": [
-        "icons/*"
+        {
+            "resources": [
+                "icons/*"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
     ]
 }

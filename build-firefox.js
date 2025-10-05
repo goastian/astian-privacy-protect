@@ -43,5 +43,64 @@ fs.copyFileSync(
     path.join(firefoxDir, 'manifest.json')
 );
 
+// Ensure that the Firefox manifest has the correct structure
+const firefoxManifest = {
+    "manifest_version": 2,
+    "name": "Astian Privacy",
+    "version": "2.0.5",
+    "description": "Lightweight, fast, and secure ad blocker with detailed statistics and improved performance for Firefox",
+    "permissions": [
+        "storage",
+        "tabs",
+        "webRequest",
+        "webRequestBlocking",
+        "activeTab",
+        "unlimitedStorage",
+        "<all_urls>"
+    ],
+    "background": {
+        "scripts": ["vendors.js", "background.js"],
+        "persistent": true
+    },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"],
+            "run_at": "document_start"
+        }
+    ],
+    "browser_action": {
+        "default_popup": "popup.html",
+        "default_title": "Astian Privacy",
+        "default_icon": {
+            "16": "icons/icon-16.png",
+            "32": "icons/icon-32.png",
+            "48": "icons/icon-48.png",
+            "128": "icons/icon-128.png"
+        }
+    },
+    "options_page": "options.html",
+    "icons": {
+        "16": "icons/icon-16.png",
+        "32": "icons/icon-32.png",
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png"
+    },
+    "web_accessible_resources": [
+        "styles/*"
+    ],
+    "applications": {
+        "gecko": {
+            "id": "adblock-optimizado@example.com",
+            "strict_min_version": "78.0"
+        }
+    }
+};
+
+fs.writeFileSync(
+    path.join(firefoxDir, 'manifest.json'),
+    JSON.stringify(firefoxManifest, null, 2)
+);
+
 console.log('Firefox extension built successfully!');
 console.log(`Output directory: ${firefoxDir}`);

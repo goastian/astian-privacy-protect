@@ -25,20 +25,17 @@ class PopupManager {
     private async loadData(): Promise<void> {
         try {
             // Cargar estadísticas directamente desde storage
-            const statsResult = await browser.storage.local.get(['ghosteryStats']);
+            const storageAPI = typeof browser !== 'undefined' ? browser.storage : chrome.storage;
+            const statsResult = await new Promise<any>((resolve) => {
+                storageAPI.local.get(['ghosteryStats'], resolve);
+            });
             if (statsResult.ghosteryStats) {
                 this.stats = statsResult.ghosteryStats;
 
                 // Obtener estadísticas de la pestaña actual
                 const currentTabId = await this.getCurrentTabId();
-                console.log('Current tab ID:', currentTabId);
-                console.log('Tab stats available:', this.stats.tabStats);
                 if (currentTabId && this.stats.tabStats && this.stats.tabStats[currentTabId]) {
                     this.currentTabStats = this.stats.tabStats[currentTabId];
-                    console.log('Current tab stats loaded:', this.currentTabStats);
-                } else {
-                    console.log('No current tab stats found');
-                    this.currentTabStats = null;
                 }
 
                 // Preparar estadísticas globales
@@ -63,7 +60,10 @@ class PopupManager {
 
     private async getCurrentTabId(): Promise<string | null> {
         try {
-            const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+            const tabsAPI = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
+            const tabs = await new Promise<any>((resolve) => {
+                tabsAPI.query({ active: true, currentWindow: true }, resolve);
+            });
             return tabs && tabs[0] ? tabs[0].id.toString() : null;
         } catch (error) {
             console.error('Error getting current tab:', error);
@@ -343,9 +343,10 @@ class PopupManager {
 
     private async sendMessage(message: any): Promise<any> {
         return new Promise((resolve) => {
-            browser.runtime.sendMessage(message, (response: any) => {
-                if (browser.runtime.lastError) {
-                    console.error('Runtime error:', browser.runtime.lastError);
+            const runtimeAPI = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
+            runtimeAPI.sendMessage(message, (response: any) => {
+                if (runtimeAPI.lastError) {
+                    console.error('Runtime error:', runtimeAPI.lastError);
                     resolve(null);
                 } else {
                     resolve(response);
