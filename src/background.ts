@@ -1,5 +1,5 @@
 import { AdBlocker } from './adblocker';
-import { GhosteryStats } from './ghostery-stats';
+import { AstianStats } from './astian-stats';
 import { RequestMonitor } from './request-monitor';
 
 // Inicializar el bloqueador cuando se instala la extensión
@@ -8,7 +8,7 @@ browser.runtime.onInstalled.addListener(async (details: any) => {
 
     try {
         // Inicializar sistema de estadísticas primero
-        const statsManager = GhosteryStats.getInstance();
+        const statsManager = AstianStats.getInstance();
         await statsManager.loadStats();
 
         // Inicializar el bloqueador
@@ -55,8 +55,8 @@ runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) 
     switch (request.action) {
         case 'getStats':
             try {
-                const ghosteryStats = GhosteryStats.getInstance();
-                const stats = ghosteryStats.getFormattedStats();
+                const astianStats = AstianStats.getInstance();
+                const stats = astianStats.getFormattedStats();
                 sendResponse(stats);
             } catch (error) {
                 sendResponse({ error: (error as Error).message });
@@ -101,8 +101,8 @@ runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) 
 
         case 'getCurrentTabStats':
             try {
-                const ghosteryStats = GhosteryStats.getInstance();
-                const currentTabStats = ghosteryStats.getCurrentTabStats();
+                const astianStats = AstianStats.getInstance();
+                const currentTabStats = AstianStats.getCurrentTabStats();
                 sendResponse({ success: true, stats: currentTabStats });
             } catch (error) {
                 sendResponse({ success: false, error: (error as Error).message });
@@ -111,8 +111,8 @@ runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) 
 
         case 'getGlobalStats':
             try {
-                const ghosteryStats = GhosteryStats.getInstance();
-                const globalStats = ghosteryStats.getGlobalStats();
+                const astianStats = AstianStats.getInstance();
+                const globalStats = AstianStats.getGlobalStats();
                 sendResponse({ success: true, stats: globalStats });
             } catch (error) {
                 sendResponse({ success: false, error: (error as Error).message });
@@ -121,8 +121,8 @@ runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) 
 
         case 'getTabStats':
             try {
-                const ghosteryStats = GhosteryStats.getInstance();
-                const tabStats = ghosteryStats.getTabStats(request.tabId);
+                const astianStats = AstianStats.getInstance();
+                const tabStats = AstianStats.getTabStats(request.tabId);
                 sendResponse({ success: true, stats: tabStats });
             } catch (error) {
                 sendResponse({ success: false, error: (error as Error).message });
@@ -148,8 +148,8 @@ const tabsAPI = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
 (tabsAPI.onUpdated as any).addListener((tabId: number, changeInfo: any, tab: any) => {
     if (changeInfo.status === 'complete' && tab.url) {
         // Establecer la pestaña actual en el sistema de estadísticas
-        const ghosteryStats = GhosteryStats.getInstance();
-        ghosteryStats.setCurrentTab(tabId.toString());
+        const astianStats = AstianStats.getInstance();
+        AstianStats.setCurrentTab(tabId.toString());
 
         // Actualizar badge con estadísticas de la pestaña actual
         updateBadge();
@@ -158,14 +158,14 @@ const tabsAPI = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
 
 // Manejar cuando se activa una pestaña
 (tabsAPI as any).onActivated.addListener(async (activeInfo: any) => {
-    const ghosteryStats = GhosteryStats.getInstance();
-    ghosteryStats.setCurrentTab(activeInfo.tabId.toString());
+    const astianStats = AstianStats.getInstance();
+    AstianStats.setCurrentTab(activeInfo.tabId.toString());
 
     // Actualizar badge con estadísticas de la pestaña actual
     updateBadge();
 
     // Limpiar pestañas antiguas
-    await ghosteryStats.cleanupOldTabs();
+    await astianStats.cleanupOldTabs();
 });
 
 // Función para actualizar el badge de la extensión
@@ -182,8 +182,8 @@ async function updateBadge(): Promise<void> {
         }
 
         const currentTabId = tabs[0].id.toString();
-        const ghosteryStats = GhosteryStats.getInstance();
-        const currentTabStats = ghosteryStats.getTabStats(currentTabId);
+        const astianStats = AstianStats.getInstance();
+        const currentTabStats = AstianStats.getTabStats(currentTabId);
 
         // Mostrar número de bloqueos de la pestaña actual en el badge
         const blockedCount = currentTabStats ? currentTabStats.blocked : 0;

@@ -1,12 +1,12 @@
-import { GhosteryStats } from './ghostery-stats';
+import { AstianStats } from './astian-stats';
 
 export class RequestMonitor {
     private static instance: RequestMonitor;
-    private statsManager: GhosteryStats;
+    private statsManager: AstianStats;
     private isMonitoring = false;
 
     private constructor() {
-        this.statsManager = GhosteryStats.getInstance();
+        this.statsManager = AstianStats.getInstance();
     }
 
     public static getInstance(): RequestMonitor {

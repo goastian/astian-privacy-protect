@@ -1,17 +1,17 @@
 import { WebExtensionBlocker } from '@ghostery/adblocker-webextension';
-import { GhosteryStats } from './ghostery-stats';
+import { AstianStats } from './astian-stats';
 import { AdBlockConfig } from './types';
 
 export class AdBlocker {
     private static instance: AdBlocker;
     private blocker: WebExtensionBlocker | null = null;
-    private statsManager: GhosteryStats;
+    private statsManager: AstianStats;
     private config: AdBlockConfig;
     private isInitialized = false;
     private webRequestListener: ((details: any) => Promise<chrome.webRequest.BlockingResponse | undefined>) | null = null;
 
     private constructor() {
-        this.statsManager = GhosteryStats.getInstance();
+        this.statsManager = AstianStats.getInstance();
         this.config = this.getDefaultConfig();
         this.loadConfig();
     }

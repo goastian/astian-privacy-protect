@@ -1,8 +1,8 @@
 import { TabStats } from './types';
 
 // Sistema de estadísticas compatible con Ghostery AdBlocker
-export class GhosteryStats {
-    private static instance: GhosteryStats;
+export class AstianStats {
+    private static instance: AstianStats;
     private stats: any = {};
     private blockedRequests: any[] = [];
     private currentTabId: string | null = null;
@@ -11,11 +11,11 @@ export class GhosteryStats {
         this.initializeStats();
     }
 
-    public static getInstance(): GhosteryStats {
-        if (!GhosteryStats.instance) {
-            GhosteryStats.instance = new GhosteryStats();
+    public static getInstance(): AstianStats {
+        if (!AstianStats.instance) {
+            AstianStats.instance = new AstianStats();
         }
-        return GhosteryStats.instance;
+        return AstianStats.instance;
     }
 
     private initializeStats(): void {
@@ -80,7 +80,7 @@ export class GhosteryStats {
     private async saveStats(): Promise<void> {
         try {
             await new Promise<void>((resolve) => {
-                chrome.storage.local.set({ ghosteryStats: this.stats }, resolve);
+                chrome.storage.local.set({ astianStats: this.stats }, resolve);
             });
         } catch (error) {
             console.error('Error saving stats:', error);
@@ -90,10 +90,10 @@ export class GhosteryStats {
     public async loadStats(): Promise<void> {
         try {
             const result = await new Promise<any>((resolve) => {
-                chrome.storage.local.get(['ghosteryStats'], resolve);
+                chrome.storage.local.get(['astianStats'], resolve);
             });
-            if (result.ghosteryStats) {
-                this.stats = { ...this.stats, ...result.ghosteryStats };
+            if (result.astianStats) {
+                this.stats = { ...this.stats, ...result.astianStats };
             }
         } catch (error) {
             console.error('Error loading stats:', error);
