@@ -25,7 +25,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
                 // Firefox
                 browser.browserAction.setBadgeText({ text: '' });
                 browser.browserAction.setBadgeBackgroundColor({ color: '#4CAF50' });
-            } else {
+            } else if (typeof chrome !== 'undefined' && chrome.action) {
                 // Chrome/Edge
                 chrome.action.setBadgeText({ text: '' });
                 chrome.action.setBadgeBackgroundColor({ color: '#4CAF50' });
@@ -55,8 +55,7 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 
 // Manejar mensajes desde content scripts y popup
-const runtimeAPI = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
-runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) => {
+browser.runtime.onMessage.addListener((request: any, sender: any, sendResponse: any) => {
     const adBlocker = AdBlocker.getInstance();
 
     switch (request.action) {
@@ -83,27 +82,43 @@ runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) 
             return true; // Mantener el canal abierto para respuesta asíncrona
 
         case 'toggle':
-            adBlocker.toggle().then(() => {
-                sendResponse({ success: true, enabled: adBlocker.isEnabled() });
-            }).catch((error) => {
-                sendResponse({ success: false, error: (error as Error).message });
-            });
-            return true;
+            (async () => {
+                try {
+                    if (adBlocker.isEnabled()) {
+                        await adBlocker.disable();
+                    } else {
+                        await adBlocker.enable();
+                    }
+                    updateBadge(); // Update badge after toggling
+                    sendResponse({ success: true, enabled: adBlocker.isEnabled() });
+                } catch (error) {
+                    sendResponse({ success: false, error: (error as Error).message });
+                }
+            })();
+            return true; // Indica que la respuesta será asíncrona
 
         case 'resetStats':
-            adBlocker.resetStats().then(() => {
-                sendResponse({ success: true });
-            }).catch((error) => {
-                sendResponse({ success: false, error: (error as Error).message });
-            });
-            return true;
+            (async () => {
+                try {
+                    const ghosteryStats = GhosteryStats.getInstance();
+                    await ghosteryStats.resetStats();
+                    updateBadge(); // Update badge after resetting
+                    sendResponse({ success: true });
+                } catch (error) {
+                    sendResponse({ success: false, error: (error as Error).message });
+                }
+            })();
+            return true; // Indica que la respuesta será asíncrona
 
         case 'reinitialize':
-            adBlocker.reinitialize().then(() => {
-                sendResponse({ success: true });
-            }).catch((error) => {
-                sendResponse({ success: false, error: (error as Error).message });
-            });
+            (async () => {
+                try {
+                    await adBlocker.initialize();
+                    sendResponse({ success: true });
+                } catch (error) {
+                    sendResponse({ success: false, error: (error as Error).message });
+                }
+            })();
             return true;
 
         case 'getCurrentTabStats':
@@ -145,14 +160,35 @@ runtimeAPI.onMessage.addListener((request: any, sender: any, sendResponse: any) 
             }
             break;
 
+        case 'recordBlockedRequest':
+            (async () => {
+                try {
+                    const ghosteryStats = GhosteryStats.getInstance();
+                    await ghosteryStats.recordBlockedRequest(
+                        request.url,
+                        request.type,
+                        request.size || 0,
+                        request.loadTime || 0,
+                        request.tabId
+                    );
+
+                    // Actualizar badge después de registrar un bloqueo
+                    updateBadge();
+
+                    sendResponse({ success: true });
+                } catch (error) {
+                    sendResponse({ success: false, error: (error as Error).message });
+                }
+            })();
+            return true; // Indica que la respuesta será asíncrona
+
         default:
             sendResponse({ error: 'Unknown action' });
     }
 });
 
 // Manejar cambios en las pestañas para actualizar estadísticas
-const tabsAPI = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
-(tabsAPI.onUpdated as any).addListener((tabId: number, changeInfo: any, tab: any) => {
+browser.tabs.onUpdated.addListener((tabId: number, changeInfo: any, tab: any) => {
     if (changeInfo.status === 'complete' && tab.url) {
         // Establecer la pestaña actual en el sistema de estadísticas
         const ghosteryStats = GhosteryStats.getInstance();
@@ -164,7 +200,7 @@ const tabsAPI = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
 });
 
 // Manejar cuando se activa una pestaña
-(tabsAPI as any).onActivated.addListener(async (activeInfo: any) => {
+browser.tabs.onActivated.addListener(async (activeInfo: any) => {
     const ghosteryStats = GhosteryStats.getInstance();
     ghosteryStats.setCurrentTab(activeInfo.tabId.toString());
 
@@ -179,10 +215,7 @@ const tabsAPI = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
 async function updateBadge(): Promise<void> {
     try {
         // Obtener la pestaña activa actual
-        const tabsAPI = typeof browser !== 'undefined' ? browser.tabs : chrome.tabs;
-        const tabs = await new Promise<any>((resolve) => {
-            tabsAPI.query({ active: true, currentWindow: true }, resolve);
-        });
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
 
         if (!tabs || !tabs[0]) {
             return;
@@ -196,31 +229,14 @@ async function updateBadge(): Promise<void> {
         const blockedCount = currentTabStats ? currentTabStats.blocked : 0;
 
         if (blockedCount > 0) {
-            if (typeof browser !== 'undefined') {
-                // Firefox
-                await browser.browserAction.setBadgeText({
-                    text: blockedCount.toString()
-                });
-                await browser.browserAction.setBadgeBackgroundColor({
-                    color: '#FF5722'
-                });
-            } else {
-                // Chrome/Edge
-                await chrome.action.setBadgeText({
-                    text: blockedCount.toString()
-                });
-                await chrome.action.setBadgeBackgroundColor({
-                    color: '#FF5722'
-                });
-            }
+            await browser.browserAction.setBadgeText({
+                text: blockedCount.toString()
+            });
+            await browser.browserAction.setBadgeBackgroundColor({
+                color: '#FF5722'
+            });
         } else {
-            if (typeof browser !== 'undefined') {
-                // Firefox
-                await browser.browserAction.setBadgeText({ text: '' });
-            } else {
-                // Chrome/Edge
-                await chrome.action.setBadgeText({ text: '' });
-            }
+            await browser.browserAction.setBadgeText({ text: '' });
         }
     } catch (error) {
         console.error('Error updating badge:', error);
@@ -228,8 +244,8 @@ async function updateBadge(): Promise<void> {
 }
 
 // Limpiar recursos cuando se desinstala la extensión
-if (runtimeAPI.onSuspend) {
-    runtimeAPI.onSuspend.addListener(() => {
+if (browser.runtime.onSuspend) {
+    browser.runtime.onSuspend.addListener(() => {
         console.log('AdBlock Extension suspending');
     });
 }

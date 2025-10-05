@@ -7,15 +7,11 @@
         "build": "webpack --mode=production",
         "dev": "webpack --mode=development --watch",
         "build:firefox": "npm run build && node build-firefox.js",
-        "build:chromium": "npm run build && node build-chromium.js",
-        "build:all": "npm run build:firefox && npm run build:chromium",
         "package:firefox": "npm run build:firefox && cd dist-firefox && zip -r ../adblock-firefox.xpi .",
-        "package:chromium": "npm run build:chromium && cd dist-chromium && zip -r ../adblock-chromium.zip .",
-        "package:all": "npm run package:firefox && npm run package:chromium",
         "test": "jest",
         "lint": "eslint src/",
         "lint:fix": "eslint src/ --fix",
-        "clean": "rm -rf dist dist-firefox dist-chromium *.xpi *.zip"
+        "clean": "rm -rf dist dist-firefox *.xpi *.zip"
     },
     "keywords": [
         "adblocker",

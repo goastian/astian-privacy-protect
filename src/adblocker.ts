@@ -1,18 +1,40 @@
 import { WebExtensionBlocker } from '@ghostery/adblocker-webextension';
 import { GhosteryStats } from './ghostery-stats';
-import { AdBlockConfig } from './types';
+
+export interface AdBlockerConfig {
+    enabled: boolean;
+    whitelist: string[];
+    blacklist: string[];
+    blockAds: boolean;
+    blockTrackers: boolean;
+    blockSocial: boolean;
+    blockOther: boolean;
+}
+
+const defaultConfig: AdBlockerConfig = {
+    enabled: true,
+    whitelist: [],
+    blacklist: [],
+    blockAds: true,
+    blockTrackers: true,
+    blockSocial: true,
+    blockOther: true
+};
 
 export class AdBlocker {
     private static instance: AdBlocker;
     private blocker: WebExtensionBlocker | null = null;
     private statsManager: GhosteryStats;
-    private config: AdBlockConfig;
+    private config: AdBlockerConfig = defaultConfig;
     private isInitialized = false;
 
     private constructor() {
         this.statsManager = GhosteryStats.getInstance();
-        this.config = this.getDefaultConfig();
-        this.loadConfig();
+        this.loadConfig().then(() => {
+            if (this.config.enabled) {
+                this.initialize();
+            }
+        });
     }
 
     public static getInstance(): AdBlocker {
@@ -22,27 +44,11 @@ export class AdBlocker {
         return AdBlocker.instance;
     }
 
-    private getDefaultConfig(): AdBlockConfig {
-        return {
-            enabled: true,
-            blockAds: true,
-            blockTrackers: true,
-            blockSocial: false,
-            whitelist: [],
-            blacklist: [],
-            updateInterval: 24, // 24 horas
-            showStats: true,
-            performanceMode: true
-        };
-    }
-
     private async loadConfig(): Promise<void> {
         try {
-            const result = await new Promise<any>((resolve) => {
-                chrome.storage.local.get(['adblockConfig'], resolve);
-            });
-            if (result.adblockConfig) {
-                this.config = { ...this.getDefaultConfig(), ...result.adblockConfig };
+            const result = await browser.storage.local.get(['adBlockerConfig']);
+            if (result.adBlockerConfig) {
+                this.config = { ...defaultConfig, ...result.adBlockerConfig };
             }
         } catch (error) {
             console.error('Error loading config:', error);
@@ -51,9 +57,7 @@ export class AdBlocker {
 
     private async saveConfig(): Promise<void> {
         try {
-            await new Promise<void>((resolve) => {
-                chrome.storage.local.set({ adblockConfig: this.config }, resolve);
-            });
+            await browser.storage.local.set({ adBlockerConfig: this.config });
         } catch (error) {
             console.error('Error saving config:', error);
         }
@@ -70,7 +74,7 @@ export class AdBlocker {
             // Crear el bloqueador de Ghostery
             this.blocker = await WebExtensionBlocker.fromPrebuiltAdsAndTracking();
 
-            // Configurar el bloqueador (sin parámetros para evitar el error de WeakMap)
+            // Configurar el bloqueador
             try {
                 await (this.blocker as any).enableBlockingInBrowser();
             } catch (blockerError) {
@@ -92,13 +96,23 @@ export class AdBlocker {
     }
 
     private setupStatsListeners(): void {
-        // Configurar listeners para estadísticas usando webRequest API
-        const webRequest = (typeof browser !== 'undefined' ? browser : chrome).webRequest;
-        (webRequest.onBeforeRequest as any).addListener(
-            (details: any) => this.handleRequest(details),
-            { urls: ['<all_urls>'] },
-            ['blocking']
-        );
+        // Usar webRequest para Firefox con blocking
+        this.setupWebRequestBlocking();
+    }
+
+    private setupWebRequestBlocking(): void {
+        try {
+            const webRequest = browser.webRequest;
+
+            // Firefox: con blocking
+            (webRequest.onBeforeRequest as any).addListener(
+                (details: any) => this.handleRequest(details),
+                { urls: ['<all_urls>'] },
+                ['blocking']
+            );
+        } catch (error) {
+            console.warn('Could not setup webRequest blocking:', error);
+        }
     }
 
     private async handleRequest(details: chrome.webRequest.WebRequestBodyDetails): Promise<chrome.webRequest.BlockingResponse | undefined> {
@@ -174,8 +188,7 @@ export class AdBlocker {
 
         // Notificar al background script para actualizar el badge
         try {
-            const runtimeAPI = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
-            runtimeAPI.sendMessage({ action: 'updateBadge' });
+            browser.runtime.sendMessage({ action: 'updateBadge' });
         } catch (error) {
             console.warn('Could not update badge:', error);
         }
@@ -185,36 +198,21 @@ export class AdBlocker {
         const urlLower = url.toLowerCase();
 
         // Patrones para detectar tipos de contenido
-        const adPatterns = [
-            'ads', 'advertisement', 'banner', 'popup', 'sponsor',
-            'doubleclick', 'googlesyndication', 'amazon-adsystem',
-            'adsystem', 'adnxs', 'adsafeprotected', 'outbrain'
-        ];
-
-        const trackerPatterns = [
-            'analytics', 'tracking', 'metrics', 'telemetry',
-            'google-analytics', 'googletagmanager', 'facebook.com/tr',
-            'doubleclick', 'googlesyndication', 'quantserve'
-        ];
-
-        const socialPatterns = [
-            'facebook.com', 'twitter.com', 'instagram.com',
-            'linkedin.com', 'pinterest.com', 'tiktok.com',
-            'youtube.com', 'snapchat.com'
-        ];
-
-        // Verificar patrones de anuncios
-        if (adPatterns.some(pattern => urlLower.includes(pattern))) {
+        if (urlLower.includes('doubleclick') || urlLower.includes('googlesyndication') ||
+            urlLower.includes('amazon-adsystem') || urlLower.includes('outbrain') ||
+            urlLower.includes('taboola') || urlLower.includes('googleadservices') ||
+            urlLower.includes('googletagservices')) {
             return 'ads';
         }
 
-        // Verificar patrones de rastreadores
-        if (trackerPatterns.some(pattern => urlLower.includes(pattern))) {
+        if (urlLower.includes('analytics') || urlLower.includes('googletagmanager') ||
+            urlLower.includes('quantserve') || urlLower.includes('scorecardresearch') ||
+            urlLower.includes('hotjar') || urlLower.includes('mixpanel') ||
+            urlLower.includes('segment') || urlLower.includes('amplitude')) {
             return 'trackers';
         }
 
-        // Verificar patrones de redes sociales
-        if (socialPatterns.some(pattern => urlLower.includes(pattern))) {
+        if (urlLower.includes('facebook.com/tr')) {
             return 'social';
         }
 
@@ -223,68 +221,71 @@ export class AdBlocker {
 
     private estimateRequestSize(details: any): number {
         // Estimación básica del tamaño de la request
-        const baseSize = 1024; // 1KB base
-        const urlLength = details.url?.length || 0;
-        const headersSize = 500; // Estimación de headers
-
-        return baseSize + urlLength + headersSize;
+        const urlLength = details.url.length;
+        const headersSize = 200; // Tamaño estimado de headers
+        return urlLength + headersSize;
     }
 
     private estimateLoadTime(details: any): number {
         // Estimación del tiempo de carga basada en el tipo de request
-        const baseTime = 100; // 100ms base
-
-        if (details.type === 'image') {
-            return baseTime + 200; // Imágenes toman más tiempo
-        } else if (details.type === 'script') {
-            return baseTime + 300; // Scripts pueden ser pesados
-        } else if (details.type === 'stylesheet') {
-            return baseTime + 150; // CSS es más rápido
+        const url = details.url.toLowerCase();
+        if (url.includes('script') || url.includes('js')) {
+            return 50; // Scripts suelen tardar más
+        } else if (url.includes('image') || url.includes('img')) {
+            return 30; // Imágenes medianas
+        } else {
+            return 20; // Otros recursos
         }
-
-        return baseTime;
     }
 
-    public async toggle(): Promise<void> {
-        this.config.enabled = !this.config.enabled;
-        await this.saveConfig();
-
-        if (this.config.enabled) {
-            await this.initialize();
-        } else {
-            await this.disable();
+    public async enable(): Promise<void> {
+        if (this.blocker) {
+            try {
+                await (this.blocker as any).enableBlockingInBrowser();
+            } catch (error) {
+                console.warn('Ghostery blocker failed to enable, using fallback:', error);
+            }
         }
+        this.config.enabled = true;
+        await this.saveConfig();
+        this.setupStatsListeners(); // Re-setup listeners to ensure blocking is active
     }
 
     public async disable(): Promise<void> {
         if (this.blocker) {
-            await (this.blocker as any).disableBlockingInBrowser();
+            try {
+                await (this.blocker as any).disableBlockingInBrowser();
+            } catch (error) {
+                console.warn('Ghostery blocker failed to disable, using fallback:', error);
+            }
         }
+        this.config.enabled = false;
+        await this.saveConfig();
+        // Remove listeners if needed, or ensure they don't block when disabled
     }
 
     public isEnabled(): boolean {
         return this.config.enabled;
     }
 
-    public getConfig(): AdBlockConfig {
+    public getConfig(): AdBlockerConfig {
         return { ...this.config };
     }
 
-    public async updateConfig(newConfig: Partial<AdBlockConfig>): Promise<void> {
+    public async updateConfig(newConfig: Partial<AdBlockerConfig>): Promise<void> {
         this.config = { ...this.config, ...newConfig };
         await this.saveConfig();
+        // Re-initialize if enabled state changes
+        if (newConfig.enabled !== undefined) {
+            if (newConfig.enabled) {
+                await this.enable();
+            } else {
+                await this.disable();
+            }
+        }
     }
 
     public getStats(): any {
         return this.statsManager.getFormattedStats();
-    }
-
-    public async resetStats(): Promise<void> {
-        await this.statsManager.resetStats();
-    }
-
-    public async reinitialize(): Promise<void> {
-        this.isInitialized = false;
-        await this.initialize();
     }
 }
