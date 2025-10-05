@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "AdBlock Optimizado",
+    "name": "Astian Privacy",
     "version": "2.0.5",
     "description": "Bloqueador de anuncios avanzado con estadísticas por pestaña y globales",
     "permissions": [
@@ -31,7 +31,7 @@
     ],
     "action": {
         "default_popup": "popup.html",
-        "default_title": "AdBlock Optimizado",
+        "default_title": "Astian Privacy",
         "default_icon": {
             "16": "icons/icon-16.png",
             "32": "icons/icon-32.png",
