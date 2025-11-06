@@ -19,6 +19,7 @@ import scriptlets from '@ghostery/scriptlets';
 
 import Options, { ENGINES, getPausedDetails } from '/store/options.js';
 
+import { isWebkit } from '/utils/browser-info.js';
 import * as exceptions from '/utils/exceptions.js';
 import * as engines from '/utils/engines.js';
 import * as trackerdb from '/utils/trackerdb.js';
@@ -30,9 +31,20 @@ import { tabStats, updateTabStats } from './stats.js';
 import Config, {
   FLAG_FIREFOX_CONTENT_SCRIPT_SCRIPTLETS,
   FLAG_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED,
+  FLAG_EXTENDED_SELECTORS,
 } from '/store/config.js';
 
 let options = Options;
+
+const scriptletGlobals = {
+  // Request a real extension resource to obtain a dynamic ID to the resource.
+  // Redirect resources are defined with `use_dynamic_url` restriction.
+  // The dynamic ID is generated per session.
+  // refs https://developer.chrome.com/docs/extensions/reference/manifest/web-accessible-resources#manifest_declaration
+  warOrigin: chrome.runtime
+    .getURL('/rule_resources/redirects/empty')
+    .slice(0, -6),
+};
 
 const contentScripts = (() => {
   const map = new Map();
@@ -95,6 +107,12 @@ if (__PLATFORM__ === 'firefox') {
   });
 }
 
+let ENABLE_EXTENDED_SELECTORS = false;
+store.resolve(Config).then((config) => {
+  const enabled = config.hasFlag(FLAG_EXTENDED_SELECTORS);
+  ENABLE_EXTENDED_SELECTORS = enabled;
+});
+
 function getEnabledEngines(config) {
   if (config.terms) {
     const list = ENGINES.filter(({ key }) => config[key]).map(
@@ -127,7 +145,7 @@ function pause(ms) {
 
 export async function reloadMainEngine() {
   // Delay the reload to avoid UI freezes in Firefox and Safari
-  if (__PLATFORM__ !== 'chromium') await pause(1000);
+  if (__PLATFORM__ === 'firefox' || isWebkit()) await pause(1000);
 
   const enabledEngines = getEnabledEngines(options);
   const resolvedEngines = (
@@ -159,6 +177,7 @@ export async function reloadMainEngine() {
     engines.create(engines.MAIN_ENGINE);
     console.info('[adblocker] Main engine reloaded with no filters');
   }
+
   if (__PLATFORM__ === 'firefox' && ENABLE_FIREFOX_CONTENT_SCRIPT_SCRIPTLETS) {
     contentScripts.unregisterAll();
   }
@@ -218,7 +237,6 @@ export const setup = asyncSetup('adblocker', [
       }
 
       // Update engines if filters are outdated (older than 1 hour)
-      // and reload the engine if the update happened to at least one of them
       if (options.filtersUpdatedAt < Date.now() - HOUR_IN_MS) {
         await updateEngines();
       }
@@ -259,7 +277,10 @@ function injectScriptlets(filters, tabId, frameId, hostname) {
     }
 
     const func = scriptlet.func;
-    const args = parsed.args.map((arg) => decodeURIComponent(arg));
+    const args = [
+      scriptletGlobals,
+      ...parsed.args.map((arg) => decodeURIComponent(arg)),
+    ];
 
     if (
       __PLATFORM__ === 'firefox' &&
@@ -320,7 +341,7 @@ function injectStyles(styles, tabId, frameId) {
 }
 
 async function injectCosmetics(details, config) {
-  const { bootstrap: isBootstrap, scriptletsOnly } = config;
+  const { bootstrap: isBootstrap = false, scriptletsOnly } = config;
 
   try {
     setup.pending && (await setup.pending);
@@ -395,7 +416,7 @@ async function injectCosmetics(details, config) {
       return;
     }
 
-    const { styles } = engine.injectCosmeticFilters(styleFilters, {
+    const { styles, extended } = engine.injectCosmeticFilters(styleFilters, {
       url,
       injectScriptlets: isBootstrap,
       injectExtended: isBootstrap,
@@ -406,6 +427,14 @@ async function injectCosmetics(details, config) {
 
     if (styles) {
       injectStyles(styles, tabId, frameId);
+    }
+
+    if (ENABLE_EXTENDED_SELECTORS && extended && extended.length > 0) {
+      chrome.tabs.sendMessage(
+        tabId,
+        { action: 'evaluateExtendedSelectors', extended },
+        { frameId },
+      );
     }
   }
 
@@ -566,15 +595,13 @@ if (__PLATFORM__ === 'firefox') {
   );
 }
 
-if (__PLATFORM__ === 'chromium') {
+if (__PLATFORM__ !== 'firefox' && chrome.webRequest?.onResponseStarted) {
   let ENABLE_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED = false;
 
   store.resolve(Config).then((config) => {
     const enabled = config.hasFlag(
       FLAG_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED,
     );
-    if (!enabled) contentScripts.unregisterAll();
-
     ENABLE_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED = enabled;
   });
 
