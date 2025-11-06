@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'friday'
+      time: '07:00'
+    open-pull-requests-limit: 99
+    groups:
+      adblocker:
+        patterns:
+          - '@ghostery/adblocker*'
+      eslint:
+        patterns:
+          - 'eslint*'
+          - '@eslint/*'
+      wdio:
+        patterns:
+          - '@wdio/*'
+      web-ext:
+        patterns:
+          - 'web-ext'
+          - 'addon-linter'
