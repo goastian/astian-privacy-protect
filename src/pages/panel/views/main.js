@@ -16,8 +16,8 @@ import { getCurrentTab, openTabWithUrl } from '/utils/tabs.js';
 import Options, { getPausedDetails, GLOBAL_PAUSE_ID } from '/store/options.js';
 import ElementPickerSelectors from '/store/element-picker-selectors.js';
 import TabStats from '/store/tab-stats.js';
-
-import * as exceptions from '/utils/exceptions.js';
+import ManagedConfig from '/store/managed-config.js';
+import Resources from '/store/resources.js';
 
 import Notification from '../store/notification.js';
 import sleep from '../assets/sleep.svg';
@@ -28,7 +28,7 @@ import ProtectionStatus from './protection-status.js';
 import ReportForm from './report-form.js';
 import ReportConfirm from './report-confirm.js';
 import WhoTracksMe from './whotracksme.js';
-import ManagedConfig from '/store/managed-config.js';
+import { isWebkit } from '/utils/browser-info.js';
 
 const SETTINGS_URL = chrome.runtime.getURL(
   '/pages/settings/index.html#@settings-privacy',
@@ -105,6 +105,7 @@ function openLogger() {
   const features = 'toolbar=no,width=1000,height=500';
 
   window.open(url, 'Ghostery Logger', features);
+  window.close();
 }
 
 async function openElementPicker() {
@@ -138,6 +139,7 @@ export default {
   notification: store(Notification),
   managedConfig: store(ManagedConfig),
   elementPickerSelectors: store(ElementPickerSelectors),
+  resources: store(Resources),
   alert: '',
   paused: ({ options, stats }) =>
     store.ready(options, stats) && getPausedDetails(options, stats.hostname),
@@ -147,6 +149,11 @@ export default {
     (store.ready(stats, elementPickerSelectors) &&
       elementPickerSelectors.hostnames[stats.hostname]?.length) ||
     0,
+  consentManaged: ({ resources, options, stats, paused }) =>
+    store.ready(resources, options, stats) &&
+    !paused &&
+    options.blockAnnoyances &&
+    resources.autoconsent[stats.domain],
   render: ({
     options,
     stats,
@@ -156,30 +163,22 @@ export default {
     paused,
     globalPause,
     contentBlocksSelectors,
+    consentManaged,
   }) => html`
     <template layout="column grow relative">
       ${store.ready(options, stats, managedConfig) &&
       html`
         ${options.terms &&
         html`
-          <ui-header>
-            ${stats.hostname &&
-            managedConfig.disableUserControl &&
-            html`<ui-text type="label-m">${stats.displayHostname}</ui-text>`}
-            <ui-action slot="icon">
-              <a href="https://www.ghostery.com" onclick="${openTabWithUrl}">
-                <ui-icon name="logo"></ui-icon>
-              </a>
-            </ui-action>
-            ${!managedConfig.disableUserControl &&
-            html`
-              <ui-action slot="actions">
-                <a href="${router.url(Menu)}" data-qa="button:menu">
-                  <ui-icon name="menu" color="primary"></ui-icon>
-                </a>
-              </ui-action>
-            `}
-          </ui-header>
+      <ui-header>
+        <ui-text type="label-m">${stats.displayHostname || 'Website'}</ui-text>
+        <ui-icon name="logo" slot="icon" layout="size:2.5"></ui-icon>
+        <ui-action slot="actions">
+          <a href="${router.url(Menu)}" data-qa="button:menu">
+            <ui-icon name="menu" color="primary"></ui-icon>
+          </a>
+        </ui-action>
+      </ui-header>
           ${stats.hostname &&
           !managedConfig.disableUserControl &&
           html`
@@ -187,24 +186,41 @@ export default {
               <panel-actions-button
                 onclick="${openElementPicker}"
                 disabled="${paused}"
+                icon="hide-element"
               >
                 <button>
-                  <panel-actions-icon
-                    name="hide-element"
-                    color="success-primary"
-                  ></panel-actions-icon>
+                  <panel-actions-icon name="hide-element"></panel-actions-icon>
                   Hide content block
+                  <ui-icon
+                    name="chevron-right"
+                    color="tertiary"
+                    layout="size:2"
+                  ></ui-icon>
                 </button>
               </panel-actions-button>
               <panel-actions-button>
                 <a href="${router.url(ReportForm)}">
-                  <panel-actions-icon
-                    name="report"
-                    color="danger-primary"
-                  ></panel-actions-icon>
+                  <panel-actions-icon name="report"></panel-actions-icon>
                   Report a broken page
+                  <ui-icon
+                    name="chevron-right"
+                    color="tertiary"
+                    layout="size:2"
+                  ></ui-icon>
                 </a>
               </panel-actions-button>
+              ${!isWebkit() &&
+              html`<panel-actions-button>
+                <button onclick="${openLogger}">
+                  <panel-actions-icon name="open-book"></panel-actions-icon>
+                  View details logs
+                  <ui-icon
+                    name="chevron-right"
+                    color="tertiary"
+                    layout="size:2"
+                  ></ui-icon>
+                </button>
+              </panel-actions-button>`}
               <panel-actions-button>
                 <a
                   onclick="${openTabWithUrl}"
@@ -213,11 +229,13 @@ export default {
                       stats.hostname,
                   )}"
                 >
-                  <panel-actions-icon
-                    name="settings"
-                    color="wtm-primary"
-                  ></panel-actions-icon>
-                  Access website settings
+                  <panel-actions-icon name="settings"></panel-actions-icon>
+                  Open website settings
+                  <ui-icon
+                    name="link-external-m"
+                    color="tertiary"
+                    layout="size:2"
+                  ></ui-icon>
                 </a>
               </panel-actions-button>
             </panel-actions>
@@ -335,28 +353,14 @@ export default {
                   ontypechange="${setStatsType}"
                   layout="margin:1.5:1.5:1"
                 >
-                  ${options.panel.statsType === 'graph' &&
-                  html`
-                    <ui-tooltip position="bottom" slot="actions">
-                      <span slot="content">WhoTracks.Me Reports</span>
-                      <ui-action-button layout="size:4.5">
-                        <a href="${router.url(WhoTracksMe)}">
-                          <ui-icon name="whotracksme" color="primary"></ui-icon>
-                        </a>
-                      </ui-action-button>
-                    </ui-tooltip>
-                  `}
-                  ${options.panel.statsType === 'list' &&
-                  html`
-                    <ui-tooltip position="bottom" slot="actions">
-                      <span slot="content" translate="no">Logger</span>
-                      <ui-action-button layout="size:4.5">
-                        <button onclick="${openLogger}">
-                          <ui-icon name="open-book" color="primary"></ui-icon>
-                        </button>
-                      </ui-action-button>
-                    </ui-tooltip>
-                  `}
+                  <ui-tooltip position="bottom" slot="actions">
+                    <span slot="content">WhoTracks.Me Reports</span>
+                    <ui-action-button layout="size:4.5">
+                      <a href="${router.url(WhoTracksMe)}">
+                        <ui-icon name="whotracksme" color="primary"></ui-icon>
+                      </a>
+                    </ui-action-button>
+                  </ui-tooltip>
                   ${!stats.groupedTrackers.length &&
                   html`
                     <ui-list layout="grow margin:0.5:0" slot="list">
@@ -381,7 +385,7 @@ export default {
                           <ui-text type="label-s">${trackers.length}</ui-text>
                         </div>
 
-                        <section id="content" layout="column gap:0.5">
+                        <section layout="column gap:0.5">
                           ${trackers.map(
                             (tracker) => html`
                               <div
@@ -432,43 +436,11 @@ export default {
                                       })}"
                                       layout="row center relative"
                                     >
-                                      <ui-tooltip>
-                                        <span slot="content">
-                                          ${exceptions.getLabel(
-                                            options,
-                                            tracker.id,
-                                            stats.hostname,
-                                          )}
-                                        </span>
-                                        <div layout="relative">
-                                          <ui-icon
-                                            name="${exceptions.getStatus(
-                                              options,
-                                              tracker.id,
-                                              stats.hostname,
-                                            ).trusted
-                                              ? 'trust'
-                                              : 'block'}-m"
-                                            color="${options.exceptions[
-                                              tracker.id
-                                            ]
-                                              ? 'secondary'
-                                              : 'quaternary'}"
-                                          ></ui-icon>
-                                          ${!exceptions.getStatus(
-                                            options,
-                                            tracker.id,
-                                            stats.hostname,
-                                          ).global &&
-                                          html`
-                                            <ui-icon
-                                              name="error"
-                                              color="secondary"
-                                              layout="absolute right:-4px bottom:-4px"
-                                            ></ui-icon>
-                                          `}
-                                        </div>
-                                      </ui-tooltip>
+                                      <panel-protection-status-icon
+                                        options="${options}"
+                                        trackerId="${tracker.id}"
+                                        hostname="${stats.hostname}"
+                                      ></panel-protection-status-icon>
                                     </a>
                                   </ui-action-button>
                                 `}
@@ -480,70 +452,49 @@ export default {
                     `,
                   )}
                 </ui-stats>
-                <panel-feedback
-                  data-qa="component:feedback"
-                  hidden=${paused ||
-                  (!stats.trackersBlocked &&
-                    !stats.trackersModified &&
-                    !contentBlocksSelectors)}
-                  layout="margin:1:0:1.5"
-                >
+                <panel-feedback layout="margin:1:0:1.5">
                   ${stats.trackersBlocked > 0 &&
                   html`
-                    <section layout="column center grow padding:0.5:1">
-                      <div layout="row center gap:0.5">
-                        <ui-icon
-                          name="block-s"
-                          color="danger-primary"
-                        ></ui-icon>
-                        <ui-text type="headline-s">
-                          ${stats.trackersBlocked}
-                        </ui-text>
-                      </div>
-                      <ui-text type="label-xs" layout="block:center">
-                        Trackers blocked
-                      </ui-text>
-                    </section>
+                    <panel-feedback-button
+                      type="blocked"
+                      icon="block-s"
+                      value="${stats.trackersBlocked}"
+                    >
+                      Trackers blocked
+                    </panel-feedback-button>
                   `}
                   ${stats.trackersModified > 0 &&
                   html`
-                    <section layout="column center grow padding:0.5:1">
-                      <div layout="row center gap:0.5">
-                        <ui-icon name="eye" color="brand-primary"></ui-icon>
-                        <ui-text type="headline-s">
-                          ${stats.trackersModified}
-                        </ui-text>
-                      </div>
-                      <ui-text type="label-xs" layout="block:center">
-                        Trackers modified
-                      </ui-text>
-                    </section>
+                    <panel-feedback-button
+                      type="modified"
+                      icon="eye"
+                      value="${stats.trackersModified}"
+                    >
+                      Trackers modified
+                    </panel-feedback-button>
+                  `}
+                  ${consentManaged &&
+                  html`
+                    <panel-feedback-button
+                      type="autoconsent"
+                      icon="autoconsent-managed"
+                    >
+                      Consent managed
+                    </panel-feedback-button>
                   `}
                   ${contentBlocksSelectors > 0 &&
                   html`
-                    <ui-action>
-                      <a
-                        layout="column center grow padding:0.5:1"
-                        href="${chrome.runtime.getURL(
-                          '/pages/settings/index.html#@settings-website-details?domain=' +
-                            stats.hostname,
-                        )}"
-                        onclick="${openTabWithUrl}"
-                      >
-                        <div layout="row center gap:0.5">
-                          <ui-icon
-                            name="hide-element"
-                            color="success-primary"
-                          ></ui-icon>
-                          <ui-text type="headline-s">
-                            ${contentBlocksSelectors}
-                          </ui-text>
-                        </div>
-                        <ui-text type="label-xs" layout="block:center">
-                          Blocked manually
-                        </ui-text>
-                      </a>
-                    </ui-action>
+                    <panel-feedback-button
+                      type="content"
+                      icon="hide-element"
+                      value="${contentBlocksSelectors}"
+                      href="${chrome.runtime.getURL(
+                        '/pages/settings/index.html#@settings-website-details?domain=' +
+                          stats.hostname,
+                      )}"
+                    >
+                      Blocked manually
+                    </panel-feedback-button>
                   `}
                 </panel-feedback>
               `
@@ -606,17 +557,8 @@ export default {
         </panel-container>
         ${!managedConfig.disableUserControl &&
         store.ready(notification) &&
-        html`
-          <panel-notification
-            icon="${notification.icon}"
-            href="${notification.url}"
-            type="${notification.type}"
-            layout="width:min:full padding:1:1.5:1.5"
-          >
-            ${notification.text}
-            <span slot="action">${notification.action}</span>
-          </panel-notification>
-        `}
+        !store.error(notification) &&
+        html`<panel-notification></panel-notification>`}
       `}
     </template>
   `,

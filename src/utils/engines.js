@@ -9,6 +9,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0
  */
 
+import { store } from 'hybrids';
 import * as IDB from 'idb';
 import {
   FiltersEngine,
@@ -18,9 +19,11 @@ import {
   Resources,
 } from '@ghostery/adblocker';
 
+import ResourcesModel from '/store/resources.js';
+
 import { registerDatabase } from './indexeddb.js';
 import debug from './debug.js';
-import { CDN_URL } from './api.js';
+import { CDN_URL } from './urls.js';
 
 export const MAIN_ENGINE = 'main';
 
@@ -141,9 +144,13 @@ async function loadFromStorage(name) {
   return null;
 }
 
-async function saveToStorage(name) {
+async function saveToStorage(name, checksum) {
   const engine = loadFromMemory(name);
   const serialized = engine?.serialize();
+
+  store.set(ResourcesModel, {
+    checksums: { [name]: (engine && checksum) || null },
+  });
 
   try {
     const db = await getDB();
@@ -177,26 +184,10 @@ async function saveToStorage(name) {
   }
 }
 
-async function loadFromFile(name) {
-  try {
-    const response = await fetch(
-      chrome.runtime.getURL(`rule_resources/engine-${name}.dat`),
-    );
-
-    const engineBytes = new Uint8Array(await response.arrayBuffer());
-    const engine = deserializeEngine(engineBytes);
-
-    saveToMemory(name, engine);
-
-    await saveToStorage(name).catch(() => {
-      console.error(`[engines] Failed to save engine "${name}" to storage`);
-    });
-
-    return engine;
-  } catch (e) {
-    console.error(`[engines] Failed to load engine "${name}" from disk`, e);
-    return new FiltersEngine();
-  }
+async function loadFromCDN(name) {
+  console.log(`[engines] Loading engine "${name}" from CDN...`);
+  await update(name, { force: true });
+  return await loadFromStorage(name);
 }
 
 function check(response) {
@@ -209,11 +200,13 @@ function check(response) {
   return response;
 }
 
-export async function update(name) {
+export async function update(name, { force = false } = {}) {
   // If the IndexedDB is corrupted, and there is no way to load the engine
   // from the storage, we should skip the update.
   // It can also happen if the engine has not finished init.
-  if ((await loadFromStorage(name)) === null) {
+  // The `force` option allows us to bypass this check, as when
+  // engine is being loaded from CDN for the first time the `loadFromStorage` returns null
+  if (!force && (await loadFromStorage(name)) === null) {
     console.warn(
       `[engines] Skipping update for engine "${name}" as the engine is not available`,
     );
@@ -222,7 +215,7 @@ export async function update(name) {
   }
 
   try {
-    const urlName = name === 'trackerdb' ? 'trackerdbMv3' : `dnr-${name}`;
+    const urlName = name === 'trackerdb' ? 'trackerdbMv3' : `dnr-${name}-v2`;
     const listURL = CDN_URL + `adblocker/configs/${urlName}/allowed-lists.json`;
 
     console.info(`[engines] Updating engine "${name}"...`);
@@ -251,27 +244,32 @@ export async function update(name) {
     // deleting the list then adding the new version. Because of this, we also
     // reset the engine if that happens.
     let requiresFullReload = false;
-    for (const [name, checksum] of engine.lists.entries()) {
-      // If engine has a list which is not "enabled"
-      if (!data.lists[name]) {
-        requiresFullReload = true;
-        break;
-      }
 
-      // If engine has an out-dated list which does not have a diff available
-      if (
-        data.lists[name].checksum !== checksum &&
-        data.lists[name].diffs[checksum] === undefined
-      ) {
-        requiresFullReload = true;
-        break;
+    if (engine) {
+      for (const [name, checksum] of engine.lists.entries()) {
+        // If engine has a list which is not "enabled"
+        if (!data.lists[name]) {
+          requiresFullReload = true;
+          break;
+        }
+
+        // If engine has an out-dated list which does not have a diff available
+        if (
+          data.lists[name].checksum !== checksum &&
+          data.lists[name].diffs[checksum] === undefined
+        ) {
+          requiresFullReload = true;
+          break;
+        }
       }
+    } else {
+      requiresFullReload = true;
     }
 
     // Make a full update if we need to remove some lists
     // In case of trackerdb, incremental updates are not possible.
     // Instead if we detect a change in subscription list, a complete
-    // `engine is donwloaded.
+    // `engine is downloaded.
     if (requiresFullReload) {
       const arrayBuffer = await fetch(data.engines[ENGINE_VERSION].url)
         .then(check)
@@ -282,9 +280,12 @@ export async function update(name) {
 
       // Save the new engine to memory and storage
       saveToMemory(name, engine);
-      saveToStorage(name);
+      saveToStorage(name, data.engines[ENGINE_VERSION].checksum);
 
-      console.info(`Engine "${name}" reloaded`);
+      console.info(
+        `Engine "${name}" reloaded:`,
+        data.engines[ENGINE_VERSION].checksum,
+      );
 
       return true;
     }
@@ -385,10 +386,13 @@ export async function update(name) {
     }
 
     if (updated) {
-      console.info(`[engines] Engine "${name}" updated`);
+      console.info(
+        `[engines] Engine "${name}" updated:`,
+        data.engines[ENGINE_VERSION].checksum,
+      );
 
       // Save the new engine to storage
-      saveToStorage(name);
+      saveToStorage(name, data.engines[ENGINE_VERSION].checksum);
 
       return true;
     }
@@ -407,7 +411,7 @@ export async function init(name) {
   return (
     get(name) ||
     (await loadFromStorage(name)) ||
-    (isPersistentEngine(name) && (await loadFromFile(name))) ||
+    (isPersistentEngine(name) && (await loadFromCDN(name))) ||
     null
   );
 }

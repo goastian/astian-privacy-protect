@@ -13,7 +13,7 @@
 const origin = new URL(window.location.href).origin;
 
 function postMessage({ urls }) {
-  chrome.runtime.sendMessage({ action: 'updateTabStats', urls });
+  chrome.runtime.sendMessage({ action: 'stats:update', urls });
 }
 
 // Based on https://github.com/mozilla-mobile/firefox-ios/blob/1f3fd1640214b2b442c573ea7d2882d480f4f24c/content-blocker-lib-ios/js/TrackingProtectionStats.js
@@ -98,37 +98,20 @@ function postMessage({ urls }) {
   window.addEventListener('load', onLoadNativeCallback, false);
 
   // fetch, XMLHTTPRequest and others must be injected in main world
-  function injectMonkeyPatches() {
-    // Safari 17.x does not support "main" world in content scripts
-    // so we need to inject the script in the main world
-    // TODO: Remove script injection when we drop support for Safari 17.x
-    if (navigator.userAgent.includes('17_')) {
-      const script = document.createElement('script');
-      script.src = chrome.runtime.getURL(
-        'content_scripts/whotracksme/ghostery-whotracksme.js',
-      );
-      script.onload = function () {
-        this.remove();
-      };
-      (document.head || document.documentElement).appendChild(script);
+  window.addEventListener('message', (message) => {
+    if (
+      !message.isTrusted ||
+      !(typeof message.data === 'string') ||
+      !message.data.startsWith('GhosteryTrackingDetection:')
+    ) {
+      return;
     }
 
-    window.addEventListener('message', (message) => {
-      if (
-        !message.isTrusted ||
-        !(typeof message.data === 'string') ||
-        !message.data.startsWith('GhosteryTrackingDetection:')
-      ) {
-        return;
-      }
+    let url = decodeURIComponent(message.data.split(':')[1]);
+    if (url.startsWith('/')) {
+      url = `${origin}${url}`;
+    }
 
-      let url = decodeURIComponent(message.data.split(':')[1]);
-      if (url.startsWith('/')) {
-        url = `${origin}${url}`;
-      }
-      sendMessage(url, 'content');
-    });
-  }
-
-  injectMonkeyPatches();
+    sendMessage(url, 'content');
+  });
 })();

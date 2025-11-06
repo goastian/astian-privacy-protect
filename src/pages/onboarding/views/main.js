@@ -21,12 +21,18 @@ import Privacy from './privacy.js';
 import Skip from './skip.js';
 import Success from './success.js';
 
-const TERMS_AND_CONDITIONS_URL = `https://astian.org/terms-conditions/?mtm_campaign=Terms%20%26%20Conditions%20Extension`;
+const TERMS_AND_CONDITIONS_URL = `https://www.${GHOSTERY_DOMAIN}/privacy/ghostery-terms-and-conditions?utm_source=gbe&utm_campaign=onboarding`;
 
 function acceptTerms(host, event) {
   router.resolve(
     event,
-    store.set(Options, { terms: true, feedback: host.feedback }),
+    store.set(Options, {
+      terms: true,
+      feedback: host.feedback,
+      // Engines are initialized for the first time from CDN after onboarding,
+      // so we need to update the timestamp to current time
+      filtersUpdatedAt: Date.now(),
+    }),
   );
 }
 
@@ -39,8 +45,8 @@ export default {
     <template layout="column gap:2">
       <ui-card layout="gap:2" layout@390px="gap:3">
         <section layout="block:center column gap" layout@390px="margin:2:0:1">
-          <ui-text type="body-m">Welcome to Astian Privacy</ui-text>
-          <ui-text type="display-m">Enable Astian to get started</ui-text>
+          <ui-text type="body-m">Welcome to Ghostery</ui-text>
+          <ui-text type="display-m">Enable Ghostery to get started</ui-text>
         </section>
         <div layout="column gap:2">
           <ui-text type="display-2xs" layout="block:center">
@@ -74,8 +80,8 @@ export default {
                 ${msg.html`
                   By sharing insights on <a href="${router.url(AddonHealth)}">add-on's health</a> and
                   <a href="${router.url(Performance)}">performance telemetry</a>
-                  as outlined in our <a href="${'https://addons.mozilla.org/firefox/addon/astian-privacy-protect//'}" target="_blank" rel="noreferrer">Privacy Policy</a>,
-                  you help advance privacy protections for the entire Astian community.
+                  as outlined in our <a href="${'https://addons.mozilla.org/firefox/addon/ghostery/privacy/'}" target="_blank" rel="noreferrer">Privacy Policy</a>,
+                  you help advance privacy protections for the entire Ghostery community.
                 `}
               </ui-text>
             </div>
@@ -88,12 +94,12 @@ export default {
                 <a href="${router.url(AddonHealth)}">add-on's health</a>, and
                 <a href="${router.url(Performance)}">performance telemetry</a>
                 will be shared in accordance with our <a href="${router.url(Privacy)}" target="_blank" rel="noreferrer">Privacy Policy</a>,
-                advancing privacy protection for the Astian community.
+                advancing privacy protection for the Ghostery community.
               `}
             </ui-text>
           `}
           <ui-text type="body-s">
-            Astian Privacy uses this information to provide its community-powered
+            Ghostery uses this information to provide its community-powered
             privacy features, ensuring that personal information—such as
             passwords, browsing history, and page content—is never collected.
           </ui-text>
@@ -101,7 +107,7 @@ export default {
         <div layout="column gap:2">
           <ui-button type="success" layout="height:5.5" data-qa="button:enable">
             <a href="${router.url(Success)}" onclick="${acceptTerms}">
-              Enable Astian Privacy
+              Enable Ghostery
             </a>
           </ui-button>
           <onboarding-error-card layout="margin:top">
@@ -110,7 +116,7 @@ export default {
               color="danger-secondary"
               layout="block:center"
             >
-              With Astian Privacy disabled, only the basic functionality of naming
+              With Ghostery disabled, only the basic functionality of naming
               trackers is available.
             </ui-text>
             <ui-button type="outline-danger" data-qa="button:skip">

@@ -14,12 +14,6 @@
   "about": {
     "message": "О программе"
   },
-  "access_website_settings": {
-    "message": "Доступ к настройкам сайта"
-  },
-  "account_details": {
-    "message": "Данные аккаунта"
-  },
   "active": {
     "message": "Активный"
   },
@@ -65,19 +59,22 @@
     "description": "Tracker category name"
   },
   "all_information_displayed_on_the_whotracks_me_tab_or_@_0__is_an_aggregate_of_facts_about_web_trackers__these_reports_power_ghostery_s_anti_tracking_technology__protecting_the_entire_community_": {
-    "message": "Вся информация, отображаемая на вкладке Alfra или $${0}, представляет собой совокупность фактов о Трекерах. Эти отчеты поддерживают технологию анти-трекинга Astian, защищая всю сообщество."
+    "message": "Вся информация, отображаемая на вкладке WhoTracks.Me или $${0}, представляет собой совокупность фактов о Трекерах. Эти отчеты поддерживают технологию анти-трекинга Ghostery, защищая всю сообщество."
   },
   "all_websites_with_adjusted_protection_status_will_be_listed_here_": {
     "message": "Все веб-сайты с измененным статусом защиты будут перечислены здесь."
   },
   "allow_ghostery_in_private_windows": {
-    "message": "Разреши Astian в приватных окнах"
+    "message": "Разреши Ghostery в приватных окнах"
   },
   "allow_trusted_scriptlets": {
     "message": "Разрешить доверенные скрипты"
   },
   "always": {
     "message": "Всегда"
+  },
+  "android_and_iphone_just_got_a_new_edge__ghostery_included_": {
+    "message": "Android и iPhone только что получили новый Edge. Ghostery включен."
   },
   "anti_tracking": {
     "message": "Анти-трекинг"
@@ -99,7 +96,7 @@
     "message": "Стать участником"
   },
   "being_an_eu_company__ghostery_strictly_adheres_to_the_gdpr__the_general_data_protection_regulation___which_regulates_data_collection_to_ensure_user_s_privacy_": {
-    "message": "Будучи компанией из ЕС, Astian строго соблюдает GDPR (Общий регламент по защите данных), который регулирует сбор данных для обеспечения конфиденциальности пользователей."
+    "message": "Будучи компанией из ЕС, Ghostery строго соблюдает GDPR (Общий регламент по защите данных), который регулирует сбор данных для обеспечения конфиденциальности пользователей."
   },
   "block_all": {
     "message": "Заблокировать все"
@@ -138,8 +135,11 @@
   "browser__vendor__version__language__operating_system_vendor": {
     "message": "браузер: производитель, версия, язык, производитель операционной системы"
   },
+  "browsing_assistant": {
+    "message": "Помощник по просмотру"
+  },
   "by_sharing_insights_on__a_href__@_0___add_on_s_health__a__and__a_href____1___performance_telemetry__a__as_outlined_in_our__a_href____2___target___blank__rel__noreferrer__privacy_policy__a___you_help_advance_privacy_protections_for_the_entire_ghostery_community_": {
-    "message": "Предоставляя информацию о <a href=\"$${0}\">состоянии дополнения</a> и <a href=\"$${1}\">телеметрии производительности</a>, как указано в нашей <a href=\"$${2}\" target=\"_blank\" rel=\"noreferrer\">Политике конфиденциальности</a>, вы помогаете улучшать защиту конфиденциальности для всей сообщества Astian."
+    "message": "Предоставляя информацию о <a href=\"$${0}\">состоянии дополнения</a> и <a href=\"$${1}\">телеметрии производительности</a>, как указано в нашей <a href=\"$${2}\" target=\"_blank\" rel=\"noreferrer\">Политике конфиденциальности</a>, вы помогаете улучшать защиту конфиденциальности для всей сообщества Ghostery."
   },
   "cancel": {
     "message": "Отмена"
@@ -161,7 +161,7 @@
     "message": "Очистить"
   },
   "click_the_puzzle_icon_next_to_the_search_bar_and_pin_ghostery_to_your_toolbar_": {
-    "message": "Нажмите на значок «Расширения» справа от строки поиска и закрепите Astian на панели инструментов."
+    "message": "Нажмите на значок «Расширения» справа от строки поиска и закрепите Ghostery на панели инструментов."
   },
   "close": {
     "message": "Закрыть"
@@ -172,6 +172,9 @@
   "comments": {
     "message": "Комментарии",
     "description": "Tracker category name"
+  },
+  "consent_managed": {
+    "message": "Управление согласием"
   },
   "consent_management": {
     "message": "Управление согласием",
@@ -184,13 +187,10 @@
     "message": "Контактная поддержка"
   },
   "contribute_to_ghostery_tracker_database_on_github": {
-    "message": "Поддержать базу данных трекеров от Astian на Github"
+    "message": "Поддержать базу данных трекеров от Ghostery на Github"
   },
   "contributes_non_personal_information_about_add_on_health_and_performance_telemetry_to_help_advance_privacy_protections_for_the_entire_ghostery_community_": {
-    "message": "Предоставляет неперсональную информацию о состоянии и производительности дополнения, чтобы помочь улучшить защиту конфиденциальности для всей сообщества Astian."
-  },
-  "contributor": {
-    "message": "Участник"
+    "message": "Предоставляет неперсональную информацию о состоянии и производительности дополнения, чтобы помочь улучшить защиту конфиденциальности для всей сообщества Ghostery."
   },
   "copied_to_clipboard": {
     "message": "Скопировано в буфер обмена"
@@ -200,9 +200,6 @@
   },
   "country": {
     "message": "Страна"
-  },
-  "create_account": {
-    "message": "Создать учетную запись"
   },
   "custom": {
     "message": "Пользовательский"
@@ -235,6 +232,9 @@
   "detailed_view": {
     "message": "Детальный просмотр"
   },
+  "detects_and_prevents_ad_blocker_breakage_by_automatically_pausing_on_affected_pages_": {
+    "message": "Обнаруживает и предотвращает сбои блокировщика рекламы, автоматически приостанавливая его работу на затронутых страницах."
+  },
   "disable": {
     "message": "Отключить"
   },
@@ -244,11 +244,14 @@
   "disabled": {
     "message": "Инвалид"
   },
+  "discover_fresh_features__key_improvements__and_upgrades_driven_by_community_contributions___all_in_one_place_": {
+    "message": "Откройте для себя новые функции, ключевые улучшения и обновления, созданные благодаря вкладу сообщества, — всё в одном месте."
+  },
   "displays_all_content_blocks_manually_hidden_on_this_site__you_can_remove_them_individually_or_clear_the_entire_list_": {
     "message": "Отображает все блоки контента, скрытые вручную на этом сайте. Вы можете удалить их по отдельности или очистить весь список."
   },
   "displays_the_tracker_count_on_the_ghostery_icon_in_the_browser_toolbar_": {
-    "message": "Показывает счетчик трекеров у значка Astian на панели инструментов в браузере."
+    "message": "Показывает счетчик трекеров у значка Ghostery на панели инструментов в браузере."
   },
   "displays_unique_insights_into_observed_activities_on_@_0___revealing_affiliation__categories__and_presence_across_the_site_": {
     "message": "Отображает уникальные сведения о наблюдаемых действиях на $${0}, раскрывая принадлежность, категории и присутствие на сайте."
@@ -263,7 +266,7 @@
     "message": "Готово"
   },
   "due_to_browser_restrictions_and_additional_permissions_missing__ghostery_is_not_able_to_protect_you_": {
-    "message": "Astian не работает из-за ограничений браузера и отсутствия дополнительных разрешений."
+    "message": "Ghostery не работает из-за ограничений браузера и отсутствия дополнительных разрешений."
   },
   "eliminates_ads_on_websites_for_safe_and_fast_browsing_": {
     "message": "Блокирует рекламу на сайтах для более быстрой и безопасной работы в браузере."
@@ -272,18 +275,14 @@
     "message": "Email",
     "description": "Tracker category name"
   },
-  "enable_@_0_": {
-    "message": "Включить $${0}",
-    "description": "Enable \"feature name\"\nEnable \"feature name\"\nEnable \"feature name\"\nEnable \"feature name\""
-  },
   "enable_ad_blocking_now": {
     "message": "Включить блокировку рекламы"
   },
   "enable_ghostery": {
-    "message": "Включить Astian"
+    "message": "Включить Ghostery"
   },
   "enable_ghostery_to_get_started": {
-    "message": "Включите Astian, чтобы начать работу"
+    "message": "Включите Ghostery, чтобы начать работу"
   },
   "enable_now": {
     "message": "Включить"
@@ -320,7 +319,7 @@
     "message": "Развернуть"
   },
   "expand_ghostery_ad_blocking_to_search_engines_in_a_few_easy_steps_": {
-    "message": "Настройте блокировку рекламы от Astian для поисковых систем в несколько простых шагов."
+    "message": "Настройте блокировку рекламы от Ghostery для поисковых систем в несколько простых шагов."
   },
   "experimental_filters": {
     "message": "Экспериментальные фильтры"
@@ -339,7 +338,7 @@
     "description": "Tracker category name"
   },
   "facilitates_the_creation_of_your_own_ad_blocking_rules_to_customize_your_ghostery_experience_": {
-    "message": "Обеспечивает создание собственных правил блокировки рекламы для настройки вашего опыта использования Astian."
+    "message": "Обеспечивает создание собственных правил блокировки рекламы для настройки вашего опыта использования Ghostery."
   },
   "facts": {
     "message": "Факты"
@@ -348,67 +347,67 @@
     "message": "Обмен отзывами"
   },
   "generates_a_global_transparency_report_on_web_tracking_in_your_ghostery_protected_browser_": {
-    "message": "Создает глобальный отчет о прозрачности веб-трекинга в вашем браузере, защищенном Astian."
+    "message": "Создает глобальный отчет о прозрачности веб-трекинга в вашем браузере, защищенном Ghostery."
   },
   "get_help": {
     "message": "Помощь"
   },
   "ghostery_added_a_rule_to_keep_this_content_block_hidden__you_can_undo_this_anytime_in_website_settings_": {
-    "message": "Astian добавил правило, чтобы этот блок контента оставался скрытым. Вы можете отменить это в любое время в настройках сайта."
+    "message": "Ghostery добавил правило, чтобы этот блок контента оставался скрытым. Вы можете отменить это в любое время в настройках сайта."
   },
   "ghostery_has_been_resumed_": {
-    "message": "Astian возобновлен."
+    "message": "Ghostery возобновлен."
   },
   "ghostery_has_been_resumed_on_this_site_": {
-    "message": "На этом сайте возобновлена работа Astian."
+    "message": "На этом сайте возобновлена работа Ghostery."
   },
   "ghostery_has_nothing_to_do_on_this_page": {
-    "message": "Astian нечего делать на этой странице"
+    "message": "Ghostery нечего делать на этой странице"
   },
   "ghostery_is_all_set_to_stop_trackers_in_their_tracks_and_protect_your_privacy_while_browsing_": {
-    "message": "Astian блокирует трекеры и обеспечивает конфиденциальность при работе в браузере."
+    "message": "Ghostery блокирует трекеры и обеспечивает конфиденциальность при работе в браузере."
   },
   "ghostery_is_installed_with_limited_functionality": {
-    "message": "Astian устанавливается с ограниченной функциональностью"
+    "message": "Ghostery устанавливается с ограниченной функциональностью"
   },
   "ghostery_is_paused": {
-    "message": "Astian сделал паузу"
+    "message": "Ghostery сделал паузу"
   },
   "ghostery_is_paused_on_this_site_": {
-    "message": "Astian приостановлен на этом сайте."
+    "message": "Ghostery приостановлен на этом сайте."
   },
   "ghostery_maps_the_ownership_structure_linking_activities_to_the_organizations_controlling_them__this_knowledge__hand_curated_by_experts__is_publicly_available_on": {
-    "message": "Astian отображает структуру владения, связывая действия с организациями, которые их контролируют. Эти знания, тщательно отобранные экспертами, доступны общественности на"
+    "message": "Ghostery отображает структуру владения, связывая действия с организациями, которые их контролируют. Эти знания, тщательно отобранные экспертами, доступны общественности на"
   },
   "ghostery_never_collects_personal_information_like_passwords__browsing_history_or_the_content_of_the_pages_you_visit_": {
-    "message": "Astian никогда не собирает личную информацию, такую как пароли, история браузера или содержимое посещаемых вами страниц."
+    "message": "Ghostery никогда не собирает личную информацию, такую как пароли, история браузера или содержимое посещаемых вами страниц."
   },
   "ghostery_paused": {
-    "message": "Astian сделал паузу"
+    "message": "Ghostery сделал паузу"
   },
   "ghostery_privacy_policy": {
-    "message": "Политика конфиденциальности Astian"
+    "message": "Политика конфиденциальности Ghostery"
   },
   "ghostery_protects_your_privacy_by_detecting_and_neutralizing_different_types_of_data_collection_including_ads__trackers__and_cookie_pop_ups_": {
-    "message": "Для обеспечения конфиденциальности Astian выявляет и блокирует различные попытки сбора данных, включая рекламу, трекеры и уведомления о файлах cookie."
+    "message": "Для обеспечения конфиденциальности Ghostery выявляет и блокирует различные попытки сбора данных, включая рекламу, трекеры и уведомления о файлах cookie."
   },
   "ghostery_settings": {
-    "message": "Настройки Astian"
+    "message": "Настройки Ghostery"
   },
   "ghostery_tracker___ad_blocker_is_naming_the_trackers_present_on_websites_you_visit__you_are_browsing_the_web_unprotected_": {
-    "message": "Astian Трекер & Ad Blocker называет трекеры, присутствующие на посещаемых вами веб-сайтах. Вы просматриваете веб-сайты без защиты."
+    "message": "Ghostery Трекер & Ad Blocker называет трекеры, присутствующие на посещаемых вами веб-сайтах. Вы просматриваете веб-сайты без защиты."
   },
   "ghostery_users_report_that_ad_blockers_are_no_longer_breaking_this_site__ghostery_will_be_re_enabled_": {
-    "message": "Пользователи Astian сообщают, что блокировщики рекламы больше не нарушают работу этого сайта. Astian будет снова включен."
+    "message": "Пользователи Ghostery сообщают, что блокировщики рекламы больше не нарушают работу этого сайта. Ghostery будет снова включен."
   },
   "ghostery_users_report_that_adblockers_break_this_page__ghostery_has_been_paused_": {
-    "message": "Пользователи Astian сообщают, что блокировщики рекламы нарушают работу этой страницы. Astian приостановлен."
+    "message": "Пользователи Ghostery сообщают, что блокировщики рекламы нарушают работу этой страницы. Ghostery приостановлен."
   },
   "ghostery_uses_this_information_to_provide_its_community_powered_privacy_features__ensuring_that_personal_information_such_as_passwords__browsing_history__and_page_content_is_never_collected_": {
-    "message": "Astian использует эту информацию для предоставления функций конфиденциальности, основанных на сообществе, гарантируя, что личная информация, такая как пароли, история просмотров и содержимое страниц, никогда не собирается."
+    "message": "Ghostery использует эту информацию для предоставления функций конфиденциальности, основанных на сообществе, гарантируя, что личная информация, такая как пароли, история просмотров и содержимое страниц, никогда не собирается."
   },
   "ghostery_will_show_how_many_trackers_were_blocked_on_a_page__clicking_on_the_ghostery_icon_reveals_more_detailed_information_": {
-    "message": "Astian будет показывать количество трекеров, заблокированных на странице. Чтобы посмотреть более подробную статистику, нажмите на значок расширения."
+    "message": "Ghostery будет показывать количество трекеров, заблокированных на странице. Чтобы посмотреть более подробную статистику, нажмите на значок расширения."
   },
   "gone_": {
     "message": "Пропало!"
@@ -417,13 +416,13 @@
     "message": "хеши потенциально уникального идентификатора в параметрах запросов"
   },
   "help_ghostery_fight_for_a_web_where_privacy_is_a_basic_human_right_": {
-    "message": "Помогите Astian в борьбе за конфиденциальность как за основное право человека."
+    "message": "Помогите Ghostery в борьбе за конфиденциальность как за основное право человека."
   },
   "helps_ghostery_fix_broken_pages_faster__by_activating_you_can_test_experimental_filters_and_support_us_with_feedback__please_send_a_message_to_support@ghostery_com_describing_how_your_experience_changed_after_enabling_": {
-    "message": "Помогает Astian быстрее исправлять неработающие страницы. Активировав, вы можете тестировать экспериментальные фильтры и поддерживать нас обратной связью. Пожалуйста, отправьте сообщение на support@ghostery.com, описав, как изменился ваш опыт после включения."
+    "message": "Помогает Ghostery быстрее исправлять неработающие страницы. Активировав, вы можете тестировать экспериментальные фильтры и поддерживать нас обратной связью. Пожалуйста, отправьте сообщение на support@ghostery.com, описав, как изменился ваш опыт после включения."
   },
   "hey__do_you_enjoy_ghostery_and_want_to_support_our_work_": {
-    "message": "Если вам нравится Astian, можете поддержать нашу работу."
+    "message": "Если вам нравится Ghostery, можете поддержать нашу работу."
   },
   "hide": {
     "message": "Скрыть"
@@ -463,13 +462,10 @@
     "message": "Сообщите нам о проблемах с отображением страницы, мы с радостью разберемся и исправим."
   },
   "information_about__a_href__@_0___web_trackers__a____a_href____1___add_on_s_health__a___and__a_href____2___performance_telemetry__a__will_be_shared_in_accordance_with_our__a_href____3___target___blank__rel__noreferrer__privacy_policy__a___advancing_privacy_protection_for_the_ghostery_community_": {
-    "message": "Информация о <a href=\"$${0}\">веб-трекерах</a>, <a href=\"$${1}\">состоянии дополнения</a> и <a href=\"$${2}\">телеметрии производительности</a> будет передаваться в соответствии с нашей <a href=\"$${3}\" target=\"_blank\" rel=\"noreferrer\">Политикой конфиденциальности</a>, способствуя усилению защиты конфиденциальности для сообщества Astian."
+    "message": "Информация о <a href=\"$${0}\">веб-трекерах</a>, <a href=\"$${1}\">состоянии дополнения</a> и <a href=\"$${2}\">телеметрии производительности</a> будет передаваться в соответствии с нашей <a href=\"$${3}\" target=\"_blank\" rel=\"noreferrer\">Политикой конфиденциальности</a>, способствуя усилению защиты конфиденциальности для сообщества Ghostery."
   },
   "it_exists_thanks_to_the_micro_contributions_of_every_ghostery_user_who_chooses_to_send_non_personal_information_to_whotracks_me__this_input_enables_ghostery_to_provide_real_time_intel_on_trackers__which__in_turn__delivers_privacy_protection_to_the_entire_ghostery_community_": {
-    "message": "Он существует благодаря микровкладам каждого пользователя Astian, отправляющего неперсональную информацию на Alfra. Данные позволяют Astian оперативно предоставлять информацию о трекерах, что взамен обеспечивает защиту всего сообщества Astian."
-  },
-  "join_ghostery": {
-    "message": "Присоединяйтесь к Astian"
+    "message": "Он существует благодаря микровкладам каждого пользователя Ghostery, отправляющего неперсональную информацию на WhoTracks.Me. Данные позволяют Ghostery оперативно предоставлять информацию о трекерах, что взамен обеспечивает защиту всего сообщества Ghostery."
   },
   "k_anonymity_protected_reports_of_page_shows": {
     "message": "k-анонимные защищенные отчеты о показах страниц"
@@ -505,7 +501,7 @@
     "message": "Показать еще"
   },
   "manifest_name": {
-    "message": "Astian Трекер & Ad Blocker - приватный блокировщик рекламы"
+    "message": "Ghostery Трекер & Ad Blocker - приватный блокировщик рекламы"
   },
   "manifest_short_description": {
     "message": "Мощное расширение для защиты конфиденциальности, которое блокирует рекламу, предотвращает трекеры и ускоряет загрузку веб-сайтов"
@@ -539,13 +535,16 @@
     "message": "Переместите ползунок, чтобы показать или скрыть разделы."
   },
   "my_ghostery": {
-    "message": "Мой Astian"
+    "message": "Мой Ghostery"
   },
   "name": {
     "message": "Имя"
   },
   "navigate_to_a_website_to_see_ghostery_in_action_": {
-    "message": "Перейдите на любой сайт, чтобы увидеть, как работает Astian."
+    "message": "Перейдите на любой сайт, чтобы увидеть, как работает Ghostery."
+  },
+  "need_more_help_": {
+    "message": "Нужна дополнительная помощь?"
   },
   "network_filters__@_0_": {
     "message": "Сетевые фильтры: $${0}"
@@ -577,6 +576,9 @@
   "open_video": {
     "message": "Открытое видео"
   },
+  "open_website_settings": {
+    "message": "Открыть настройки сайта"
+  },
   "open_youtube_in_a_private_window": {
     "message": "Открой YouTube в закрытом окне"
   },
@@ -597,7 +599,7 @@
     "message": "Посещенные страницы"
   },
   "pause_ghostery": {
-    "message": "Приостановить Astian"
+    "message": "Приостановить Ghostery"
   },
   "pause_on_this_site": {
     "message": "Пауза на этом сайте"
@@ -612,7 +614,10 @@
     "message": "Требуется разрешение"
   },
   "pin_extension_for_easy_access": {
-    "message": "Закрепите Astian для быстрого доступа"
+    "message": "Закрепите Ghostery для быстрого доступа"
+  },
+  "pin_ghostery___take_back_control": {
+    "message": "Закрепить Ghostery — Возьмите контроль в свои руки"
   },
   "pin_it_here": {
     "message": "Закрепите здесь"
@@ -645,7 +650,7 @@
     "message": "Предоставляет обзор основных аспектов защиты конфиденциальности."
   },
   "read_more_on_whotracks_me": {
-    "message": "Читайте больше на Alfra"
+    "message": "Читайте больше на WhoTracks.Me"
   },
   "regional_filters": {
     "message": "Региональные фильтры"
@@ -654,7 +659,7 @@
     "message": "Перезагрузите, чтобы увидеть изменения"
   },
   "replaces_the_ghostery_icon_in_the_browser_toolbar_with_the_tracker_wheel_": {
-    "message": "Заменяет значок Astian на панели инструментов статистикой трекеров."
+    "message": "Заменяет значок Ghostery на панели инструментов статистикой трекеров."
   },
   "report_a_broken_page": {
     "message": "Сообщить о поврежденной странице"
@@ -669,7 +674,7 @@
     "message": "Возобновить"
   },
   "reveals_what_s_hidden_beneath_the_internet_s_surface__with_whotracks_me__you_can_uncover_the_identities_behind_every_tracker_": {
-    "message": "Раскрывает то, что скрыто под поверхностью интернета. С Alfra вы можете узнать, кто стоит за каждым Трекером."
+    "message": "Раскрывает то, что скрыто под поверхностью интернета. С WhoTracks.Me вы можете узнать, кто стоит за каждым Трекером."
   },
   "save": {
     "message": "Сохранить"
@@ -677,8 +682,11 @@
   "save_your_custom_settings_to_a_file__or_restore_them_from_a_file_": {
     "message": "Сохраните ваши настройки в файл или восстановите их из файла."
   },
-  "saves_and_synchronizes_your_custom_settings_between_browsers_and_devices_": {
-    "message": "Сохраняйте свои настройки и синхронизируйте их между браузерами и устройствами."
+  "saves_and_synchronizes_your_custom_settings_between_different_devices_": {
+    "message": "Сохраняет и синхронизирует ваши настройки между различными устройствами."
+  },
+  "scan_and_take_ghostery_from_desktop_to_mobile": {
+    "message": "Сканируйте и переносите Ghostery с компьютера на мобильное устройство"
   },
   "search_engine_redirect_protection": {
     "message": "Защита от перенаправления поисковых систем"
@@ -688,6 +696,12 @@
   },
   "search_website___": {
     "message": "Поиск сайта..."
+  },
+  "see_every_tracker_ghostery_stops_in_real_time_": {
+    "message": "Увидьте каждый трекер, который Ghostery останавливает в реальном времени."
+  },
+  "see_what_s_new": {
+    "message": "Узнайте, что нового"
   },
   "select_distracting_element": {
     "message": "Выберите отвлекающий элемент"
@@ -715,12 +729,6 @@
   },
   "shows_the_tracker_preview_beside_search_results_": {
     "message": "Показывает количество трекеров рядом с результатами поиска."
-  },
-  "sign_in": {
-    "message": "Вход"
-  },
-  "sign_in_or_create_account_on_ghostery_com": {
-    "message": "Войдите или создайте учетную запись на ghostery.com"
   },
   "simple_view": {
     "message": "Простой вид"
@@ -758,9 +766,6 @@
   "terms___conditions": {
     "message": "Условия и положения"
   },
-  "thank_you_for_your_support_in_ghostery_s_fight_for_a_web_where_privacy_is_a_basic_human_right_": {
-    "message": "Благодарим за помощь Astian в борьбе за конфиденциальность как за основное право человека."
-  },
   "the_backup_from_@_0__imported_successfully_": {
     "message": "Резервная копия из $${0} успешно импортирована."
   },
@@ -768,10 +773,10 @@
     "message": "Тема"
   },
   "this_privacy_report_was_generated_by_tracking_the_trackers_in_a_browser_protected_by_ghostery__the_statistics_here_provide_transparency_about_web_tracking__to_learn_more_about_how_ghostery_keeps_its_community_safe__visit_@_0__": {
-    "message": "Этот отчет о конфиденциальности был создан путем отслеживания трекеров в браузере, защищенном Astian. Статистика здесь обеспечивает прозрачность веб-трекинга. Чтобы узнать больше о том, как Astian защищает свое сообщество, посетите $${0}."
+    "message": "Этот отчет о конфиденциальности был создан путем отслеживания трекеров в браузере, защищенном Ghostery. Статистика здесь обеспечивает прозрачность веб-трекинга. Чтобы узнать больше о том, как Ghostery защищает свое сообщество, посетите $${0}."
   },
   "this_site_will_always_be_paused__you_can_change_this_at_any_time_in_ghostery_settings_to_stop_trackers_and_ads_from_tracking_you_around_the_web": {
-    "message": "Этот сайт всегда будет приостановлен. Вы можете изменить это в любое время в настройках Astian, чтобы остановить трекеры и рекламу, отслеживающую вас в Интернете"
+    "message": "Этот сайт всегда будет приостановлен. Вы можете изменить это в любое время в настройках Ghostery, чтобы остановить трекеры и рекламу, отслеживающую вас в Интернете"
   },
   "this_site_will_be_paused_for_1_day": {
     "message": "Этот сайт будет приостановлен на 1 день"
@@ -821,9 +826,6 @@
   "trackers_preview": {
     "message": "Предварительный просмотр трекеров"
   },
-  "trackers_wheel": {
-    "message": "Трекерская рулетка"
-  },
   "trends": {
     "message": "Тренды"
   },
@@ -847,10 +849,10 @@
     "message": "Разрешено на этом сайте"
   },
   "turns_ghostery_notifications_displayed_in_the_panel_on_or_off_": {
-    "message": "Включает или отключает уведомления Astian, отображаемые в панели."
+    "message": "Включает или отключает уведомления Ghostery, отображаемые в панели."
   },
   "uncovers_that_no_two_days_are_alike__with_ghostery__you_re_protected_each_day_": {
-    "message": "Каждый день не похож на другой. С Astian вы защищены каждый день."
+    "message": "Каждый день не похож на другой. С Ghostery вы защищены каждый день."
   },
   "unidentified": {
     "message": "Неизвестно",
@@ -858,6 +860,9 @@
   },
   "uninstall": {
     "message": "Удалить"
+  },
+  "update_now": {
+    "message": "Обновить сейчас"
   },
   "updating___": {
     "message": "обновление..."
@@ -878,6 +883,9 @@
   "view_activity_details": {
     "message": "Просмотреть подробности действия"
   },
+  "view_details_logs": {
+    "message": "Просмотр журналов деталей"
+  },
   "view_report": {
     "message": "Просмотреть отчет"
   },
@@ -888,10 +896,10 @@
     "message": "был наиболее часто встречающимся трекером на всех посещенных веб-страницах."
   },
   "we_know_you_rely_on_ghostery_for_a_smooth_youtube_experience__until_a_more_refined_solution_emerges__here_s_a_temporary_fix_": {
-    "message": "Мы знаем, что ты полагаешься на Astian для бесперебойной работы с YouTube. Пока не появится более совершенное решение, вот временное исправление."
+    "message": "Мы знаем, что ты полагаешься на Ghostery для бесперебойной работы с YouTube. Пока не появится более совершенное решение, вот временное исправление."
   },
   "we_re_so_glad_ghostery_has_your_heart__help_others_find_us_too___it_only_takes_a_moment_": {
-    "message": "Мы рады, что Astian вам по душе! Помогите другим найти нас — это займет всего минуту."
+    "message": "Мы рады, что Ghostery вам по душе! Помогите другим найти нас — это займет всего минуту."
   },
   "web_trackers": {
     "message": "Веб-трекеры"
@@ -912,37 +920,34 @@
     "message": "Еженедельно"
   },
   "welcome_to_ghostery": {
-    "message": "Добро пожаловать в Astian"
+    "message": "Добро пожаловать в Ghostery"
+  },
+  "what_s_new_in_ghostery": {
+    "message": "Что нового в Ghostery"
   },
   "what_s_next_": {
     "message": "Что дальше?"
   },
   "whotracks_me__operated_by_ghostery__is_a_vital_cornerstone_of_ghostery_s_ai_anti_tracking_technology__playing_a_crucial_role_in_providing_real_time_privacy_protection_for_the_ghostery_community__it_is_a_comprehensive_global_resource_on_trackers__bringing_transparency_to_web_tracking_": {
-    "message": "Alfra, управляемый Astian, является важнейшим элементом технологии Astian по борьбе с отслеживанием на основе ИИ, играя ключевую роль в обеспечении защиты конфиденциальности в реальном времени для сообщества Astian. Это всеобъемлющий глобальный ресурс о трекерах, обеспечивающий прозрачность веб-отслеживания."
+    "message": "WhoTracks.Me, управляемый Ghostery, является важнейшим элементом технологии Ghostery по борьбе с отслеживанием на основе ИИ, играя ключевую роль в обеспечении защиты конфиденциальности в реальном времени для сообщества Ghostery. Это всеобъемлющий глобальный ресурс о трекерах, обеспечивающий прозрачность веб-отслеживания."
   },
   "whotracks_me_reports": {
     "message": "КтоСледит.Меня Отчеты"
   },
   "whotracks_me_statistical_report": {
-    "message": "Статистический отчет Alfra"
+    "message": "Статистический отчет WhoTracks.Me"
   },
   "whotracks_me_wheel": {
-    "message": "Колесо Alfra"
+    "message": "Колесо WhoTracks.Me"
   },
   "why_paused_": {
     "message": "Почему приостановлено?"
   },
   "with_ghostery_disabled__only_the_basic_functionality_of_naming_trackers_is_available_": {
-    "message": "При отключенном Astian доступна только базовая функция именования трекеров."
+    "message": "При отключенном Ghostery доступна только базовая функция именования трекеров."
   },
   "yesterday": {
     "message": "Вчера"
-  },
-  "you_are_awesome_": {
-    "message": "Отлично!"
-  },
-  "you_are_signed_in_as_": {
-    "message": "Вы вошли как:"
   },
   "you_will_no_longer_see_tracker_wheels_next_to_the_search_results_": {
     "message": "Вы больше не будете видеть статистику трекера рядом с результатами поиска."
@@ -954,7 +959,7 @@
     "message": "Ваши функции конфиденциальности, поддерживаемые сообществом:"
   },
   "your_contribution_helps_build_a_more_private_and_safe_internet_for_the_entire_ghostery_community_": {
-    "message": "Ваш вклад помогает создать более приватный и безопасный интернет для всей сообщества Astian."
+    "message": "Ваш вклад помогает создать более приватный и безопасный интернет для всей сообщества Ghostery."
   },
   "youtube_blocking_you_from_watching_ad_free_videos_": {
     "message": "YouTube блокирует тебе просмотр видео без рекламы?"

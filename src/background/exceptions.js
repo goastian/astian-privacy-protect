@@ -13,47 +13,15 @@ import { store } from 'hybrids';
 import { parseFilter } from '@ghostery/adblocker';
 
 import Options from '/store/options.js';
+
 import * as OptionsObserver from '/utils/options-observer.js';
 import * as trackerdb from '/utils/trackerdb.js';
-
+import convert from '/utils/dnr-converter.js';
 import {
-  createDocumentConverter,
-  createOffscreenConverter,
-} from '../utils/dnr-converter.js';
-
-// Migrate exceptions from old format
-// TODO: Remove this in the next version
-try {
-  chrome.storage.local
-    .get(['exceptions'])
-    .then(async ({ exceptions: values }) => {
-      if (values) {
-        const exceptions = {};
-        Object.entries(values).forEach(([id, { blocked, trustedDomains }]) => {
-          if (!blocked || trustedDomains.length > 0) {
-            exceptions[id] = { global: !blocked, domains: trustedDomains };
-          }
-        });
-
-        await store.set(Options, { exceptions });
-        await chrome.storage.local.remove('exceptions');
-
-        updateFilters();
-
-        console.log('[exceptions] Migration completed successfully.');
-      }
-    });
-} catch (e) {
-  console.error(
-    '[exceptions] Error while migrating exceptions from old format:',
-    e,
-  );
-}
-
-const convert =
-  __PLATFORM__ === 'chromium'
-    ? createOffscreenConverter()
-    : createDocumentConverter();
+  EXCEPTIONS_ID_RANGE,
+  EXCEPTIONS_RULE_PRIORITY,
+  getDynamicRulesIds,
+} from '/utils/dnr.js';
 
 async function updateFilters() {
   const options = await store.resolve(Options);
@@ -73,55 +41,30 @@ async function updateFilters() {
       // Negate the filters to make them allow rules
       .map((filter) => `@@${filter.toString()}`);
 
-    for (const filter of filters) {
-      try {
-        const result = (await convert(filter.toString())).rules;
+    if (!filters.length) continue;
 
-        for (const rule of result) {
-          if (rule.condition.regexFilter) {
-            const { isSupported, reason } =
-              await chrome.declarativeNetRequest.isRegexSupported({
-                regex: rule.condition.regexFilter,
-              });
-            if (!isSupported) {
-              console.error(
-                `Could not add an exception for "${tracker.name}" as filter "${filter.toString()}" is a not supported regexp due to: ${reason}`,
-              );
-              continue;
-            }
-          }
+    const result = await convert(filters);
 
-          if (domains && domains.length) {
-            if (__PLATFORM__ === 'safari') {
-              rule.condition.domains = domains
-                .map((d) => `*${d}`)
-                .concat(rule.condition.domains || []);
-            } else {
-              rule.condition.initiatorDomains = domains.concat(
-                rule.condition.initiatorDomains || [],
-              );
-            }
-          }
-
-          rules.push({
-            ...rule,
-            priority: 2000000 + rule.priority,
-          });
-        }
-      } catch (e) {
-        console.error('[exceptions] Error while converting filter:', e);
+    for (const rule of result.rules) {
+      if (domains && domains.length) {
+        rule.condition.initiatorDomains = domains.concat(
+          rule.condition.initiatorDomains || [],
+        );
       }
+
+      rules.push({
+        ...rule,
+        priority: EXCEPTIONS_RULE_PRIORITY + rule.priority,
+      });
     }
   }
 
   const addRules = rules.map((rule, index) => ({
     ...rule,
-    id: 2000000 + index,
+    id: EXCEPTIONS_RULE_PRIORITY + index,
   }));
 
-  const removeRuleIds = (await chrome.declarativeNetRequest.getDynamicRules())
-    .filter(({ id }) => id >= 2000000)
-    .map(({ id }) => id);
+  const removeRuleIds = await getDynamicRulesIds(EXCEPTIONS_ID_RANGE);
 
   if (addRules.length || removeRuleIds.length) {
     await chrome.declarativeNetRequest.updateDynamicRules({
@@ -133,7 +76,7 @@ async function updateFilters() {
   }
 }
 
-if (__PLATFORM__ === 'chromium' || __PLATFORM__ === 'safari') {
+if (__PLATFORM__ !== 'firefox') {
   // Update exceptions filters every time TrackerDB updates
   // It happens when all engines are updated
   OptionsObserver.addListener(

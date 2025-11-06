@@ -17,10 +17,7 @@ import {
   CosmeticFilter,
 } from '@ghostery/adblocker';
 
-import {
-  createDocumentConverter,
-  createOffscreenConverter,
-} from '/utils/dnr-converter.js';
+import convert from '/utils/dnr-converter.js';
 import * as engines from '/utils/engines.js';
 import * as OptionsObserver from '/utils/options-observer.js';
 
@@ -28,11 +25,7 @@ import Options from '/store/options.js';
 import CustomFilters from '/store/custom-filters.js';
 
 import { setup, reloadMainEngine } from './adblocker.js';
-
-const convert =
-  __PLATFORM__ === 'chromium'
-    ? createOffscreenConverter()
-    : createDocumentConverter();
+import { CUSTOM_FILTERS_ID_RANGE, getDynamicRulesIds } from '/utils/dnr.js';
 
 class TrustedScriptletError extends Error {}
 
@@ -112,15 +105,10 @@ function normalizeFilters(text = '', { trustedScriptlets }) {
 }
 
 async function updateDNRRules(dnrRules) {
-  const dynamicRules = (await chrome.declarativeNetRequest.getDynamicRules())
-    .filter(({ id }) => id >= 1000000 && id < 2000000)
-    .map(({ id }) => id);
+  const removeRuleIds = await getDynamicRulesIds(CUSTOM_FILTERS_ID_RANGE);
 
-  if (dynamicRules.length) {
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: dynamicRules,
-      // ids between 1 and 2 million are reserved for dynamic rules
-    });
+  if (removeRuleIds.length) {
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds });
   }
 
   if (dnrRules.length) {
@@ -181,35 +169,16 @@ export async function updateCustomFilters(input, options) {
   await reloadMainEngine();
 
   // Update DNR rules for Chromium and Safari
-  if (__PLATFORM__ === 'chromium' || __PLATFORM__ === 'safari') {
-    const dnrResult = await Promise.allSettled(
-      [...networkFilters].map((filter) => convert(filter)),
+  if (__PLATFORM__ !== 'firefox') {
+    const { rules, errors } = await convert(
+      [...networkFilters].map((f) => f.toString()),
     );
 
-    const dnrRules = [];
-    for (const result of dnrResult) {
-      if (result.value.errors?.length) {
-        errors.push(...result.value.errors);
-      }
-
-      for (const rule of result.value.rules) {
-        if (rule.condition.regexFilter) {
-          const { isSupported, reason } =
-            await chrome.declarativeNetRequest.isRegexSupported({
-              regex: rule.condition.regexFilter,
-            });
-          if (!isSupported) {
-            errors.push(
-              `Could not apply a custom filter as "${rule.condition.regexFilter}" is a not supported regexp due to: ${reason}`,
-            );
-            continue;
-          }
-        }
-        dnrRules.push(rule);
-      }
+    if (errors?.length) {
+      result.errors.push(...errors);
     }
 
-    result.dnrRules = await updateDNRRules(dnrRules);
+    result.dnrRules = await updateDNRRules(rules);
   }
 
   return result;
@@ -228,7 +197,7 @@ OptionsObserver.addListener('customFilters', async (value, lastValue) => {
     const { text } = await store.resolve(CustomFilters);
     await updateCustomFilters(text, value);
   } else if (
-    (__PLATFORM__ === 'chromium' || __PLATFORM__ === 'safari') &&
+    __PLATFORM__ !== 'firefox' &&
     lastValue &&
     // Omit if `trustedScriptlets` is changed, as user then must click "save" button
     value.trustedScriptlets === lastValue.trustedScriptlets

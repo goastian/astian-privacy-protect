@@ -14,43 +14,20 @@ import { parseFilters } from '@ghostery/adblocker';
 
 import * as engines from '/utils/engines.js';
 import ElementPickerSelectors from '/store/element-picker-selectors.js';
-import Options from '/store/options.js';
-import CustomFilters from '/store/custom-filters.js';
 
 import { setup, reloadMainEngine } from './adblocker.js';
-import { updateCustomFilters } from './custom-filters.js';
 
-// Initialize element picker selectors
-// to ensure that store.observe() is called
-store.resolve(ElementPickerSelectors).then(async ({ hostnames }) => {
-  // Migrate element picker selector from custom filters engine
-  // TODO: Remove this migration after a few releases
-  if (
-    Object.keys(hostnames).length &&
-    !(await engines.init(engines.ELEMENT_PICKER_ENGINE))
-  ) {
-    console.log(
-      '[element-picker] Migrating selectors from custom filters engine...',
-    );
-
-    // Force refresh the element picker engine
-    store.clear(ElementPickerSelectors, false);
-    store.get(ElementPickerSelectors);
-
-    // Refresh custom filters without element picker selectors
-    const [options, customFilters] = await Promise.all([
-      store.resolve(Options),
-      store.resolve(CustomFilters),
-    ]);
-
-    updateCustomFilters(customFilters.text, options.customFilters);
-  }
-});
-
+// Observe element picker selectors to update the adblocker engine
 store.observe(ElementPickerSelectors, async (_, model, lastModel) => {
-  if (!lastModel) return;
-
   let entries = Object.entries(model.hostnames);
+
+  // Skip update if there is no change in the model
+  if (!lastModel) {
+    // and there is no entries, so engine is not needed
+    if (!entries.length) return;
+    // or engine already exists and it initializes correctly
+    if (await engines.init(engines.ELEMENT_PICKER_ENGINE)) return;
+  }
 
   if (entries.length) {
     const elementPickerFilters = entries.reduce(
@@ -69,10 +46,21 @@ store.observe(ElementPickerSelectors, async (_, model, lastModel) => {
       cosmeticFilters,
       config: (await engines.init(engines.FIXES_ENGINE)).config,
     });
+
+    console.log(
+      `[element-picker] Engine updated with ${
+        elementPickerFilters.length
+      } selectors for ${entries.length} hostnames`,
+    );
   } else {
     engines.remove(engines.ELEMENT_PICKER_ENGINE);
+    console.log('[element-picker] No selectors - engine removed');
   }
 
   setup.pending && (await setup.pending);
   await reloadMainEngine();
 });
+
+// Initialize element picker selectors
+// to ensure that store.observe() is called
+store.resolve(ElementPickerSelectors);

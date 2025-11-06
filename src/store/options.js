@@ -12,40 +12,30 @@
 import { store } from 'hybrids';
 
 import { DEFAULT_REGIONS } from '/utils/regions.js';
-import { isOpera } from '/utils/browser-info.js';
+import { isOpera, isSafari } from '/utils/browser-info.js';
 
-import Config, {
-  ACTION_PAUSE_ASSISTANT,
-  FLAG_PAUSE_ASSISTANT,
-} from './config.js';
 import CustomFilters from './custom-filters.js';
-import ManagedConfig from './managed-config.js';
+import ManagedConfig, { TRUSTED_DOMAINS_NONE_ID } from './managed-config.js';
 
 const UPDATE_OPTIONS_ACTION_NAME = 'updateOptions';
 export const GLOBAL_PAUSE_ID = '<all_urls>';
-
-export const SYNC_OPTIONS = [
-  'blockAds',
-  'blockTrackers',
-  'blockAnnoyances',
-  'regionalFilters',
-  'customFilters',
-  'experimentalFilters',
-  'trackerWheel',
-  'trackerCount',
-  'wtmSerpReport',
-  'serpTrackingPrevention',
-  'panel',
-  'theme',
-];
-
-export const SYNC_PROTECTED_OPTIONS = [...SYNC_OPTIONS, 'exceptions', 'paused'];
 
 export const ENGINES = [
   { name: 'ads', key: 'blockAds' },
   { name: 'tracking', key: 'blockTrackers' },
   { name: 'annoyances', key: 'blockAnnoyances' },
 ];
+
+const LOCAL_OPTIONS = [
+  'autoconsent',
+  'terms',
+  'feedback',
+  'panel',
+  'sync',
+  'revision',
+  'filtersUpdatedAt',
+];
+const PROTECTED_OPTIONS = ['exceptions', 'paused'];
 
 const OPTIONS_VERSION = 3;
 
@@ -66,28 +56,59 @@ const Options = {
     enabled: false,
     trustedScriptlets: false,
   },
+
+  // Experimental features
+  autoconsent: { autoAction: 'optOut' },
   experimentalFilters: false,
 
-  filtersUpdatedAt: 0,
-
-  // Browser toolbar icon
-  trackerWheel: false,
-  ...(__PLATFORM__ !== 'safari' ? { trackerCount: true } : {}),
-
-  // SERP
-  wtmSerpReport: true,
+  // SERP protection
   serpTrackingPrevention: true,
+
+  // Anti-Fingerprinting Protection
+  antiFingerprinting: {
+    enabled: true,
+    canvas: true,
+    webgl: true,
+    audio: true,
+    fonts: true,
+    screen: true,
+    timezone: true,
+    language: true,
+    hardware: true,
+    navigator: true,
+    performance: true,
+    webrtc: true,
+  },
+
+  // Cryptominer Protection
+  cryptominerProtection: {
+    enabled: true,
+    strictMode: false,
+    blockWebWorkers: true,
+    blockWebAssembly: true,
+    showNotifications: true,
+    cpuThreshold: 80,
+    detectionTimeout: 5000,
+    whitelist: [''],
+    blacklist: [''],
+  },
+
+  // WhoTracks.Me
+  wtmSerpReport: true,
+  trackerWheel: false,
+  ...(!isSafari() ? { trackerCount: true } : {}),
+  pauseAssistant: true,
 
   // Onboarding
   terms: false,
   feedback: true,
   onboarding: {
     shown: 0,
-    ...(__PLATFORM__ === 'chromium' && isOpera()
+    ...(__PLATFORM__ !== 'firefox' && isOpera()
       ? { serpShownAt: 0, serpShown: 0 }
       : {}),
+    ...(__PLATFORM__ !== 'firefox' ? { pinIt: false } : {}),
   },
-  installDate: '',
 
   // UI
   panel: { statsType: 'graph', notifications: true },
@@ -97,11 +118,15 @@ const Options = {
   exceptions: store.record({ global: false, domains: [String] }),
 
   // Paused domains
-  paused: store.record({ revokeAt: 0, assist: false }),
+  paused: store.record({ revokeAt: 0, assist: false, managed: false }),
 
-  // Sync
+  // Sync & Update
   sync: true,
   revision: 0,
+  filtersUpdatedAt: 0,
+
+  // What's new
+  whatsNewVersion: 0,
 
   [store.connect]: {
     async get() {
@@ -119,7 +144,7 @@ const Options = {
       }
 
       // Apply managed options for supported platforms
-      if (__PLATFORM__ === 'firefox' || __PLATFORM__ === 'chromium') {
+      if (__PLATFORM__ === 'firefox' || (!isSafari() && !isOpera())) {
         return manage(options);
       }
 
@@ -149,6 +174,15 @@ const Options = {
     },
   },
 };
+
+export const SYNC_OPTIONS = Object.keys(Options).filter(
+  (key) => !LOCAL_OPTIONS.includes(key),
+);
+
+export const REPORT_OPTIONS = [
+  ...SYNC_OPTIONS.filter((key) => !PROTECTED_OPTIONS.includes(key)),
+  'filtersUpdatedAt',
+];
 
 export default Options;
 
@@ -208,22 +242,32 @@ async function manage(options) {
 
     // Clear out the paused state, to overwrite with the current managed state
     options.paused = {};
+  }
 
-    // Add paused domains from the config
-    const config = await store.resolve(Config);
-    if (config.hasFlag(FLAG_PAUSE_ASSISTANT)) {
-      for (const [domain, { actions }] of Object.entries(config.domains)) {
-        if (actions.includes(ACTION_PAUSE_ASSISTANT)) {
-          options.paused[domain] = { revokeAt: 0, assist: true };
-        }
+  if (managed.disableUserAccount === true) {
+    options.sync = false;
+  }
+
+  if (managed.disableTrackersPreview === true) {
+    options.wtmSerpReport = false;
+  }
+
+  // Clean previous managed paused domains
+  if (options.paused) {
+    for (const domain of Object.keys(options.paused)) {
+      if (options.paused[domain].managed === true) {
+        delete options.paused[domain];
       }
     }
   }
 
-  managed.trustedDomains.forEach((domain) => {
+  // Apply trusted domains if they are configured (they are empty or contain real domains)
+  if (managed.trustedDomains[0] !== TRUSTED_DOMAINS_NONE_ID) {
     options.paused ||= {};
-    options.paused[domain] = { revokeAt: 0 };
-  });
+    managed.trustedDomains.forEach((domain) => {
+      options.paused[domain] = { revokeAt: 0, managed: true };
+    });
+  }
 
   return options;
 }

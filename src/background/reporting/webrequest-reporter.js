@@ -27,7 +27,7 @@ import urlReporter from './url-reporter.js';
 
 let webRequestReporter = null;
 
-if (__PLATFORM__ !== 'safari') {
+if (chrome.webRequest) {
   let options = {};
   OptionsObserver.addListener(function webRequestReporting(value) {
     options = value;

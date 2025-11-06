@@ -11,19 +11,28 @@
 
 import { store } from 'hybrids';
 
-import { isOpera } from '/utils/browser-info.js';
+import { isOpera, isWebkit } from '/utils/browser-info.js';
+import { debugMode } from '/utils/debug.js';
+
+export const TRUSTED_DOMAINS_NONE_ID = '<none>';
 
 const ManagedConfig = {
   disableOnboarding: false,
   disableUserControl: false,
   disableUserAccount: false,
   disableTrackersPreview: false,
-  trustedDomains: [String],
+  trustedDomains: [TRUSTED_DOMAINS_NONE_ID],
 
   [store.connect]: async () => {
-    if (__PLATFORM__ === 'safari' || isOpera()) return {};
+    if (isOpera() || isWebkit()) return {};
 
     try {
+      if (debugMode) {
+        const { debugManagedConfig } =
+          await chrome.storage.local.get('debugManagedConfig');
+        if (debugManagedConfig) return debugManagedConfig;
+      }
+
       return (await chrome.storage.managed.get()) || {};
     } catch {
       return {};

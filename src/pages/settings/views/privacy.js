@@ -12,13 +12,17 @@
 import { html, router, store } from 'hybrids';
 
 import Options, { GLOBAL_PAUSE_ID } from '/store/options.js';
-import Session from '/store/session.js';
+
+import { longDateFormatter } from '/ui/labels.js';
 
 import assets from '../assets/index.js';
 import RegionalFilters from './regional-filters.js';
 import ExperimentalFilters from './experimental-filters.js';
 import CustomFilters from './custom-filters.js';
 import Serp from './serp.js';
+import AntiFingerprinting from './anti-fingerprinting.js';
+import CryptominerProtection from './cryptominer-protection.js';
+import { BECOME_A_CONTRIBUTOR_PAGE_URL } from '/utils/urls.js';
 
 function toggleNeverConsent({ options }) {
   store.set(options, {
@@ -38,12 +42,22 @@ function updateGlobalPause({ options }, value, lastValue) {
   });
 }
 
+function updateFilters(host) {
+  store.set(host.options, { filtersUpdatedAt: 0 });
+}
+
 export default {
   [router.connect]: {
-    stack: [RegionalFilters, ExperimentalFilters, CustomFilters, Serp],
+    stack: [
+      RegionalFilters,
+      ExperimentalFilters,
+      CustomFilters,
+      Serp,
+      AntiFingerprinting,
+      CryptominerProtection,
+    ],
   },
   options: store(Options),
-  session: store(Session),
   devMode: false,
   globalPause: {
     value: false,
@@ -56,13 +70,7 @@ export default {
       host.globalPause = value;
     },
   },
-  render: ({
-    options,
-    session,
-    devMode,
-    globalPause,
-    globalPauseRevokeAt,
-  }) => html`
+  render: ({ options, devMode, globalPause, globalPauseRevokeAt }) => html`
     <template layout="contents">
       <settings-page-layout layout="column gap:4">
         ${store.ready(options) &&
@@ -82,7 +90,7 @@ export default {
               data-qa="toggle:global-pause"
             >
               <settings-option icon="pause">
-                Pause Astian
+                Pause Ghostery
                 <span slot="description">
                   Suspends privacy protection globally for 1 day.
                 </span>
@@ -145,175 +153,242 @@ export default {
                 </ui-toggle>
               </div>
               <ui-line></ui-line>
-              <div layout="grid:1|max content:center gap">
-                <settings-link
-                  href="${router.url(RegionalFilters)}"
-                  data-qa="button:regional-filters"
-                >
-                  <ui-icon
-                    name="pin"
-                    color="quaternary"
-                    layout="size:3 margin:right"
-                  ></ui-icon>
-                  <ui-text type="headline-xs" layout="row gap:0.5 items:center">
-                    Regional Filters
-                  </ui-text>
-                  <ui-icon
-                    name="chevron-right"
-                    color="primary"
-                    layout="size:2"
-                  ></ui-icon>
-                </settings-link>
-                <ui-toggle
-                  disabled="${globalPause}"
-                  value="${options.regionalFilters.enabled}"
-                  onchange="${html.set(options, 'regionalFilters.enabled')}"
-                  data-qa="toggle:regional-filters"
-                >
-                </ui-toggle>
-              </div>
-              <div layout="grid:1|max content:center gap">
-                <settings-link href="${router.url(Serp)}">
-                  <ui-icon
-                    name="search"
-                    color="quaternary"
-                    layout="size:3 margin:right"
-                  ></ui-icon>
-                  <ui-text type="headline-xs" layout="row gap:0.5 items:center">
-                    Search Engine Redirect Protection </ui-text
-                  ><ui-icon
-                    name="chevron-right"
-                    color="primary"
-                    layout="size:2"
-                  ></ui-icon>
-                </settings-link>
-                <ui-toggle
-                  disabled="${globalPause}"
-                  value="${options.serpTrackingPrevention}"
-                  onchange="${html.set(options, 'serpTrackingPrevention')}"
-                >
-                </ui-toggle>
-              </div>
-              <div layout="grid:1|max content:center gap">
-                <settings-link href="${router.url(ExperimentalFilters)}">
-                  <ui-icon
-                    name="flask"
-                    color="quaternary"
-                    layout="size:3 margin:right"
-                  ></ui-icon>
-                  <ui-text type="headline-xs" layout="row gap:0.5 items:center">
-                    Experimental Filters
-                  </ui-text>
-                  <ui-icon
-                    name="chevron-right"
-                    color="primary"
-                    layout="size:2"
-                  ></ui-icon>
-                </settings-link>
-                <ui-toggle
-                  disabled="${globalPause}"
-                  value="${options.experimentalFilters}"
-                  onchange="${html.set(options, 'experimentalFilters')}"
-                >
-                </ui-toggle>
-              </div>
-              <div layout="grid:1|max content:center gap">
-                <settings-link
-                  href="${router.url(CustomFilters)}"
-                  data-qa="button:custom-filters"
-                >
-                  <ui-icon
-                    name="detailed-view"
-                    color="quaternary"
-                    layout="size:3 margin:right"
-                  ></ui-icon>
-                  <ui-text type="headline-xs" layout="row gap:0.5 items:center">
-                    Custom Filters
-                  </ui-text>
-                  <ui-icon
-                    name="chevron-right"
-                    color="primary"
-                    layout="size:2"
-                  ></ui-icon>
-                </settings-link>
-                <ui-toggle
-                  disabled="${globalPause}"
-                  value="${options.customFilters.enabled}"
-                  onchange="${html.set(options, 'customFilters.enabled')}"
-                  data-qa="toggle:custom-filters"
-                >
-                </ui-toggle>
+              <div layout="column gap:3">
+                <div layout="grid:1|max content:center gap">
+                  <settings-link href="${router.url(Serp)}">
+                    <ui-icon
+                      name="search"
+                      color="quaternary"
+                      layout="size:3 margin:right"
+                    ></ui-icon>
+                    <ui-text
+                      type="headline-xs"
+                      layout="row gap:0.5 items:center"
+                    >
+                      Search Engine Redirect Protection </ui-text
+                    ><ui-icon
+                      name="chevron-right"
+                      color="primary"
+                      layout="size:2"
+                    ></ui-icon>
+                  </settings-link>
+                  <ui-toggle
+                    disabled="${globalPause}"
+                    value="${options.serpTrackingPrevention}"
+                    onchange="${html.set(options, 'serpTrackingPrevention')}"
+                  >
+                  </ui-toggle>
+                </div>
+                <div layout="grid:1|max content:center gap">
+                  <settings-link
+                    href="${router.url(RegionalFilters)}"
+                    data-qa="button:regional-filters"
+                  >
+                    <ui-icon
+                      name="pin"
+                      color="quaternary"
+                      layout="size:3 margin:right"
+                    ></ui-icon>
+                    <ui-text
+                      type="headline-xs"
+                      layout="row gap:0.5 items:center"
+                    >
+                      Regional Filters
+                    </ui-text>
+                    <ui-icon
+                      name="chevron-right"
+                      color="primary"
+                      layout="size:2"
+                    ></ui-icon>
+                  </settings-link>
+                  <ui-toggle
+                    disabled="${globalPause}"
+                    value="${options.regionalFilters.enabled}"
+                    onchange="${html.set(options, 'regionalFilters.enabled')}"
+                    data-qa="toggle:regional-filters"
+                  >
+                  </ui-toggle>
+                </div>
+                <div layout="grid:1|max content:center gap">
+                  <settings-link
+                    href="${router.url(CustomFilters)}"
+                    data-qa="button:custom-filters"
+                  >
+                    <ui-icon
+                      name="detailed-view"
+                      color="quaternary"
+                      layout="size:3 margin:right"
+                    ></ui-icon>
+                    <ui-text
+                      type="headline-xs"
+                      layout="row gap:0.5 items:center"
+                    >
+                      Custom Filters
+                    </ui-text>
+                    <ui-icon
+                      name="chevron-right"
+                      color="primary"
+                      layout="size:2"
+                    ></ui-icon>
+                  </settings-link>
+                  <ui-toggle
+                    disabled="${globalPause}"
+                    value="${options.customFilters.enabled}"
+                    onchange="${html.set(options, 'customFilters.enabled')}"
+                    data-qa="toggle:custom-filters"
+                  >
+                  </ui-toggle>
+                </div>
+                <div layout="grid:1|max content:center gap">
+                  <settings-link href="${router.url(ExperimentalFilters)}">
+                    <ui-icon
+                      name="flask"
+                      color="quaternary"
+                      layout="size:3 margin:right"
+                    ></ui-icon>
+                    <ui-text
+                      type="headline-xs"
+                      layout="row gap:0.5 items:center"
+                    >
+                      Experimental Filters
+                    </ui-text>
+                    <ui-icon
+                      name="chevron-right"
+                      color="primary"
+                      layout="size:2"
+                    ></ui-icon>
+                  </settings-link>
+                  <ui-toggle
+                    disabled="${globalPause}"
+                    value="${options.experimentalFilters}"
+                    onchange="${html.set(options, 'experimentalFilters')}"
+                  >
+                  </ui-toggle>
+                </div>
+                <div layout="grid:1|max content:center gap">
+                  <settings-link href="${router.url(AntiFingerprinting)}">
+                    <ui-icon
+                      name="shield"
+                      color="quaternary"
+                      layout="size:3 margin:right"
+                    ></ui-icon>
+                    <ui-text
+                      type="headline-xs"
+                      layout="row gap:0.5 items:center"
+                    >
+                    Anti-Fingerprinting
+                    </ui-text>
+                    <ui-icon
+                      name="chevron-right"
+                      color="primary"
+                      layout="size:2"
+                    ></ui-icon>
+                  </settings-link>
+                  <ui-toggle
+                    disabled="${globalPause}"
+                    value="${options.antiFingerprinting.enabled}"
+                    onchange="${html.set(
+                      options,
+                      'antiFingerprinting.enabled',
+                    )}"
+                  >
+                  </ui-toggle>
+                </div>
+                <div layout="grid:1|max content:center gap">
+                  <settings-link href="${router.url(CryptominerProtection)}">
+                    <ui-icon
+                      name="cpu"
+                      color="quaternary"
+                      layout="size:3 margin:right"
+                    ></ui-icon>
+                    <ui-text
+                      type="headline-xs"
+                      layout="row gap:0.5 items:center"
+                    >
+                    Anti-Cryptominers
+                    </ui-text>
+                    <ui-icon
+                      name="chevron-right"
+                      color="primary"
+                      layout="size:2"
+                    ></ui-icon>
+                  </settings-link>
+                  <ui-toggle
+                    disabled="${globalPause}"
+                    value="${options.cryptominerProtection.enabled}"
+                    onchange="${html.set(
+                      options,
+                      'cryptominerProtection.enabled',
+                    )}"
+                  >
+                  </ui-toggle>
+                </div>
               </div>
             </div>
           </section>
 
-          <settings-devtools
-            onshown="${html.set('devMode', true)}"
-            visible="${devMode}"
-          ></settings-devtools>
+          <div>
+            <settings-devtools
+              onshown="${html.set('devMode', true)}"
+              visible="${devMode}"
+            ></settings-devtools>
+            <div layout="row gap items:center">
+              <ui-text type="body-m" color="tertiary">
+                Last update:
+                ${options.filtersUpdatedAt
+                  ? longDateFormatter.format(new Date(options.filtersUpdatedAt))
+                  : html`updating...`}
+              </ui-text>
+              <ui-button
+                type="outline"
+                size="s"
+                style="height:26px"
+                onclick="${updateFilters}"
+                disabled="${!options.filtersUpdatedAt}"
+              >
+                <button layout="padding:0:1">Update Now</button>
+              </ui-button>
+            </div>
+          </div>
         `}
-        ${__PLATFORM__ !== 'safari' &&
-        store.ready(session) &&
-        session.enabled &&
-        html`
-          <section
-            layout="grid:1/1 grow items:end:stretch padding:0"
-            layout@992px="hidden"
+        <section
+          layout="grid:1/1 grow items:end:stretch padding:0"
+          layout@992px="hidden"
+        >
+          <settings-card
+            layout="column items:center gap"
+            layout@768px="row gap:5"
           >
-            <settings-card
-              layout="column items:center gap"
-              layout@768px="row gap:5"
+            <img
+              src="${assets['hands']}"
+              layout="size:12"
+              alt="Contribution"
+              slot="picture"
+            />
+            <div
+              layout="block:center column gap:0.5"
+              layout@768px="block:left row grow gap:5 content:space-between"
             >
-              ${session.contributor
-                ? html`
-                    <img
-                      src="${assets['contributor_badge']}"
-                      layout="size:12"
-                      alt="Contribution"
-                      slot="picture"
-                    />
-                    <div
-                      layout="block:center column gap:0.5"
-                      layout@768px="block:left row grow gap:5 content:space-between"
-                    >
-                      <div layout="column gap:0.5">
-                        <ui-text type="label-l" layout="">
-                          You are awesome!
-                        </ui-text>
-                        <ui-text type="body-s" color="secondary">
-                          Thank you for your support in Astian's fight for a
-                          web where privacy is a basic human right!
-                        </ui-text>
-                      </div>
-                    </div>
-                  `
-                : html`
-                    <div
-                      layout="block:center column gap:0.5"
-                      layout@768px="block:left row grow gap:5 content:space-between"
-                    >
-                      <div layout="column gap:0.5">
-                        <ui-text type="label-l" layout="">
-                          Become a Contributor
-                        </ui-text>
-                        <ui-text type="body-s" color="secondary">
-                          Help Astian fight for a web where privacy is a basic
-                          human right.
-                        </ui-text>
-                      </div>
-                      <ui-button type="primary" layout="grow margin:top">
-                        <a
-                          href="https://astian.org/midori-browser/donate-to-midori/?mtm_campaign=Astian%20Privacy%20Extension"
-                          target="_blank"
-                        >
-                          Become a Contributor
-                        </a>
-                      </ui-button>
-                    </div>
-                  `}
-            </settings-card>
-          </section>
-        `}
+              <div layout="column gap:0.5">
+                <ui-text type="label-l" layout="">
+                  Become a Contributor
+                </ui-text>
+                <ui-text type="body-s" color="secondary">
+                  Help Ghostery fight for a web where privacy is a basic human
+                  right.
+                </ui-text>
+              </div>
+              <ui-button type="primary" layout="grow margin:top">
+                <a
+                  href="${BECOME_A_CONTRIBUTOR_PAGE_URL}?utm_source=gbe&utm_campaign=privacy-becomeacontributor"
+                  target="_blank"
+                >
+                  Become a Contributor
+                </a>
+              </ui-button>
+            </div>
+          </settings-card>
+        </section>
       </settings-page-layout>
     </template>
   `,

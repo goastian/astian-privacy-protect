@@ -102,7 +102,7 @@ define({
                   data-qa="component:stats"
                 >
                   <ui-tooltip position="bottom" slot="actions">
-                    <span slot="content">Alfra Statistical Report</span>
+                    <span slot="content">WhoTracks.Me Statistical Report</span>
                     <ui-action-button layout="size:4.5">
                       <a
                         href="${`${WTM_PAGE_URL}/websites/${domain}`}"

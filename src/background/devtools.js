@@ -11,8 +11,6 @@
 
 import { store } from 'hybrids';
 
-import DailyStats from '/store/daily-stats';
-import Options from '/store/options.js';
 import Config from '/store/config.js';
 
 import { deleteDatabases } from '/utils/indexeddb.js';
@@ -27,23 +25,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           console.info('[devtools] Clearing main local storage');
           chrome.storage.local.clear();
 
+          console.info('[devtools] Clearing sync storage');
+          chrome.storage.sync.clear();
+
           console.info('[devtools] Removing all indexedDBs...');
           await deleteDatabases().catch((e) => {
             console.error('[devtools] Error removing indexedDBs:', e);
           });
 
-          console.info('[devtools] Clearing store cache');
-          try {
-            store.clear(Options);
-            store.clear(DailyStats);
-            store.clear(Config);
-          } catch (e) {
-            console.error('[devtools] Error clearing store cache:', e);
-          }
+          // Close source tab
+          chrome.tabs.remove(sender.tab.id);
 
-          await store.resolve(Options);
-
-          sendResponse('Storage cleared');
+          // Reload extension to ensure all in-memory state is cleared
+          chrome.runtime.reload();
         } catch (e) {
           sendResponse(`[devtools] Error clearing storage: ${e}`);
         }

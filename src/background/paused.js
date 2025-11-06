@@ -13,11 +13,16 @@ import { store } from 'hybrids';
 
 import Options, { GLOBAL_PAUSE_ID } from '/store/options.js';
 import * as OptionsObserver from '/utils/options-observer.js';
-import ManagedConfig from '/store/managed-config';
+import ManagedConfig, { TRUSTED_DOMAINS_NONE_ID } from '/store/managed-config';
+
+import {
+  getDynamicRulesIds,
+  PAUSED_ID_RANGE,
+  PAUSED_RULE_PRIORITY,
+} from '/utils/dnr.js';
 
 // Pause / unpause hostnames
 const PAUSED_ALARM_PREFIX = 'options:revoke';
-const PAUSED_RULE_PRIORITY = 10000000;
 
 const ALL_RESOURCE_TYPES = [
   'main_frame',
@@ -68,17 +73,14 @@ OptionsObserver.addListener('paused', async (paused, lastPaused) => {
   // that this function is called before the user can change the paused state
   // in the panel or the settings page.
   if (
-    (__PLATFORM__ === 'chromium' || __PLATFORM__ === 'safari') &&
+    __PLATFORM__ !== 'firefox' &&
     (lastPaused ||
       // Managed mode can update the rules at any time - so we need to update
       // the rules even if the paused state hasn't changed
-      (__PLATFORM__ === 'chromium' &&
-        (await store.resolve(ManagedConfig)).disableUserControl))
+      (await store.resolve(ManagedConfig)).trustedDomains[0] !==
+        TRUSTED_DOMAINS_NONE_ID)
   ) {
-    const removeRuleIds = (await chrome.declarativeNetRequest.getDynamicRules())
-      .filter(({ id }) => id <= 3)
-      .map(({ id }) => id);
-
+    const removeRuleIds = await getDynamicRulesIds(PAUSED_ID_RANGE);
     const hostnames = Object.keys(paused);
 
     let globalPause = false;
@@ -88,53 +90,38 @@ OptionsObserver.addListener('paused', async (paused, lastPaused) => {
 
     if (hostnames.length) {
       await chrome.declarativeNetRequest.updateDynamicRules({
-        addRules:
-          __PLATFORM__ === 'safari'
-            ? [
-                {
-                  id: 1,
-                  priority: PAUSED_RULE_PRIORITY,
-                  action: { type: 'allow' },
-                  condition: {
-                    domains: globalPause
-                      ? undefined
-                      : hostnames.map((d) => `*${d}`),
-                    urlFilter: '*',
-                  },
-                },
-              ]
-            : [
-                {
-                  id: 1,
-                  priority: PAUSED_RULE_PRIORITY,
-                  action: { type: 'allow' },
-                  condition: {
-                    initiatorDomains: globalPause ? undefined : hostnames,
-                    resourceTypes: ALL_RESOURCE_TYPES,
-                  },
-                },
-                {
-                  id: 2,
-                  priority: PAUSED_RULE_PRIORITY,
-                  action: { type: 'allow' },
-                  condition: {
-                    requestDomains: globalPause ? undefined : hostnames,
-                    resourceTypes: ALL_RESOURCE_TYPES,
-                  },
-                },
-                {
-                  id: 3,
-                  priority: PAUSED_RULE_PRIORITY,
-                  action: { type: 'allowAllRequests' },
-                  condition: {
-                    initiatorDomains: globalPause ? undefined : hostnames,
-                    resourceTypes: ['main_frame', 'sub_frame'],
-                  },
-                },
-              ],
+        addRules: [
+          {
+            id: 1,
+            priority: PAUSED_RULE_PRIORITY,
+            action: { type: 'allow' },
+            condition: {
+              initiatorDomains: globalPause ? undefined : hostnames,
+              resourceTypes: ALL_RESOURCE_TYPES,
+            },
+          },
+          {
+            id: 2,
+            priority: PAUSED_RULE_PRIORITY,
+            action: { type: 'allow' },
+            condition: {
+              requestDomains: globalPause ? undefined : hostnames,
+              resourceTypes: ALL_RESOURCE_TYPES,
+            },
+          },
+          {
+            id: 3,
+            priority: PAUSED_RULE_PRIORITY,
+            action: { type: 'allowAllRequests' },
+            condition: {
+              initiatorDomains: globalPause ? undefined : hostnames,
+              resourceTypes: ['main_frame', 'sub_frame'],
+            },
+          },
+        ],
         removeRuleIds,
       });
-      console.log('[dnr] Pause rules updated');
+      console.log('[dnr] Pause rules updated:', hostnames.join(', '));
     } else if (removeRuleIds.length) {
       await chrome.declarativeNetRequest.updateDynamicRules({
         removeRuleIds,

@@ -9,131 +9,80 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0
  */
 
-import { convert } from './dnr-converter-safari.js';
+const DOCUMENT_PATH = 'pages/dnr-converter/index.html';
 
-let documentConverter;
-export function createDocumentConverter() {
-  const requestResolvers = new Map();
+export default async function convert(filters) {
+  let result;
 
-  function createIframe() {
-    if (documentConverter) return documentConverter;
+  try {
+    if (chrome.offscreen) {
+      await setupOffscreenDocument();
 
-    window.addEventListener('message', (event) => {
-      const requestId = event.data.rules.shift().condition.urlFilter;
-      let { rules, errors } = event.data;
-
-      const resolve = requestResolvers.get(requestId);
-
-      rules =
-        __PLATFORM__ === 'safari'
-          ? rules
-              .map((r) => {
-                try {
-                  return convert(r);
-                } catch (e) {
-                  errors.push(e);
-                }
-              })
-              .filter(Boolean)
-          : rules;
-
-      resolve({
-        rules,
-        errors: errors.map((e) => `DNR: ${e.message}`),
+      result = await chrome.runtime.sendMessage({
+        action: 'dnr-converter:convert',
+        filters,
+      });
+    } else {
+      const { default: convertWithAdguard } = await import(
+        '@ghostery/urlfilter2dnr/adguard'
+      );
+      result = await convertWithAdguard(filters, {
+        resourcesPath: '/rule_resources/redirects',
       });
 
-      requestResolvers.delete(requestId);
-    });
-
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('src', 'https://ghostery.github.io/urlfilter2dnr/');
-    iframe.setAttribute('style', 'display: none;');
-
-    documentConverter = new Promise((resolve, reject) => {
-      iframe.addEventListener('load', () => resolve(iframe));
-      iframe.addEventListener('error', reject);
-
-      document.head.appendChild(iframe);
-    });
-
-    return documentConverter;
+      result.errors = result.errors.map((e) => `DNR - ${e.message || e}`);
+    }
+  } catch (e) {
+    return { errors: [e.message], rules: [] };
+  } finally {
+    if (chrome.offscreen) closeOffscreenDocument();
   }
 
-  let requestCount = 0;
+  for (const [index, rule] of result.rules.entries()) {
+    if (rule.condition.regexFilter) {
+      const { isSupported, reason } =
+        await chrome.declarativeNetRequest.isRegexSupported({
+          regex: rule.condition.regexFilter,
+        });
 
-  return async function convert(filter) {
-    const iframe = await createIframe();
-    const requestId = `request${requestCount++}`;
+      if (!isSupported) {
+        result.errors.push(
+          `Could not apply a custom filter as "${rule.condition.regexFilter}" is a not supported regexp due to: ${reason}`,
+        );
+        result.rules.splice(index, 1);
+      }
+    }
+  }
 
-    return new Promise((resolve) => {
-      requestResolvers.set(requestId, resolve);
+  return result;
+}
 
-      iframe.contentWindow.postMessage(
-        {
-          action: 'convert',
-          converter: 'adguard',
-          filters: [requestId, filter],
-        },
-        '*',
-      );
-    });
-  };
+let offscreenTimeout = null;
+function closeOffscreenDocument() {
+  if (offscreenTimeout) {
+    clearTimeout(offscreenTimeout);
+  }
+
+  offscreenTimeout = setTimeout(() => {
+    chrome.offscreen.closeDocument();
+    offscreenTimeout = null;
+  }, 1000);
 }
 
 async function setupOffscreenDocument() {
-  const path = 'pages/offscreen/urlfilter2dnr/index.html';
-  const offscreenUrl = chrome.runtime.getURL(path);
+  if (offscreenTimeout) clearTimeout(offscreenTimeout);
+
+  const offscreenUrl = chrome.runtime.getURL(DOCUMENT_PATH);
   const existingContexts = await chrome.runtime.getContexts({
     contextTypes: ['OFFSCREEN_DOCUMENT'],
     documentUrls: [offscreenUrl],
   });
 
-  if (existingContexts.length) {
-    return existingContexts[0];
-  }
-
-  await chrome.offscreen.createDocument({
-    url: path,
-    reasons: [chrome.offscreen.Reason.IFRAME_SCRIPTING],
-    justification: 'Convert network filters to DeclarativeNetRequest format.',
-  });
-}
-
-let offscreenDocument;
-
-let offscreenTimeout;
-const OFFSCREEN_DOCUMENT_TIMEOUT = 1000 * 5; // 5 seconds
-
-export function createOffscreenConverter() {
-  return async function convert(filter) {
-    try {
-      if (!offscreenDocument) {
-        offscreenDocument = setupOffscreenDocument().then(() => {
-          offscreenDocument = true;
-        });
-      }
-
-      await offscreenDocument;
-    } catch (e) {
-      return { errors: [e.message], rules: [] };
-    }
-
-    const result = await chrome.runtime.sendMessage({
-      action: 'offscreen:urlfitler2dnr:convert',
-      filter,
+  if (!existingContexts.length) {
+    await chrome.offscreen.createDocument({
+      url: DOCUMENT_PATH,
+      reasons: [chrome.offscreen.Reason.IFRAME_SCRIPTING],
+      justification: 'Convert network filters to DeclarativeNetRequest format.',
     });
-
-    if (offscreenTimeout) {
-      clearTimeout(offscreenTimeout);
-    }
-
-    offscreenTimeout = setTimeout(() => {
-      chrome.offscreen.closeDocument();
-      offscreenDocument = null;
-    }, OFFSCREEN_DOCUMENT_TIMEOUT);
-
-    return (
-      result || { errors: ['failed to initiate offscreen document'], rules: [] }
-    );
-  };
+  }
 }

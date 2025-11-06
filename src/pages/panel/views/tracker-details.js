@@ -33,7 +33,12 @@ function showCopyNotification(host) {
   ).forEach((el) => el.parentNode.removeChild(el));
 
   html`
-    <panel-alert type="success" slide autoclose="2">
+    <panel-alert
+      type="success"
+      slide
+      autoclose="2"
+      onclose="${(_, e) => e.target.remove()}"
+    >
       Copied to clipboard
     </panel-alert>
   `(wrapper);
@@ -143,10 +148,11 @@ export default {
           </div>
           <ui-line layout="margin:0:-2"></ui-line>
         `}
-        ${(tracker.organization?.description || wtmUrl) &&
+        ${(store.ready(tracker.organization) || wtmUrl) &&
         html`
           <div layout="column gap:0.5">
-            ${tracker.organization?.description &&
+            ${store.ready(tracker.organization) &&
+            tracker.organization.description &&
             html`
               <ui-text type="body-s">
                 ${cleanUp(tracker.organization?.description)}
@@ -223,7 +229,8 @@ export default {
               </div>
             </div>
           `}
-          ${tracker.organization?.country &&
+          ${store.ready(tracker.organization) &&
+          tracker.organization.country &&
           html`
             <ui-icon name="pin"></ui-icon>
             <div layout="column gap">
@@ -257,7 +264,7 @@ export default {
               </ui-text>
             </div>
           `}
-          ${tracker.organization &&
+          ${store.ready(tracker.organization) &&
           html`
             ${tracker.organization.websiteUrl &&
             html`

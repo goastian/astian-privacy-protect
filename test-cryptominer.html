@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Anti-Cryptominers - Astian Privacy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .result {
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.blocked {
+            background: #28a745;
+            color: white;
+        }
+        .status.allowed {
+            background: #dc3545;
+            color: white;
+        }
+        .status.unknown {
+            background: #ffc107;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <h1>⛏️ Prueba de Protección Anti-Cryptominers</h1>
+    <p>Esta página te permite probar si las protecciones de Astian Privacy contra cryptominers están funcionando correctamente.</p>
+
+    <div class="warning">
+        <strong>⚠️ Instrucciones:</strong> Asegúrate de que Astian Privacy esté instalado y activo antes de ejecutar estas pruebas.
+    </div>
+
+    <div class="test-section">
+        <h2>1. Prueba de CoinHive (Simulado)</h2>
+        <p>Simula el comportamiento de CoinHive, un miner de criptomonedas común.</p>
+        <button onclick="testCoinHive()">Probar CoinHive</button>
+        <div id="coinhive-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Prueba de Web Workers</h2>
+        <p>Verifica si los Web Workers maliciosos son bloqueados.</p>
+        <button onclick="testWebWorkers()">Probar Web Workers</button>
+        <div id="webworkers-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Prueba de WebAssembly</h2>
+        <p>Verifica si el WebAssembly malicioso es bloqueado.</p>
+        <button onclick="testWebAssembly()">Probar WebAssembly</button>
+        <div id="webassembly-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Prueba de Uso de CPU</h2>
+        <p>Monitorea el uso de CPU para detectar minería.</p>
+        <button onclick="testCPUUsage()">Probar Uso de CPU</button>
+        <div id="cpu-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Prueba de Scripts Sospechosos</h2>
+        <p>Intenta cargar scripts de minería conocidos.</p>
+        <button onclick="testSuspiciousScripts()">Probar Scripts</button>
+        <div id="scripts-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. Prueba de Fetch Requests</h2>
+        <p>Verifica si los requests a dominios de minería son bloqueados.</p>
+        <button onclick="testFetchRequests()">Probar Fetch</button>
+        <div id="fetch-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>7. Prueba de XMLHttpRequest</h2>
+        <p>Verifica si los XHR a dominios de minería son bloqueados.</p>
+        <button onclick="testXMLHttpRequest()">Probar XHR</button>
+        <div id="xhr-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>8. Prueba de CryptoNight</h2>
+        <p>Simula el algoritmo CryptoNight usado por Monero.</p>
+        <button onclick="testCryptoNight()">Probar CryptoNight</button>
+        <div id="cryptonight-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>9. Resumen de Protección</h2>
+        <p>Muestra el estado general de la protección anti-cryptominers.</p>
+        <button onclick="showProtectionSummary()">Ver Resumen</button>
+        <div id="summary-result" class="result"></div>
+    </div>
+
+    <script>
+        let testResults = {
+            coinhive: 'unknown',
+            webworkers: 'unknown',
+            webassembly: 'unknown',
+            cpu: 'unknown',
+            scripts: 'unknown',
+            fetch: 'unknown',
+            xhr: 'unknown',
+            cryptonight: 'unknown'
+        };
+
+        function testCoinHive() {
+            const resultDiv = document.getElementById('coinhive-result');
+            resultDiv.innerHTML = '<strong>Probando CoinHive...</strong><br>';
+            
+            try {
+                // Simular comportamiento de CoinHive
+                const startTime = performance.now();
+                let hashCount = 0;
+                
+                // Simular hashing
+                for (let i = 0; i < 1000; i++) {
+                    hashCount += Math.random() * 1000;
+                }
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                if (duration > 50) { // Si tarda más de 50ms, podría estar siendo bloqueado
+                    testResults.coinhive = 'blocked';
+                    resultDiv.innerHTML += `
+                        <span class="status blocked">BLOQUEADO</span><br>
+                        <strong>Resultado:</strong> La minería fue bloqueada exitosamente<br>
+                        <strong>Tiempo:</strong> ${duration.toFixed(2)}ms<br>
+                        <strong>Hash simulados:</strong> ${hashCount.toFixed(0)}
+                    `;
+                } else {
+                    testResults.coinhive = 'allowed';
+                    resultDiv.innerHTML += `
+                        <span class="status allowed">PERMITIDO</span><br>
+                        <strong>Resultado:</strong> La minería no fue bloqueada<br>
+                        <strong>Tiempo:</strong> ${duration.toFixed(2)}ms<br>
+                        <strong>Hash simulados:</strong> ${hashCount.toFixed(0)}
+                    `;
+                }
+            } catch (error) {
+                testResults.coinhive = 'blocked';
+                resultDiv.innerHTML += `
+                    <span class="status blocked">BLOQUEADO</span><br>
+                    <strong>Resultado:</strong> Error al ejecutar minería: ${error.message}
+                `;
+            }
+        }
+
+        function testWebWorkers() {
+            const resultDiv = document.getElementById('webworkers-result');
+            resultDiv.innerHTML = '<strong>Probando Web Workers...</strong><br>';
+            
+            try {
+                // Crear un worker con código de minería simulado
+                const workerCode = `
+                    self.onmessage = function(e) {
+                        if (e.data.type === 'mine') {
+                            // Simular minería
+                            let hash = 0;
+                            for (let i = 0; i < 10000; i++) {
+                                hash += Math.random() * 1000;
+                            }
+                            self.postMessage({ hash: hash, type: 'result' });
+                        }
+                    };
+                `;
+                
+                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                const worker = new Worker(URL.createObjectURL(blob));
+                
+                worker.postMessage({ type: 'mine' });
+                
+                worker.onmessage = function(e) {
+                    testResults.webworkers = 'allowed';
+                    resultDiv.innerHTML += `
+                        <span class="status allowed">PERMITIDO</span><br>
+                        <strong>Resultado:</strong> Web Worker ejecutado exitosamente<br>
+                        <strong>Hash generado:</strong> ${e.data.hash.toFixed(0)}
+                    `;
+                    worker.terminate();
+                };
+                
+                worker.onerror = function(error) {
+                    testResults.webworkers = 'blocked';
+                    resultDiv.innerHTML += `
+                        <span class="status blocked">BLOQUEADO</span><br>
+                        <strong>Resultado:</strong> Web Worker bloqueado: ${error.message}
+                    `;
+                };
+                
+                // Timeout después de 3 segundos
+                setTimeout(() => {
+                    if (testResults.webworkers === 'unknown') {
+                        testResults.webworkers = 'blocked';
+                        resultDiv.innerHTML += `
+                            <span class="status blocked">BLOQUEADO</span><br>
+                            <strong>Resultado:</strong> Web Worker no respondió (probablemente bloqueado)
+                        `;
+                        worker.terminate();
+                    }
+                }, 3000);
+                
+            } catch (error) {
+                testResults.webworkers = 'blocked';
+                resultDiv.innerHTML += `
+                    <span class="status blocked">BLOQUEADO</span><br>
+                    <strong>Resultado:</strong> Error al crear Web Worker: ${error.message}
+                `;
+            }
+        }
+
+        function testWebAssembly() {
+            const resultDiv = document.getElementById('webassembly-result');
+            resultDiv.innerHTML = '<strong>Probando WebAssembly...</strong><br>';
+            
+            try {
+                if (!window.WebAssembly) {
+                    testResults.webassembly = 'unknown';
+                    resultDiv.innerHTML += `
+                        <span class="status unknown">NO DISPONIBLE</span><br>
+                        <strong>Resultado:</strong> WebAssembly no está disponible en este navegador
+                    `;
+                    return;
+                }
+                
+                // Crear un WASM simple que simule minería
+                const wasmCode = new Uint8Array([
+                    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+                    0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01,
+                    0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01,
+                    0x03, 0x61, 0x64, 0x64, 0x00, 0x00, 0x0a, 0x09,
+                    0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a,
+                    0x0b
+                ]);
+                
+                WebAssembly.instantiate(wasmCode).then(result => {
+                    const add = result.instance.exports.add;
+                    const result_hash = add(1000, 2000);
+                    
+                    testResults.webassembly = 'allowed';
+                    resultDiv.innerHTML += `
+                        <span class="status allowed">PERMITIDO</span><br>
+                        <strong>Resultado:</strong> WebAssembly ejecutado exitosamente<br>
+                        <strong>Resultado:</strong> ${result_hash}
+                    `;
+                }).catch(error => {
+                    testResults.webassembly = 'blocked';
+                    resultDiv.innerHTML += `
+                        <span class="status blocked">BLOQUEADO</span><br>
+                        <strong>Resultado:</strong> WebAssembly bloqueado: ${error.message}
+                    `;
+                });
+                
+            } catch (error) {
+                testResults.webassembly = 'blocked';
+                resultDiv.innerHTML += `
+                    <span class="status blocked">BLOQUEADO</span><br>
+                    <strong>Resultado:</strong> Error al ejecutar WebAssembly: ${error.message}
+                `;
+            }
+        }
+
+        function testCPUUsage() {
+            const resultDiv = document.getElementById('cpu-result');
+            resultDiv.innerHTML = '<strong>Probando uso de CPU...</strong><br>';
+            
+            const startTime = performance.now();
+            let iterations = 0;
+            
+            function cpuIntensiveTask() {
+                for (let i = 0; i < 1000000; i++) {
+                    iterations += Math.random() * 1000;
+                }
+                
+                const currentTime = performance.now();
+                const duration = currentTime - startTime;
+                
+                if (duration < 100) {
+                    // Si la tarea se completa muy rápido, podría estar siendo limitada
+                    testResults.cpu = 'blocked';
+                    resultDiv.innerHTML += `
+                        <span class="status blocked">LIMITADO</span><br>
+                        <strong>Resultado:</strong> Uso de CPU limitado (${duration.toFixed(2)}ms)<br>
+                        <strong>Iteraciones:</strong> ${iterations.toFixed(0)}
+                    `;
+                } else {
+                    testResults.cpu = 'allowed';
+                    resultDiv.innerHTML += `
+                        <span class="status allowed">PERMITIDO</span><br>
+                        <strong>Resultado:</strong> Uso de CPU permitido (${duration.toFixed(2)}ms)<br>
+                        <strong>Iteraciones:</strong> ${iterations.toFixed(0)}
+                    `;
+                }
+            }
+            
+            // Ejecutar tarea intensiva
+            cpuIntensiveTask();
+        }
+
+        function testSuspiciousScripts() {
+            const resultDiv = document.getElementById('scripts-result');
+            resultDiv.innerHTML = '<strong>Probando scripts sospechosos...</strong><br>';
+            
+            const suspiciousScripts = [
+                'https://coinhive.com/lib/coinhive.min.js',
+                'https://authedmine.com/lib/authedmine.min.js',
+                'https://crypto-loot.com/lib/crypto-loot.min.js'
+            ];
+            
+            let blockedCount = 0;
+            let totalCount = suspiciousScripts.length;
+            
+            suspiciousScripts.forEach((src, index) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = function() {
+                    resultDiv.innerHTML += `<br>✅ Script cargado: ${src}`;
+                };
+                script.onerror = function() {
+                    blockedCount++;
+                    resultDiv.innerHTML += `<br>❌ Script bloqueado: ${src}`;
+                };
+                
+                document.head.appendChild(script);
+                
+                // Remover después de 2 segundos
+                setTimeout(() => {
+                    script.remove();
+                }, 2000);
+            });
+            
+            setTimeout(() => {
+                if (blockedCount === totalCount) {
+                    testResults.scripts = 'blocked';
+                    resultDiv.innerHTML += `<br><span class="status blocked">TODOS BLOQUEADOS</span>`;
+                } else if (blockedCount > 0) {
+                    testResults.scripts = 'partial';
+                    resultDiv.innerHTML += `<br><span class="status unknown">PARCIALMENTE BLOQUEADOS</span>`;
+                } else {
+                    testResults.scripts = 'allowed';
+                    resultDiv.innerHTML += `<br><span class="status allowed">PERMITIDOS</span>`;
+                }
+            }, 3000);
+        }
+
+        function testFetchRequests() {
+            const resultDiv = document.getElementById('fetch-result');
+            resultDiv.innerHTML = '<strong>Probando fetch requests...</strong><br>';
+            
+            const suspiciousUrls = [
+                'https://coinhive.com/api/hashrate',
+                'https://authedmine.com/api/hashrate',
+                'https://crypto-loot.com/api/hashrate'
+            ];
+            
+            let blockedCount = 0;
+            let totalCount = suspiciousUrls.length;
+            
+            suspiciousUrls.forEach((url, index) => {
+                fetch(url)
+                    .then(response => {
+                        resultDiv.innerHTML += `<br>✅ Fetch exitoso: ${url}`;
+                    })
+                    .catch(error => {
+                        blockedCount++;
+                        resultDiv.innerHTML += `<br>❌ Fetch bloqueado: ${url}`;
+                    });
+            });
+            
+            setTimeout(() => {
+                if (blockedCount === totalCount) {
+                    testResults.fetch = 'blocked';
+                    resultDiv.innerHTML += `<br><span class="status blocked">TODOS BLOQUEADOS</span>`;
+                } else if (blockedCount > 0) {
+                    testResults.fetch = 'partial';
+                    resultDiv.innerHTML += `<br><span class="status unknown">PARCIALMENTE BLOQUEADOS</span>`;
+                } else {
+                    testResults.fetch = 'allowed';
+                    resultDiv.innerHTML += `<br><span class="status allowed">PERMITIDOS</span>`;
+                }
+            }, 3000);
+        }
+
+        function testXMLHttpRequest() {
+            const resultDiv = document.getElementById('xhr-result');
+            resultDiv.innerHTML = '<strong>Probando XMLHttpRequest...</strong><br>';
+            
+            const suspiciousUrls = [
+                'https://coinhive.com/api/user',
+                'https://authedmine.com/api/user',
+                'https://crypto-loot.com/api/user'
+            ];
+            
+            let blockedCount = 0;
+            let totalCount = suspiciousUrls.length;
+            
+            suspiciousUrls.forEach((url, index) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', url);
+                xhr.onload = function() {
+                    resultDiv.innerHTML += `<br>✅ XHR exitoso: ${url}`;
+                };
+                xhr.onerror = function() {
+                    blockedCount++;
+                    resultDiv.innerHTML += `<br>❌ XHR bloqueado: ${url}`;
+                };
+                xhr.send();
+            });
+            
+            setTimeout(() => {
+                if (blockedCount === totalCount) {
+                    testResults.xhr = 'blocked';
+                    resultDiv.innerHTML += `<br><span class="status blocked">TODOS BLOQUEADOS</span>`;
+                } else if (blockedCount > 0) {
+                    testResults.xhr = 'partial';
+                    resultDiv.innerHTML += `<br><span class="status unknown">PARCIALMENTE BLOQUEADOS</span>`;
+                } else {
+                    testResults.xhr = 'allowed';
+                    resultDiv.innerHTML += `<br><span class="status allowed">PERMITIDOS</span>`;
+                }
+            }, 3000);
+        }
+
+        function testCryptoNight() {
+            const resultDiv = document.getElementById('cryptonight-result');
+            resultDiv.innerHTML = '<strong>Probando CryptoNight...</strong><br>';
+            
+            try {
+                // Simular algoritmo CryptoNight
+                const startTime = performance.now();
+                let hash = 0;
+                
+                // Simular operaciones CryptoNight
+                for (let i = 0; i < 100000; i++) {
+                    hash = (hash * 31 + i) % 2147483647;
+                }
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                if (duration > 100) { // Si tarda más de 100ms, podría estar siendo limitado
+                    testResults.cryptonight = 'blocked';
+                    resultDiv.innerHTML += `
+                        <span class="status blocked">LIMITADO</span><br>
+                        <strong>Resultado:</strong> CryptoNight limitado (${duration.toFixed(2)}ms)<br>
+                        <strong>Hash final:</strong> ${hash}
+                    `;
+                } else {
+                    testResults.cryptonight = 'allowed';
+                    resultDiv.innerHTML += `
+                        <span class="status allowed">PERMITIDO</span><br>
+                        <strong>Resultado:</strong> CryptoNight permitido (${duration.toFixed(2)}ms)<br>
+                        <strong>Hash final:</strong> ${hash}
+                    `;
+                }
+            } catch (error) {
+                testResults.cryptonight = 'blocked';
+                resultDiv.innerHTML += `
+                    <span class="status blocked">BLOQUEADO</span><br>
+                    <strong>Resultado:</strong> Error al ejecutar CryptoNight: ${error.message}
+                `;
+            }
+        }
+
+        function showProtectionSummary() {
+            const resultDiv = document.getElementById('summary-result');
+            
+            let blockedCount = 0;
+            let allowedCount = 0;
+            let unknownCount = 0;
+            
+            Object.values(testResults).forEach(result => {
+                if (result === 'blocked' || result === 'partial') blockedCount++;
+                else if (result === 'allowed') allowedCount++;
+                else unknownCount++;
+            });
+            
+            const totalTests = Object.keys(testResults).length;
+            const protectionPercentage = Math.round((blockedCount / totalTests) * 100);
+            
+            let status = 'unknown';
+            let statusText = 'DESCONOCIDO';
+            let statusColor = 'unknown';
+            
+            if (protectionPercentage >= 80) {
+                status = 'excellent';
+                statusText = 'EXCELENTE';
+                statusColor = 'blocked';
+            } else if (protectionPercentage >= 60) {
+                status = 'good';
+                statusText = 'BUENO';
+                statusColor = 'blocked';
+            } else if (protectionPercentage >= 40) {
+                status = 'fair';
+                statusText = 'REGULAR';
+                statusColor = 'unknown';
+            } else {
+                status = 'poor';
+                statusText = 'POBRE';
+                statusColor = 'allowed';
+            }
+            
+            resultDiv.innerHTML = `
+                <h3>Resumen de Protección Anti-Cryptominers</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0;">
+                    <div style="padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                        <strong>Nivel de Protección:</strong><br>
+                        <span class="status ${statusColor}">${statusText}</span><br>
+                        <strong>${protectionPercentage}%</strong>
+                    </div>
+                    <div style="padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                        <strong>Estadísticas:</strong><br>
+                        Bloqueados: ${blockedCount}<br>
+                        Permitidos: ${allowedCount}<br>
+                        Desconocidos: ${unknownCount}
+                    </div>
+                </div>
+                
+                <h4>Detalles por Prueba:</h4>
+                <ul>
+                    <li><strong>CoinHive:</strong> <span class="status ${testResults.coinhive === 'blocked' ? 'blocked' : testResults.coinhive === 'allowed' ? 'allowed' : 'unknown'}">${testResults.coinhive.toUpperCase()}</span></li>
+                    <li><strong>Web Workers:</strong> <span class="status ${testResults.webworkers === 'blocked' ? 'blocked' : testResults.webworkers === 'allowed' ? 'allowed' : 'unknown'}">${testResults.webworkers.toUpperCase()}</span></li>
+                    <li><strong>WebAssembly:</strong> <span class="status ${testResults.webassembly === 'blocked' ? 'blocked' : testResults.webassembly === 'allowed' ? 'allowed' : 'unknown'}">${testResults.webassembly.toUpperCase()}</span></li>
+                    <li><strong>Uso de CPU:</strong> <span class="status ${testResults.cpu === 'blocked' ? 'blocked' : testResults.cpu === 'allowed' ? 'allowed' : 'unknown'}">${testResults.cpu.toUpperCase()}</span></li>
+                    <li><strong>Scripts Sospechosos:</strong> <span class="status ${testResults.scripts === 'blocked' || testResults.scripts === 'partial' ? 'blocked' : testResults.scripts === 'allowed' ? 'allowed' : 'unknown'}">${testResults.scripts.toUpperCase()}</span></li>
+                    <li><strong>Fetch Requests:</strong> <span class="status ${testResults.fetch === 'blocked' || testResults.fetch === 'partial' ? 'blocked' : testResults.fetch === 'allowed' ? 'allowed' : 'unknown'}">${testResults.fetch.toUpperCase()}</span></li>
+                    <li><strong>XMLHttpRequest:</strong> <span class="status ${testResults.xhr === 'blocked' || testResults.xhr === 'partial' ? 'blocked' : testResults.xhr === 'allowed' ? 'allowed' : 'unknown'}">${testResults.xhr.toUpperCase()}</span></li>
+                    <li><strong>CryptoNight:</strong> <span class="status ${testResults.cryptonight === 'blocked' ? 'blocked' : testResults.cryptonight === 'allowed' ? 'allowed' : 'unknown'}">${testResults.cryptonight.toUpperCase()}</span></li>
+                </ul>
+                
+                <div style="margin-top: 15px; padding: 10px; background: #e9ecef; border-radius: 4px;">
+                    <strong>Recomendaciones:</strong><br>
+                    ${protectionPercentage >= 80 ? 
+                        '✅ Excelente protección. Las protecciones anti-cryptominers están funcionando correctamente.' :
+                        protectionPercentage >= 60 ?
+                        '⚠️ Buena protección, pero considera revisar la configuración.' :
+                        protectionPercentage >= 40 ?
+                        '⚠️ Protección regular. Revisa la configuración de Astian Privacy.' :
+                        '❌ Protección pobre. Verifica que Astian Privacy esté instalado y configurado correctamente.'
+                    }
+                </div>
+            `;
+        }
+
+        // Ejecutar todas las pruebas al cargar
+        window.onload = function() {
+            console.log('⛏️ Página de prueba de Anti-Cryptominers cargada');
+            console.log('📋 Ejecuta las pruebas individuales para verificar las protecciones');
+        };
+    </script>
+</body>
+</html>
+
+

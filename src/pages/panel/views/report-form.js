@@ -11,7 +11,6 @@
 
 import { html, router, store, msg } from 'hybrids';
 
-import Session from '/store/session.js';
 import { getCurrentTab, openTabWithUrl } from '/utils/tabs.js';
 import { SUPPORT_PAGE_URL } from '/utils/urls.js';
 
@@ -21,19 +20,15 @@ const Form = {
   url: '',
   email: '',
   description: '',
-  screenshot: false,
+  screenshot: true,
   [store.connect]: {
     async get() {
-      const [currentTab, session] = await Promise.all([
-        getCurrentTab(),
-        store.resolve(Session),
-      ]);
+      const currentTab = await getCurrentTab();
 
       const url = currentTab && new URL(currentTab.url);
 
       return {
         url: url ? `${url.origin}${url.pathname}` : '',
-        email: session.email,
       };
     },
     async set(_, values) {
@@ -137,6 +132,7 @@ export default {
               <ui-input>
                 <input
                   type="checkbox"
+                  checked="${form.screenshot}"
                   onchange="${html.set(form, 'screenshot')}"
                 />
               </ui-input>

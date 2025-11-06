@@ -19,7 +19,12 @@ import Config, {
   FLAG_PAUSE_ASSISTANT,
   FLAG_FIREFOX_CONTENT_SCRIPT_SCRIPTLETS,
   FLAG_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED,
+  FLAG_EXTENDED_SELECTORS,
+  FLAG_DYNAMIC_DNR_FIXES,
 } from '/store/config.js';
+import Resources from '/store/resources.js';
+
+import { longDateFormatter } from '/ui/labels.js';
 
 const VERSION = chrome.runtime.getManifest().version;
 
@@ -83,6 +88,8 @@ async function testConfigFlag(host) {
       FLAG_PAUSE_ASSISTANT,
       FLAG_FIREFOX_CONTENT_SCRIPT_SCRIPTLETS,
       FLAG_CHROMIUM_INJECT_COSMETICS_ON_RESPONSE_STARTED,
+      FLAG_EXTENDED_SELECTORS,
+      FLAG_DYNAMIC_DNR_FIXES,
     ].join(', '),
   );
   if (!flags) return;
@@ -95,12 +102,6 @@ async function testConfigFlag(host) {
   });
 }
 
-function updateFilters(host) {
-  if (host.updatedAt) {
-    store.set(host.options, { filtersUpdatedAt: 0 });
-  }
-}
-
 function refresh(host) {
   host.counter += 1;
 
@@ -110,155 +111,173 @@ function refresh(host) {
   }
 }
 
-function formatDate(date) {
-  return new Date(date).toLocaleDateString(chrome.i18n.getUILanguage(), {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export default {
+  visible: false,
   counter: 0,
   options: store(Options),
   config: store(Config),
-  updatedAt: ({ options }) =>
-    store.ready(options) &&
-    options.filtersUpdatedAt &&
-    formatDate(options.filtersUpdatedAt),
-  visible: false,
-  render: ({ visible, counter, updatedAt, config }) => html`
+  resources: store(Resources),
+  render: ({ visible, counter, options, config, resources }) => html`
     <template layout="column gap:3">
-      ${
-        (visible || counter > 5) &&
-        html`
-          <section layout="column gap:3" translate="no">
-            <ui-text type="headline-m">Developer tools</ui-text>
+      ${(visible || counter > 5) &&
+      html`
+        <ui-line></ui-line>
+        <section layout="column gap:3" translate="no">
+          <ui-text type="headline-s">Experimental features</ui-text>
 
-            ${store.ready(config) &&
-            html`
-              <div layout="column gap" translate="no">
-                <ui-toggle
-                  value="${config.enabled}"
-                  onchange="${html.set(config, 'enabled')}"
-                >
-                  <div layout="column">
-                    <ui-text type="headline-s">Remote Configuration</ui-text>
-                    <ui-text type="body-xs" color="tertiary">
-                      Updated at: ${formatDate(config.updatedAt)}
-                    </ui-text>
-                  </div>
-                </ui-toggle>
-                <div>
-                  <ui-text type="label-m">Domains</ui-text>
-                  <div layout="row:wrap gap">
-                    ${Object.entries(config.domains)
-                      .filter(([, d]) => d.actions.length)
-                      .map(
-                        ([name, d]) =>
-                          html`<ui-text color="secondary">
-                            ${name} (${d.actions.join(', ')})
-                          </ui-text>`,
-                      ) || 'none'}
-                  </div>
-                </div>
-                <div>
-                  <ui-text type="label-m">Flags</ui-text>
-                  <ui-text color="secondary">
-                    ${Object.entries(config.flags)
-                      .filter(([, f]) => f.enabled)
-                      .map(([name]) => name)
-                      .join(' ') || 'none'}
+          ${store.ready(options) &&
+          html`
+            <div layout="column gap:2" translate="no">
+              <div layout="grid:1fr|max gap">
+                <settings-option static>
+                  Never-Consent Automatic Action Type
+                  <span slot="description">
+                    Chooses the default behavior for cookie consent notices.
+                  </span>
+                </settings-option>
+                <ui-input>
+                  <select
+                    value="${options.autoconsent.autoAction}"
+                    onchange="${html.set(options, 'autoconsent.autoAction')}"
+                  >
+                    <option value="optOut">Opt out</option>
+                    <option value="optIn">Opt in</option>
+                    <option value="">None</option>
+                  </select>
+                </ui-input>
+              </div>
+            </div>
+            <ui-line></ui-line>
+          `}
+          <ui-text type="headline-s">Developer tools</ui-text>
+          ${store.ready(config) &&
+          html`
+            <div layout="column gap" translate="no">
+              <ui-toggle
+                value="${config.enabled}"
+                onchange="${html.set(config, 'enabled')}"
+              >
+                <div layout="column">
+                  <ui-text type="headline-s">Remote Configuration</ui-text>
+                  <ui-text type="body-xs" color="tertiary">
+                    Updated at:
+                    ${longDateFormatter.format(new Date(config.updatedAt))}
                   </ui-text>
                 </div>
-                <div layout="row gap">
-                  <ui-button
-                    layout="shrink:0 self:start"
-                    onclick="${testConfigDomain}"
-                  >
-                    <button>Test domain</button>
-                  </ui-button>
-                  <ui-button
-                    layout="shrink:0 self:start"
-                    onclick="${testConfigFlag}"
-                  >
-                    <button>Test flag</button>
-                  </ui-button>
-                  <ui-button
-                    onclick="${syncConfig}"
-                    layout="shrink:0 self:start"
-                  >
-                    <button>
-                      <ui-icon name="refresh" layout="size:2"></ui-icon>
-                      Force sync
-                    </button>
-                  </ui-button>
+              </ui-toggle>
+              <div>
+                <ui-text type="label-m">Domains</ui-text>
+                <div layout="row:wrap gap">
+                  ${Object.entries(config.domains)
+                    .filter(([, d]) => d.actions.length)
+                    .map(
+                      ([name, d]) =>
+                        html`<ui-text color="secondary">
+                          ${name} (${d.actions.join(', ')})
+                        </ui-text>`,
+                    ) || 'none'}
                 </div>
               </div>
-              <ui-line></ui-line>
-            `}
-            ${(__PLATFORM__ === 'chromium' || __PLATFORM__ === 'safari') &&
-            html`
-              <div layout="column gap items:start" translate="no">
-                <ui-text type="headline-s">Enabled DNR rulesets</ui-text>
-                <ui-text type="body-xs" color="tertiary">
-                  The below list is not reactive to changes made in the
-                  extension - use refresh button
+              <div>
+                <ui-text type="label-m">Flags</ui-text>
+                <ui-text color="secondary">
+                  ${Object.entries(config.flags)
+                    .filter(([, f]) => f.enabled)
+                    .map(([name]) => name)
+                    .join(' ') || 'none'}
                 </ui-text>
-                <div layout="row gap">
-                  ${html.resolve(
-                    chrome.declarativeNetRequest
-                      .getEnabledRulesets()
-                      .then(
-                        (rules) => html`
-                          ${rules.map((r) => html`<ui-text>${r}</ui-text>`)}
-                          ${!rules.length &&
-                          html`<ui-text translate="no">
-                            No rulesets enabled...
-                          </ui-text>`}
-                        `,
-                      ),
-                  )}
-                </div>
-                <ui-button onclick="${refresh}" layout="shrink:0">
-                  <button>Refresh</button>
-                </ui-button>
               </div>
-              <ui-line></ui-line>
-            `}
-
-            <div layout="column gap">
-              <ui-text type="headline-s">Actions</ui-text>
-              <div layout="row gap items:start">
-                <ui-button onclick="${clearStorage}" layout="shrink:0">
+              <div layout="row gap">
+                <ui-button
+                  layout="shrink:0 self:start"
+                  onclick="${testConfigDomain}"
+                >
+                  <button>Test domain</button>
+                </ui-button>
+                <ui-button
+                  layout="shrink:0 self:start"
+                  onclick="${testConfigFlag}"
+                >
+                  <button>Test flag</button>
+                </ui-button>
+                <ui-button onclick="${syncConfig}" layout="shrink:0 self:start">
                   <button>
-                    <ui-icon name="trash" layout="size:2"></ui-icon>
-                    Clear storage
+                    <ui-icon name="refresh" layout="size:2"></ui-icon>
+                    Force sync
                   </button>
                 </ui-button>
               </div>
             </div>
-          </section>
-        `
-      }
-      <div layout="column gap:0.5">
+          `}
+          ${__PLATFORM__ !== 'firefox' &&
+          html`
+            <div layout="column gap items:start" translate="no">
+              <ui-text type="headline-s">Enabled DNR rulesets</ui-text>
+              <ui-text type="body-xs" color="tertiary">
+                The below list is not reactive to changes made in the extension
+                - use refresh button
+              </ui-text>
+              <div layout="row gap">
+                ${html.resolve(
+                  chrome.declarativeNetRequest
+                    .getEnabledRulesets()
+                    .then(
+                      (rules) => html`
+                        ${rules.map((r) => html`<ui-text>${r}</ui-text>`)}
+                        ${!rules.length &&
+                        html`<ui-text translate="no">
+                          No rulesets enabled...
+                        </ui-text>`}
+                      `,
+                    ),
+                )}
+              </div>
+              <ui-button onclick="${refresh}" layout="shrink:0">
+                <button>Refresh</button>
+              </ui-button>
+            </div>
+          `}
+          ${store.ready(resources) &&
+          html`
+            <div layout="column gap" translate="no">
+              <ui-text type="headline-s">Resource Checksums</ui-text>
+              <div>
+                ${Object.entries(resources.checksums).map(
+                  ([key, value]) => html`
+                    <ui-text type="body-m" color="secondary">
+                      ${key}: ${value}
+                    </ui-text>
+                  `,
+                )}
+              </div>
+            </div>
+          `}
+
+          <div layout="column gap">
+            <ui-text type="headline-s">Actions</ui-text>
+            <div layout="row gap items:start">
+              <ui-button onclick="${clearStorage}" layout="shrink:0">
+                <button>
+                  <ui-icon name="trash" layout="size:2"></ui-icon>
+                  Clear storage
+                </button>
+              </ui-button>
+            </div>
+          </div>
+          <ui-line></ui-line>
+        </section>
+      `}
+      <div layout="column">
         <div onclick="${refresh}">
           <ui-text
             type="body-m"
-            color="quaternary"
+            color="tertiary"
             translate="no"
             style="user-select: none;"
           >
             v${VERSION}
           </ui-text>
         </div>
-        <ui-action>
-          <ui-text type="body-m" color="quaternary" onclick="${updateFilters}">
-            Last update: ${updatedAt || html`updating...`}
-          </ui-text>
-        <ui-action>
       </div>
     </template>
   `,

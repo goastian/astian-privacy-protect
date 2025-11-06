@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Anti-Fingerprinting - Astian Privacy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .result {
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Prueba de Protección Anti-Fingerprinting</h1>
+    <p>Esta página te permite probar si las protecciones de Astian Privacy están funcionando correctamente.</p>
+
+    <div class="warning">
+        <strong>⚠️ Instrucciones:</strong> Asegúrate de que Astian Privacy esté instalado y activo antes de ejecutar estas pruebas.
+    </div>
+
+    <div class="test-section">
+        <h2>1. Canvas Fingerprinting</h2>
+        <p>El canvas fingerprinting utiliza las características únicas del renderizado de elementos canvas.</p>
+        <button onclick="testCanvasFingerprinting()">Probar Canvas</button>
+        <div id="canvas-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. WebGL Fingerprinting</h2>
+        <p>El WebGL fingerprinting utiliza las características de tu tarjeta gráfica.</p>
+        <button onclick="testWebGLFingerprinting()">Probar WebGL</button>
+        <div id="webgl-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Screen Information</h2>
+        <p>Información sobre tu pantalla y resolución.</p>
+        <button onclick="testScreenInfo()">Probar Pantalla</button>
+        <div id="screen-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Navigator Information</h2>
+        <p>Información del objeto navigator (plataforma, vendor, etc.).</p>
+        <button onclick="testNavigatorInfo()">Probar Navigator</button>
+        <div id="navigator-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. Timezone Information</h2>
+        <p>Información sobre tu zona horaria.</p>
+        <button onclick="testTimezoneInfo()">Probar Timezone</button>
+        <div id="timezone-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. Language Information</h2>
+        <p>Información sobre tu idioma y configuración regional.</p>
+        <button onclick="testLanguageInfo()">Probar Idioma</button>
+        <div id="language-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>7. Hardware Information</h2>
+        <p>Información sobre tu hardware (CPU, memoria).</p>
+        <button onclick="testHardwareInfo()">Probar Hardware</button>
+        <div id="hardware-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>8. Performance Timing</h2>
+        <p>Prueba de timing attacks y performance.now().</p>
+        <button onclick="testPerformanceTiming()">Probar Performance</button>
+        <div id="performance-result" class="result"></div>
+    </div>
+
+    <script>
+        function testCanvasFingerprinting() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 50;
+            const ctx = canvas.getContext('2d');
+            
+            // Dibujar algo único
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('Astian Privacy Test', 2, 15);
+            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+            ctx.fillText('Anti-Fingerprinting', 4, 35);
+            
+            const dataURL = canvas.toDataURL();
+            const hash = btoa(dataURL).substring(0, 50);
+            
+            document.getElementById('canvas-result').innerHTML = `
+                <strong>Canvas Hash:</strong> ${hash}...<br>
+                <strong>¿Protegido?</strong> ${hash.includes('data:image/png') ? '✅ Posiblemente protegido (hash diferente)' : '⚠️ No protegido'}
+            `;
+        }
+
+        function testWebGLFingerprinting() {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            
+            if (!gl) {
+                document.getElementById('webgl-result').innerHTML = '❌ WebGL no disponible';
+                return;
+            }
+            
+            const vendor = gl.getParameter(gl.UNMASKED_VENDOR_WEBGL);
+            const renderer = gl.getParameter(gl.UNMASKED_RENDERER_WEBGL);
+            
+            document.getElementById('webgl-result').innerHTML = `
+                <strong>Vendor:</strong> ${vendor}<br>
+                <strong>Renderer:</strong> ${renderer}<br>
+                <strong>¿Protegido?</strong> ${vendor && renderer ? '✅ Posiblemente protegido (valores falsificados)' : '⚠️ No protegido'}
+            `;
+        }
+
+        function testScreenInfo() {
+            const width = screen.width;
+            const height = screen.height;
+            const availWidth = screen.availWidth;
+            const availHeight = screen.availHeight;
+            const colorDepth = screen.colorDepth;
+            
+            document.getElementById('screen-result').innerHTML = `
+                <strong>Resolución:</strong> ${width}x${height}<br>
+                <strong>Resolución disponible:</strong> ${availWidth}x${availHeight}<br>
+                <strong>Profundidad de color:</strong> ${colorDepth} bits<br>
+                <strong>¿Protegido?</strong> ${width === 1920 || width === 1366 || width === 1440 ? '✅ Posiblemente protegido (resolución común)' : '⚠️ Resolución única detectada'}
+            `;
+        }
+
+        function testNavigatorInfo() {
+            const platform = navigator.platform;
+            const vendor = navigator.vendor;
+            const vendorSub = navigator.vendorSub;
+            const userAgent = navigator.userAgent;
+            
+            document.getElementById('navigator-result').innerHTML = `
+                <strong>Plataforma:</strong> ${platform}<br>
+                <strong>Vendor:</strong> ${vendor}<br>
+                <strong>VendorSub:</strong> ${vendorSub}<br>
+                <strong>User Agent:</strong> ${userAgent.substring(0, 50)}...<br>
+                <strong>¿Protegido?</strong> ${vendor === '' ? '✅ Posiblemente protegido (vendor vacío)' : '⚠️ Vendor expuesto'}
+            `;
+        }
+
+        function testTimezoneInfo() {
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const offset = new Date().getTimezoneOffset();
+            
+            document.getElementById('timezone-result').innerHTML = `
+                <strong>Zona horaria:</strong> ${timezone}<br>
+                <strong>Offset:</strong> ${offset} minutos<br>
+                <strong>¿Protegido?</strong> ${['America/New_York', 'America/Los_Angeles', 'Europe/London', 'Europe/Berlin', 'Asia/Tokyo'].includes(timezone) ? '✅ Posiblemente protegido (zona común)' : '⚠️ Zona horaria única'}
+            `;
+        }
+
+        function testLanguageInfo() {
+            const language = navigator.language;
+            const languages = navigator.languages;
+            
+            document.getElementById('language-result').innerHTML = `
+                <strong>Idioma:</strong> ${language}<br>
+                <strong>Idiomas:</strong> ${languages.join(', ')}<br>
+                <strong>¿Protegido?</strong> ${['en-US', 'es-ES', 'fr-FR', 'de-DE', 'en-GB'].includes(language) ? '✅ Posiblemente protegido (idioma común)' : '⚠️ Idioma único'}
+            `;
+        }
+
+        function testHardwareInfo() {
+            const cores = navigator.hardwareConcurrency;
+            const memory = navigator.deviceMemory;
+            
+            document.getElementById('hardware-result').innerHTML = `
+                <strong>Núcleos CPU:</strong> ${cores}<br>
+                <strong>Memoria RAM:</strong> ${memory ? memory + ' GB' : 'No disponible'}<br>
+                <strong>¿Protegido?</strong> ${[2, 4, 6, 8].includes(cores) ? '✅ Posiblemente protegido (núcleos comunes)' : '⚠️ Configuración única'}
+            `;
+        }
+
+        function testPerformanceTiming() {
+            const times = [];
+            for (let i = 0; i < 5; i++) {
+                times.push(performance.now());
+            }
+            
+            const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
+            const variation = Math.max(...times) - Math.min(...times);
+            
+            document.getElementById('performance-result').innerHTML = `
+                <strong>Tiempo promedio:</strong> ${avgTime.toFixed(2)}ms<br>
+                <strong>Variación:</strong> ${variation.toFixed(2)}ms<br>
+                <strong>¿Protegido?</strong> ${variation > 0.1 ? '✅ Posiblemente protegido (ruido detectado)' : '⚠️ Timing preciso detectado'}
+            `;
+        }
+
+        // Ejecutar todas las pruebas al cargar
+        window.onload = function() {
+            console.log('🧪 Página de prueba de Anti-Fingerprinting cargada');
+            console.log('📋 Ejecuta las pruebas individuales para verificar las protecciones');
+        };
+    </script>
+</body>
+</html>

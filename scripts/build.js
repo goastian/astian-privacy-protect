@@ -24,7 +24,6 @@ import { build } from 'vite';
 import webExt from 'web-ext';
 
 import REGIONS from '../src/utils/regions.js';
-import { convert } from '../src/utils/dnr-converter-safari.js';
 
 const pwd = process.cwd();
 
@@ -32,7 +31,7 @@ const options = {
   srcDir: resolve(pwd, 'src'),
   outDir: resolve(pwd, 'dist'),
   assets: ['_locales', 'icons', 'static_pages'],
-  pages: ['logger', 'onboarding', 'whotracksme'],
+  pages: ['dnr-converter', 'logger', 'onboarding', 'whotracksme'],
 };
 
 // Generate arguments from command line
@@ -84,7 +83,7 @@ if (argv.clean) {
 }
 
 execSync(
-  'node scripts/download-engines.js' + (argv.staging ? ' --staging' : ''),
+  'node scripts/download-dnr-rulesets.js' + (argv.staging ? ' --staging' : ''),
   { stdio: silent ? '' : 'inherit' },
 );
 
@@ -156,7 +155,14 @@ const config = {
   resolve: {
     preserveSymlinks: true,
   },
-  define: { __PLATFORM__: JSON.stringify(argv.target) },
+  define: {
+    __PLATFORM__: JSON.stringify(
+      // Safari must use separate manifest (loaded from above), as it does not support
+      // the 'webRequest' API but the `__PLATFORM__` should return 'chromium' as
+      // the Edge on iOS/iPadOS uses the same build as for Edge Desktop
+      argv.target === 'safari' ? 'chromium' : argv.target,
+    ),
+  },
   build: {
     outDir: options.outDir,
     assetsDir: '',
@@ -187,31 +193,6 @@ options.assets.forEach((path) => {
   }
 });
 
-// copy adblocker engines
-mkdirSync(resolve(options.outDir, 'rule_resources'), { recursive: true });
-
-const engines = [
-  'ads',
-  'tracking',
-  'annoyances',
-  'fixes',
-  ...REGIONS.map((region) => `lang-${region}`),
-];
-
-engines.forEach((engine) => {
-  const path = `engine-${engine}.dat`;
-  cpSync(
-    resolve(options.srcDir, 'rule_resources', path),
-    resolve(options.outDir, 'rule_resources', path),
-  );
-});
-
-// copy trackerdb engine
-cpSync(
-  resolve(options.srcDir, 'rule_resources', 'engine-trackerdb.dat'),
-  resolve(options.outDir, 'rule_resources', 'engine-trackerdb.dat'),
-);
-
 // copy managed storage configuration
 if (manifest.storage?.managed_schema) {
   const path = resolve(options.srcDir, manifest.storage.managed_schema);
@@ -220,18 +201,15 @@ if (manifest.storage?.managed_schema) {
 
 // copy declarative net request lists
 if (manifest.declarative_net_request?.rule_resources) {
-  let rulesCount = 0;
+  mkdirSync(resolve(options.outDir, 'rule_resources'), { recursive: true });
 
-  // Add regional DNR rules to Chromium
-  if (argv.target === 'chromium') {
-    REGIONS.forEach((region) => {
-      manifest.declarative_net_request.rule_resources.push({
-        id: `lang-${region}`,
-        enabled: false,
-        path: `rule_resources/dnr-lang-${region}.json`,
-      });
+  REGIONS.forEach((region) => {
+    manifest.declarative_net_request.rule_resources.push({
+      id: `lang-${region}`,
+      enabled: false,
+      path: `rule_resources/dnr-lang-${region}.json`,
     });
-  }
+  });
 
   manifest.declarative_net_request.rule_resources.forEach(({ path }) => {
     const dir = dirname(path);
@@ -241,35 +219,8 @@ if (manifest.declarative_net_request?.rule_resources) {
     const outputPath = resolve(destPath, file);
 
     mkdirSync(destPath, { recursive: true });
-
-    if (argv.target === 'safari') {
-      const list = JSON.parse(readFileSync(sourcePath, 'utf8'))
-        .map((rule) => {
-          try {
-            return convert(rule);
-          } catch {
-            // ignore incompatible rules
-          }
-        })
-        .filter(Boolean);
-      rulesCount += list?.length;
-      writeFileSync(outputPath, JSON.stringify(list));
-      return;
-    }
-
     cpSync(sourcePath, outputPath);
   });
-
-  if (argv.target === 'safari') {
-    console.log('Declarative Net Request rules:', rulesCount);
-
-    // https://github.com/WebKit/WebKit/blob/c85962a5c0e929991e5963811da957b75d1501db/Source/WebCore/contentextensions/ContentExtensionCompiler.cpp#L199
-    if (rulesCount > 75000) {
-      throw new Error(
-        `Warning: The number of rules exceeds the limit of 75k rules.`,
-      );
-    }
-  }
 }
 
 // copy redirect rule resources
@@ -322,20 +273,6 @@ if (manifest.browser_action?.default_popup) {
   source.push(manifest.browser_action.default_popup);
 }
 
-// offscreen documents
-if (
-  manifest.permissions.includes('offscreen') ||
-  manifest.optional_permissions?.includes('offscreen')
-) {
-  readdirSync(join(options.srcDir, 'pages', 'offscreen'), {
-    withFileTypes: true,
-  })
-    .filter((dirent) => dirent.isDirectory() && !dirent.name.startsWith('.'))
-    .forEach((dirent) =>
-      source.push(join('pages', 'offscreen', dirent.name, 'index.html')),
-    );
-}
-
 // options page
 if (manifest.options_ui?.page) {
   source.push(manifest.options_ui?.page);
@@ -375,9 +312,7 @@ manifest.web_accessible_resources?.forEach((entry) => {
 // background
 if (manifest.background) {
   source.push(
-    manifest.background.service_worker ||
-      manifest.background.page ||
-      manifest.background.scripts[0],
+    manifest.background.service_worker || manifest.background.scripts[0],
   );
 }
 
@@ -413,6 +348,9 @@ const buildPromise = build({
     target: 'esnext',
     rollupOptions: {
       input: mapPaths(source),
+      // Prevent from loading re2-wasm dependency of the @ghostery/urlfilter2dnr package
+      // as it is used only in node environment
+      external: ['@adguard/re2-wasm'],
       preserveEntrySignatures: 'exports-only',
       output: {
         banner:
@@ -423,16 +361,19 @@ const buildPromise = build({
         preserveModules: true,
         preserveModulesRoot: 'src',
         minifyInternalExports: false,
-        entryFileNames: '[name].js',
+        entryFileNames: (chunk) =>
+          `${chunk.name.replace(/\.(png|jpg|jpeg|gif|svg|webp)$/, '')}.js`,
+
         assetFileNames: 'assets/[name]-[hash].[ext]',
         sanitizeFileName: (name) => {
           name = name
             .replace(/[\0?*]+/g, '_')
+            .replace(/["<>:|]/g, '_')
             .replace('node_modules', 'npm')
             .replace('_virtual', 'virtual');
 
           const path = name.replace(pwd, '');
-          if (path.length > 100 && !argv['no-filename-limit']) {
+          if (path.length > 110 && !argv['no-filename-limit']) {
             throw new Error(
               `Filename too long: ${path} (${path.length}) (pass --no-filename-limit to disable; for instance, "npm run build firefox -- --no-filename-limit")`,
             );
@@ -444,6 +385,22 @@ const buildPromise = build({
     },
   },
   plugins: [
+    {
+      name: 'transform-autoconsent-rules',
+      load(id) {
+        if (id.endsWith('@duckduckgo/autoconsent/rules/rules.json')) {
+          const rules = JSON.parse(readFileSync(id, 'utf-8'));
+          const result = [];
+
+          for (const rule of rules.autoconsent) {
+            if (!rule.name.startsWith('auto_')) {
+              result.push(rule);
+            }
+          }
+          return JSON.stringify({ autoconsent: result });
+        }
+      },
+    },
     // Keep offscreen documents from @whotracksme/reporting
     {
       name: 'copy-reporting-assets',
@@ -536,8 +493,10 @@ if (argv.watch) {
             settings = {
               target: 'firefox-desktop',
               devtools: true,
-              firefoxBinary:
-                '/Applications/Firefox Nightly.app/Contents/MacOS/firefox-bin',
+              pref: {
+                'intl.locale.requested': 'en-US',
+                'intl.accept_languages': 'en-US, en',
+              },
             };
             break;
           case 'chromium': {

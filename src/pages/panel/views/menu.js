@@ -12,18 +12,17 @@
 import { html, router, store } from 'hybrids';
 
 import Options from '/store/options.js';
-import Session from '/store/session.js';
 import TabStats from '/store/tab-stats.js';
 
 import { openTabWithUrl } from '/utils/tabs.js';
 
 import ReportForm from './report-form.js';
+import { BECOME_A_CONTRIBUTOR_PAGE_URL } from '/utils/urls.js';
 
 export default {
   options: store(Options),
-  session: store(Session),
   stats: store(TabStats),
-  render: ({ options, session, stats }) => html`
+  render: ({ options, stats }) => html`
     <template layout="grid grow">
       <ui-header>
         <ui-text type="label-m">Menu</ui-text>
@@ -46,75 +45,57 @@ export default {
               Astian settings
             </ui-text>
 
-              <panel-menu-item
-                href="${chrome.runtime.getURL(
-                  '/pages/settings/index.html#@settings-privacy',
-                )}"
-                icon="shield-menu"
-              >
-                Privacy protection
-              </panel-menu-item>
-              <panel-menu-item
-                href="${chrome.runtime.getURL(
-                  '/pages/settings/index.html#@settings-websites',
-                )}"
-                icon="websites"
-              >
-                Websites
-              </panel-menu-item>
-              <panel-menu-item
-                href="${chrome.runtime.getURL(
-                  '/pages/settings/index.html#@settings-trackers',
-                )}"
-                icon="block-m"
-              >
-                Trackers
-              </panel-menu-item>
-              <panel-menu-item
-                href="${chrome.runtime.getURL(
-                  '/pages/settings/index.html#@settings-whotracksme',
-                )}"
-                icon="wtm"
-                translate="no"
-              >
-                Alfra
-              </panel-menu-item>
-              <panel-menu-item
-                href="${chrome.runtime.getURL(
-                  '/pages/settings/index.html#@settings-my-ghostery',
-                )}"
-                icon="${(store.ready(session) &&
-                  session.contributor &&
-                  'contributor') ||
-                'user'}"
-              >
-                <div layout="column">
-                  <span>My Ghostery</span>
-                  ${store.ready(session) &&
-                  (session.name || session.email) &&
-                  html`
-                    <ui-text type="body-xs" color="inherit">
-                      ${session.name || session.email}
-                    </ui-text>
-                  `}
-                </div>
-              </panel-menu-item>
+            <panel-menu-item
+              href="${chrome.runtime.getURL(
+                '/pages/settings/index.html#@settings-privacy',
+              )}"
+              icon="shield-menu"
+            >
+              Privacy protection
+            </panel-menu-item>
+            <panel-menu-item
+              href="${chrome.runtime.getURL(
+                '/pages/settings/index.html#@settings-websites',
+              )}"
+              icon="websites"
+            >
+              Websites
+            </panel-menu-item>
+            <panel-menu-item
+              href="${chrome.runtime.getURL(
+                '/pages/settings/index.html#@settings-trackers',
+              )}"
+              icon="block-m"
+            >
+              Trackers
+            </panel-menu-item>
+            <panel-menu-item
+              href="${chrome.runtime.getURL(
+                '/pages/settings/index.html#@settings-whotracksme',
+              )}"
+              icon="wtm"
+              translate="no"
+            >
+              Alfra
+            </panel-menu-item>
+            <panel-menu-item
+              href="${chrome.runtime.getURL(
+                '/pages/settings/index.html#@settings-my-ghostery',
+              )}"
+              icon="user"
+            >
+              My Astian Account
+            </panel-menu-item>
 
-            ${__PLATFORM__ !== 'safari' &&
-            store.ready(session) &&
-            session.enabled &&
-            !session.contributor &&
-            html`
-              <ui-button type="outline-primary" layout="margin:1:1.5">
-                <a
-                  href="https://astian.org/midori-browser/donate-to-midori/?mtm_campaign=Astian%20Privacy%20Extension"
-                  onclick="${openTabWithUrl}"
-                >
-                  <ui-icon name="heart"></ui-icon>
-                  Become a Contributor
-                </a>
-              </ui-button>
-            `}
+            <ui-button type="outline-primary" layout="margin:1:1.5">
+              <a
+                href="https://astian.org/midori-browser/donate-to-midori/?mtm_campaign=Astian%20Privacy%20Extension"
+                onclick="${openTabWithUrl}"
+              >
+                <ui-icon name="heart"></ui-icon>
+                Become a Contributor
+              </a>
+            </ui-button>
 
             <ui-line></ui-line>
 
@@ -127,6 +108,16 @@ export default {
               Support
             </ui-text>
 
+            ${stats.hostname &&
+            html`
+              <panel-menu-item
+                href="${router.url(ReportForm)}"
+                icon="report"
+                internal
+              >
+                Report a broken page
+              </panel-menu-item>
+            `}
 
             <panel-menu-item
               href="https://t.me/midoriweb"
@@ -166,7 +157,7 @@ export default {
             <panel-menu-item
               href="${__PLATFORM__ === 'firefox'
                 ? 'https://addons.mozilla.org/firefox/addon/astian-privacy-protect/privacy/'
-                : 'https://www.ghostery.com/privacy-policy?utm_source=gbe&utm_campaign=menu-privacypolicy'}"
+                : 'https://astian.org/astian-privacy-policies/'}"
               icon="privacy-m"
               suffix-icon="link-external-m"
             >

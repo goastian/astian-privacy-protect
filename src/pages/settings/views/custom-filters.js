@@ -9,7 +9,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0
  */
 
-import { html, store, router, msg } from 'hybrids';
+import { html, store, router } from 'hybrids';
 
 import Options from '/store/options.js';
 import CustomFilters from '/store/custom-filters.js';
@@ -84,10 +84,7 @@ export default {
                       color="quaternary"
                       layout="size:3"
                     ></ui-icon>
-                    <ui-text type="headline-xs">
-                      <!-- Enable "feature name" -->
-                      Enable ${msg`Custom Filters`}
-                    </ui-text>
+                    <ui-text type="headline-xs">Custom Filters</ui-text>
                   </div>
                 </div>
               </ui-toggle>
@@ -172,7 +169,10 @@ export default {
                 `}
                 ${!!result?.errors.length &&
                 html`
-                  <div layout="column gap:0.5">
+                  <div
+                    layout="column gap:0.5"
+                    data-qa="component:custom-filters:errors"
+                  >
                     <ui-text type="label-s" color="secondary">
                       Errors (${result.errors.length})
                     </ui-text>

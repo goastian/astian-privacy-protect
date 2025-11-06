@@ -9,8 +9,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0
  */
 
-import { isOpera, isEdge } from './browser-info.js';
-import { debugMode } from './debug.js';
+import { isOpera, isEdge, isSafari } from './browser-info.js';
+import { debugMode, stagingMode } from './debug.js';
 
 export const GHOSTERY_DOMAIN = debugMode ? 'ghosterystage.com' : 'ghostery.com';
 
@@ -22,15 +22,25 @@ export const ACCOUNT_PAGE_URL = `https://www.${GHOSTERY_DOMAIN}/account`;
 
 export const WTM_PAGE_URL = `https://www.${GHOSTERY_DOMAIN}/whotracksme`;
 export const SUPPORT_PAGE_URL = `https://www.${GHOSTERY_DOMAIN}/support`;
+export const WHATS_NEW_PAGE_URL = `https://www.${GHOSTERY_DOMAIN}/blog/ghostery-extension-v10-5?embed=1&utm_campaign=whatsnew`;
 
 export const REVIEW_PAGE_URL = (() => {
-  if (__PLATFORM__ === 'safari') return 'https://mygho.st/ReviewSafariPanel';
-  if (__PLATFORM__ === 'firefox') return 'https://addons.mozilla.org/es-ES/firefox/addon/astian-privacy-protect/';
+  if (__PLATFORM__ === 'firefox') return 'https://mygho.st/ReviewFirefoxPanel';
 
-  // Chromium-based browsers
+  if (isSafari()) return 'https://mygho.st/ReviewSafariPanel';
   if (isOpera()) return 'https://mygho.st/ReviewOperaPanel';
   if (isEdge()) return 'https://mygho.st/ReviewEdgePanel';
 
   // Chrome
   return 'https://mygho.st/ReviewChromePanel';
 })();
+
+export const BECOME_A_CONTRIBUTOR_PAGE_URL = isSafari()
+  ? 'ghosteryapp://www.ghostery.com'
+  : 'https://astian.org/midori-browser/donate-to-midori/?mtm_campaign=Astian%20Privacy%20Extension';
+
+export const ENGINE_CONFIGS_ROOT_URL = `https://${stagingMode ? 'staging-' : ''}cdn.ghostery.com/adblocker/configs`;
+
+export const CDN_URL = stagingMode
+  ? 'https://staging-cdn.ghostery.com/'
+  : 'https://cdn.ghostery.com/';
