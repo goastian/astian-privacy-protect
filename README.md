@@ -1,6 +1,7 @@
 # Astian Privacy Protect
 
 A high-performance ad blocker compatible with Mozilla Firefox and Chromium browsers.
+[Midori Privacy](https://ads.fund/token/0xadff55919304565a3e904fce983504fb2a764b76) project is supported by ADS.FUND
 
 ## 🚀 Features
 
