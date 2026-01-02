@@ -38,7 +38,7 @@
     "prettier": "^3.6.2",
     "sinon-chrome": "^3.0.1",
     "vite": "^7.1.11",
-    "web-ext": "^9.0.0",
+    "web-ext": "^9.2.0",
     "webextension-polyfill": "^0.12.0"
   },
   "dependencies": {
