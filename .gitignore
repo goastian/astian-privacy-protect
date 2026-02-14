@@ -32,6 +32,7 @@ src/rules/
 
 # Build
 dist/
+releases/
 web-ext-artifacts/
 
 # xcode

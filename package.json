@@ -10,7 +10,10 @@
     "build:chromium": "node scripts/build.js chromium",
     "dev": "node scripts/build.js chromium --watch",
     "dev:firefox": "node scripts/build.js firefox --watch",
-    "convert-lists": "node scripts/convert-lists.js"
+    "convert-lists": "node scripts/convert-lists.js",
+    "package": "node scripts/package.js",
+    "package:chromium": "node scripts/package.js chromium",
+    "package:firefox": "node scripts/package.js firefox"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",
