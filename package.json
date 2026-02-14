@@ -1,79 +1,25 @@
 {
-  "name": "astian-privacy-protect",
+  "name": "midori-privacy-blocker",
   "private": true,
-  "version": "2.0.5",
+  "version": "2.0.6",
   "type": "module",
+  "description": "Lightweight ad & tracker blocker by Astian Inc",
   "scripts": {
     "build": "node scripts/build.js",
-    "start": "npm run build -- --watch",
-    "start:update": "./scripts/update.sh",
-    "debug": "npm run build -- --watch --debug",
-    "lint": "npm run lint:src && npm run lint:build",
-    "lint:src": "eslint",
-    "lint:build": "npm run build firefox -- --silent && addons-linter dist",
-    "test": "npm run wdio && npm run wdio:update",
-    "wdio": "wdio tests/e2e/wdio.conf.js",
-    "wdio:update": "wdio tests/e2e/wdio.update.conf.js",
-    "locales:setup": "cp -f ./src/messages.json ./src/_locales/en/messages.json",
-    "locales.src": "hybrids extract -c --format=chrome.i18n ./src ./src/_locales/en/messages.json",
-    "locales": "npm run locales:setup && npm run locales.src",
-    "xcode-export-locales": "rm -rf ./xcode/en.xcloc && xcodebuild -exportLocalizations -project ./xcode/Ghostery.xcodeproj -localizationPath ./xcode",
-    "release": "./scripts/release.sh",
-    "package": "./scripts/package.sh"
+    "build:firefox": "node scripts/build.js firefox",
+    "build:chromium": "node scripts/build.js chromium",
+    "dev": "node scripts/build.js chromium --watch",
+    "dev:firefox": "node scripts/build.js firefox --watch",
+    "convert-lists": "node scripts/convert-lists.js"
   },
   "devDependencies": {
-    "@eslint/js": "^9.36.0",
-    "@types/chrome": "^0.1.24",
-    "@wdio/browser-runner": "^9.19.2",
-    "@wdio/cli": "^9.19.2",
-    "@wdio/globals": "^9.12.7",
-    "@wdio/mocha-framework": "^9.12.6",
-    "@wdio/spec-reporter": "^9.19.2",
-    "addons-linter": "^8.4.0",
-    "eslint": "^9.36.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
-    "globals": "^16.4.0",
-    "license-report": "^6.8.0",
-    "prettier": "^3.6.2",
-    "sinon-chrome": "^3.0.1",
-    "vite": "^7.1.11",
-    "web-ext": "^9.0.0",
-    "webextension-polyfill": "^0.12.0"
-  },
-  "dependencies": {
-    "@duckduckgo/autoconsent": "^14.34.1",
-    "@ghostery/adblocker": "^2.12.2",
-    "@ghostery/adblocker-content": "^2.12.2",
-    "@ghostery/adblocker-extended-selectors": "^2.12.2",
-    "@ghostery/adblocker-webextension": "^2.12.2",
-    "@ghostery/scriptlets": "github:ghostery/scriptlets",
-    "@ghostery/urlfilter2dnr": "^1.6.3",
-    "@github/relative-time-element": "^4.4.8",
-    "@sentry/browser": "^10.12.0",
-    "@whotracksme/reporting": "^7.8.0",
-    "apexsankey": "github:ghostery/apexsankey",
-    "bowser": "^2.12.1",
-    "file-saver": "^2.0.5",
-    "hybrids": "^9.1.20",
-    "idb": "^8.0.2",
-    "plotly.js-basic-dist": "^3.1.2",
-    "tldts-experimental": "^7.0.15"
-  },
-  "dataDependencies": {
-    "wtm-stats": "d66108debb852d33595d28c9113fa4da644f224f"
-  },
-  "engineStrict": true,
-  "engines": {
-    "npm": ">=9.6.7"
-  },
-  "webExt": {
-    "sourceDir": "./dist/"
+    "esbuild": "^0.24.0",
+    "web-ext": "^8.3.0"
   },
   "author": {
     "name": "Astian Inc",
     "email": "contact@astian.org",
     "url": "https://astian.org"
   },
-  "license": "GPL-3.0"
+  "license": "MPL-2.0"
 }

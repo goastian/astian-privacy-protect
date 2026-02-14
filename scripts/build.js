@@ -1,534 +1,164 @@
-/**
- * Ghostery Browser Extension
- * https://www.ghostery.com/
- *
- * Copyright 2017-present Ghostery GmbH. All rights reserved.
- *
- * This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0
- */
+import { build, context } from 'esbuild';
+import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync, rmSync, readdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { resolve, dirname, join, basename } from 'node:path';
-import {
-  readFileSync,
-  writeFileSync,
-  readdirSync,
-  rmSync,
-  mkdirSync,
-  cpSync,
-  existsSync,
-} from 'node:fs';
-import { exec, execSync } from 'node:child_process';
-import { build } from 'vite';
-import webExt from 'web-ext';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const ROOT = resolve(__dirname, '..');
+const SRC = resolve(ROOT, 'src');
+const DIST = resolve(ROOT, 'dist');
 
-import REGIONS from '../src/utils/regions.js';
+const target = process.argv[2] || 'chromium';
+const watch = process.argv.includes('--watch');
 
-const pwd = process.cwd();
+console.log(`Building for ${target}...`);
 
-const options = {
-  srcDir: resolve(pwd, 'src'),
-  outDir: resolve(pwd, 'dist'),
-  assets: ['_locales', 'icons', 'static_pages'],
-  pages: ['dnr-converter', 'logger', 'onboarding', 'whotracksme'],
-};
+// Clean dist
+if (existsSync(DIST)) rmSync(DIST, { recursive: true });
+mkdirSync(DIST, { recursive: true });
 
-// Generate arguments from command line
-const argv = process.argv.slice(2).reduce(
-  (acc, arg) => {
-    if (arg.startsWith('--')) {
-      if (arg.includes('=')) {
-        const [key, value] = arg.slice(2).split('=');
-        acc[key] = value;
-      } else {
-        acc[arg.slice(2)] = true;
-      }
-    } else {
-      acc.target = arg;
-    }
-    return acc;
-  },
-  { target: 'chromium' },
-);
-
-const pkg = JSON.parse(readFileSync(resolve(pwd, 'package.json'), 'utf8'));
-const silent = argv.silent;
-
-// Get manifest from source directory
-if (!silent) console.log(`Reading manifest.${argv.target}.json...`);
-
-const manifest = JSON.parse(
-  readFileSync(resolve(options.srcDir, `manifest.${argv.target}.json`), 'utf8'),
-);
-
-// --- Add flags ---
-
-if (argv.debug) {
-  manifest.debug = true;
-}
-
-if (argv.staging) {
-  // Force re-download of resources to be sure we have the latest version
-  // when building with staging CDN
-  argv.clean = true;
-
-  manifest.staging = true;
-}
-
-// --- Download rule resources ---
-
-if (argv.clean) {
-  rmSync(resolve('src', 'rule_resources'), { recursive: true, force: true });
-}
-
-execSync(
-  'node scripts/download-dnr-rulesets.js' + (argv.staging ? ' --staging' : ''),
-  { stdio: silent ? '' : 'inherit' },
-);
-
-execSync('node scripts/download-wtm-bloomfilter.js', {
-  stdio: silent ? '' : 'inherit',
-});
-
-execSync('node scripts/download-wtm-stats.js', {
-  stdio: silent ? '' : 'inherit',
-});
-
-// --- Generate static pages ---
-
-const staticPath = resolve('src', 'static_pages');
-
-if (argv.clean) {
-  rmSync(staticPath, { recursive: true, force: true });
-}
-
-if (!existsSync(staticPath)) mkdirSync(staticPath, { recursive: true });
-
-// licenses.html...
-const licensesPath = resolve(staticPath, 'licenses.html');
-if (!existsSync(licensesPath)) {
-  writeFileSync(
-    licensesPath,
-    execSync(`npx license-report --config=scripts/license-report.json`)
-      .toString()
-      .replace(
-        '<html>',
-        `
-<html lang="en">
-  <head>
-    <title>Software Licenses</title>
-    <meta charset="utf-8">
-    <link rel="icon" type="image/png" href="/assets/favicon.png" />
-    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
-  </head>
-`,
-      )
-      .trim(),
-  );
-}
-
-// privacy-policy.html...
-if (argv.target !== 'firefox') {
-  const policyPath = resolve(staticPath, 'privacy-policy.html');
-  const url = `https://www.${argv.debug ? 'ghosterystage' : 'ghostery'}.com/privacy-policy?embed=true`;
-
-  if (!existsSync(policyPath)) {
-    const policy = await fetch(url);
-    if (policy.ok) {
-      const text = await policy.text();
-      writeFileSync(policyPath, text);
-    } else {
-      throw new Error(
-        `Failed to fetch Privacy Policy from '${url}': ${policy.status}`,
-      );
-    }
-  }
-}
-
-// --- Base Vite Config ---
-
-const config = {
-  logLevel: silent ? 'silent' : undefined,
-  configFile: false,
-  root: options.srcDir,
-  resolve: {
-    preserveSymlinks: true,
-  },
-  define: {
-    __PLATFORM__: JSON.stringify(
-      // Safari must use separate manifest (loaded from above), as it does not support
-      // the 'webRequest' API but the `__PLATFORM__` should return 'chromium' as
-      // the Edge on iOS/iPadOS uses the same build as for Edge Desktop
-      argv.target === 'safari' ? 'chromium' : argv.target,
-    ),
-  },
-  build: {
-    outDir: options.outDir,
-    assetsDir: '',
-    emptyOutDir: false,
-    minify: false,
-    modulePreload: {
-      polyfill: false,
-    },
-    watch: argv.watch ? {} : null,
-  },
-};
-
-// --- Generate dist structure ---
-
-// generate dist folder
-rmSync(options.outDir, { recursive: true, force: true });
-mkdirSync(options.outDir, { recursive: true });
-
-// copy static assets
-options.assets.forEach((path) => {
-  mkdirSync(resolve(options.outDir, path), { recursive: true });
-  for (const file of readdirSync(resolve(options.srcDir, path))) {
-    cpSync(
-      resolve(options.srcDir, path, file),
-      resolve(options.outDir, path, file),
-      { recursive: true },
-    );
-  }
-});
-
-// copy managed storage configuration
-if (manifest.storage?.managed_schema) {
-  const path = resolve(options.srcDir, manifest.storage.managed_schema);
-  cpSync(path, resolve(options.outDir, manifest.storage.managed_schema));
-}
-
-// copy declarative net request lists
-if (manifest.declarative_net_request?.rule_resources) {
-  mkdirSync(resolve(options.outDir, 'rule_resources'), { recursive: true });
-
-  REGIONS.forEach((region) => {
-    manifest.declarative_net_request.rule_resources.push({
-      id: `lang-${region}`,
-      enabled: false,
-      path: `rule_resources/dnr-lang-${region}.json`,
-    });
-  });
-
-  manifest.declarative_net_request.rule_resources.forEach(({ path }) => {
-    const dir = dirname(path);
-    const file = basename(path);
-    const sourcePath = resolve(options.srcDir, path);
-    const destPath = resolve(options.outDir, dir);
-    const outputPath = resolve(destPath, file);
-
-    mkdirSync(destPath, { recursive: true });
-    cpSync(sourcePath, outputPath);
-  });
-}
-
-// copy redirect rule resources
-mkdirSync(resolve(options.outDir, 'rule_resources/redirects'), {
-  recursive: true,
-});
-for (const file of readdirSync(
-  resolve(options.srcDir, 'rule_resources', 'redirects'),
-)) {
-  if (argv.target !== 'firefox' && file.includes('MIME_TYPE_STUB')) {
-    continue;
-  }
-  cpSync(
-    resolve(options.srcDir, 'rule_resources', 'redirects', file),
-    resolve(options.outDir, 'rule_resources', 'redirects', file),
-  );
-}
-
-// append web_accessible_resources
-const redirectResources = readdirSync(
-  resolve(options.outDir, 'rule_resources/redirects'),
-);
-
-if (manifest.manifest_version === 3) {
-  manifest.web_accessible_resources.push({
-    resources: redirectResources.map((filename) =>
-      join('rule_resources/redirects', filename),
-    ),
-    matches: ['<all_urls>'],
-    use_dynamic_url: true,
-  });
-} else {
-  redirectResources.forEach((filename) => {
-    manifest.web_accessible_resources.push(
-      join('rule_resources/redirects', filename),
-    );
-  });
-}
-
-// --- Generate entry points ---
-
-const source = options.pages.map((page) => `pages/${page}/index.html`);
-const content_scripts = [];
-
-if (manifest.action?.default_popup) {
-  source.push(manifest.action.default_popup);
-}
-
-if (manifest.browser_action?.default_popup) {
-  source.push(manifest.browser_action.default_popup);
-}
-
-// options page
-if (manifest.options_ui?.page) {
-  source.push(manifest.options_ui?.page);
-}
-
-// content scripts
-manifest.content_scripts = manifest.content_scripts.filter(
-  ({ js = [], css = [], run_at }) => {
-    [...js, ...css].forEach((src) => content_scripts.push(src));
-    return run_at !== 'background_execute_script';
-  },
-);
-
-// web-accessible resources
-manifest.web_accessible_resources?.forEach((entry) => {
-  const paths = [];
-
-  if (typeof entry === 'string') {
-    paths.push(entry);
-  } else {
-    entry.resources.forEach((src) => paths.push(src));
-  }
-
-  paths.forEach((path) => {
-    if (path.includes('/redirects/')) return;
-
-    if (path.match(/\.(html)$/)) {
-      source.push(path);
-    } else if (path.match(/\.(js)$/)) {
-      content_scripts.push(path);
-    } else {
-      throw new Error(`Unsupported web_accessible_resource: ${path}`);
-    }
-  });
-});
-
-// background
-if (manifest.background) {
-  source.push(
-    manifest.background.service_worker || manifest.background.scripts[0],
-  );
-}
-
-// --- Save manifest ---
-
-// set manifest version from package.json
+// Read and write manifest
+const manifest = JSON.parse(readFileSync(resolve(SRC, `manifest.${target}.json`), 'utf8'));
+const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8'));
 manifest.version = pkg.version;
+writeFileSync(resolve(DIST, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-if (manifest.permissions.includes('declarativeNetRequest') && argv.watch) {
-  manifest.permissions.push('declarativeNetRequestFeedback');
-}
-
-writeFileSync(
-  resolve(options.outDir, 'manifest.json'),
-  JSON.stringify(manifest, null, 2),
-);
-
-// --- Build  ---
-
-function mapPaths(paths) {
-  return paths.reduce((acc, src) => {
-    acc[src.replace(/\.js/, '')] = src.startsWith('node_modules')
-      ? resolve(src)
-      : resolve(options.srcDir, src);
-    return acc;
-  }, {});
-}
-
-const buildPromise = build({
-  ...config,
-  build: {
-    ...config.build,
-    target: 'esnext',
-    rollupOptions: {
-      input: mapPaths(source),
-      // Prevent from loading re2-wasm dependency of the @ghostery/urlfilter2dnr package
-      // as it is used only in node environment
-      external: ['@adguard/re2-wasm'],
-      preserveEntrySignatures: 'exports-only',
-      output: {
-        banner:
-          argv.target === 'firefox' &&
-          'globalThis.chrome = globalThis.browser;\n',
-        dir: options.outDir,
-        manualChunks: false,
-        preserveModules: true,
-        preserveModulesRoot: 'src',
-        minifyInternalExports: false,
-        entryFileNames: (chunk) =>
-          `${chunk.name.replace(/\.(png|jpg|jpeg|gif|svg|webp)$/, '')}.js`,
-
-        assetFileNames: 'assets/[name]-[hash].[ext]',
-        sanitizeFileName: (name) => {
-          name = name
-            .replace(/[\0?*]+/g, '_')
-            .replace(/["<>:|]/g, '_')
-            .replace('node_modules', 'npm')
-            .replace('_virtual', 'virtual');
-
-          const path = name.replace(pwd, '');
-          if (path.length > 110 && !argv['no-filename-limit']) {
-            throw new Error(
-              `Filename too long: ${path} (${path.length}) (pass --no-filename-limit to disable; for instance, "npm run build firefox -- --no-filename-limit")`,
-            );
-          }
-
-          return name;
-        },
-      },
-    },
-  },
-  plugins: [
-    {
-      name: 'transform-autoconsent-rules',
-      load(id) {
-        if (id.endsWith('@duckduckgo/autoconsent/rules/rules.json')) {
-          const rules = JSON.parse(readFileSync(id, 'utf-8'));
-          const result = [];
-
-          for (const rule of rules.autoconsent) {
-            if (!rule.name.startsWith('auto_')) {
-              result.push(rule);
-            }
-          }
-          return JSON.stringify({ autoconsent: result });
-        }
-      },
-    },
-    // Keep offscreen documents from @whotracksme/reporting
-    {
-      name: 'copy-reporting-assets',
-      buildStart() {
-        const srcDir = resolve(
-          process.cwd(),
-          'node_modules/@whotracksme/reporting/reporting/src/offscreen/doublefetch/',
-        );
-        const outDir = resolve(process.cwd(), 'dist/offscreen/doublefetch/');
-        if (!existsSync(outDir)) {
-          mkdirSync(outDir, { recursive: true });
-        }
-        const files = readdirSync(srcDir);
-        files.forEach((file) => {
-          cpSync(resolve(srcDir, file), resolve(outDir, file));
-        });
-      },
-    },
-
-    // This custom plugin cleans ups chunks imports of the `.html` inputs
-    //  to only include CSS files. This is necessary because Vite generates
-    // every imported JS file as script tag in the resulting HTML file.
-    // It is related to our custom usage, where we don't bundle JS into single files.
-    {
-      name: 'clean-up-html-imports',
-      enforce: 'pre',
-      generateBundle(options, bundle) {
-        for (const chunk of Object.values(bundle)) {
-          if (chunk.fileName.endsWith('.html.js')) {
-            for (const name of chunk.imports) {
-              const importChunk = bundle[name];
-              if (importChunk.type === 'chunk') {
-                // Imports of the single chunk generated from HTML should only include CSS files
-                importChunk.imports = importChunk.imports.filter((name) =>
-                  name.endsWith('.css.js'),
-                );
-              }
-            }
-          }
-        }
-      },
-    },
-  ],
-});
-
-// --- Build content scripts ---
-
-for (const [id, path] of Object.entries(mapPaths(content_scripts))) {
-  // Copy assets
-  if (!path.endsWith('.js')) {
-    mkdirSync(resolve(options.outDir, id.split('/').slice(0, -1).join('/')), {
-      recursive: true,
-    });
-    cpSync(path, resolve(options.outDir, id));
-  } else {
-    // build content scripts
-    build({
-      ...config,
-      build: {
-        ...config.build,
-        target: 'esnext',
-        rollupOptions: {
-          input: { [id]: path },
-          output: {
-            banner:
-              argv.target === 'firefox' &&
-              'globalThis.chrome = globalThis.browser;\n',
-            format: 'iife',
-            dir: options.outDir,
-            entryFileNames: '[name].js',
-          },
-        },
-      },
-    });
+// Copy static assets
+function copyDir(src, dest) {
+  if (!existsSync(src)) return;
+  mkdirSync(dest, { recursive: true });
+  for (const entry of readdirSync(src, { withFileTypes: true })) {
+    const srcPath = resolve(src, entry.name);
+    const destPath = resolve(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath);
+    } else {
+      cpSync(srcPath, destPath);
+    }
   }
 }
 
-if (argv.watch) {
-  buildPromise.then((watchEmitter) =>
-    watchEmitter.on('event', function callback(e) {
-      if (e.code === 'BUNDLE_END') {
-        watchEmitter.off('event', callback);
+copyDir(resolve(SRC, '_locales'), resolve(DIST, '_locales'));
+copyDir(resolve(SRC, 'icons'), resolve(DIST, 'icons'));
 
-        let settings;
-        switch (argv.target) {
-          case 'safari':
-            exec('xed xcode');
-            return;
-          case 'firefox':
-            settings = {
-              target: 'firefox-desktop',
-              devtools: true,
-              pref: {
-                'intl.locale.requested': 'en-US',
-                'intl.accept_languages': 'en-US, en',
-              },
-            };
-            break;
-          case 'chromium': {
-            settings = { target: 'chromium' };
+// Copy HTML and CSS files
+const htmlFiles = [
+  'popup/popup.html',
+  'popup/popup.css',
+  'options/options.html',
+  'options/options.css',
+  'shared/styles.css',
+];
 
-            switch (argv.browser) {
-              case 'brave':
-                settings.chromiumBinary =
-                  '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser';
-                break;
-              case 'edge':
-                settings.chromiumBinary =
-                  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge';
-                break;
-              case 'opera':
-                settings.chromiumBinary =
-                  '/Applications/Opera.app/Contents/MacOS/Opera';
-                break;
-            }
+for (const file of htmlFiles) {
+  const src = resolve(SRC, file);
+  const dest = resolve(DIST, file);
+  if (existsSync(src)) {
+    mkdirSync(dirname(dest), { recursive: true });
+    if (target === 'firefox' && file.endsWith('.html')) {
+      // Firefox MV2: remove type="module" from script tags (IIFE format)
+      let html = readFileSync(src, 'utf8');
+      html = html.replace(/ type="module"/g, '');
+      writeFileSync(dest, html);
+    } else {
+      cpSync(src, dest);
+    }
+  }
+}
 
-            break;
-          }
-          default:
-            break;
-        }
+// Copy DNR rules for Chromium
+if (target === 'chromium') {
+  copyDir(resolve(SRC, 'rules'), resolve(DIST, 'rules'));
+}
 
-        webExt.cmd.run({
-          ...settings,
-          noReload: true,
-          sourceDir: options.outDir,
-        });
-      }
-    }),
-  );
+// Build JS entry points
+const entryPoints = [
+  resolve(SRC, 'background/index.js'),
+  resolve(SRC, 'popup/popup.js'),
+  resolve(SRC, 'options/options.js'),
+  resolve(SRC, 'content/cosmetic.js'),
+];
+
+const buildOptions = {
+  entryPoints,
+  bundle: true,
+  outdir: DIST,
+  outbase: SRC,
+  format: 'esm',
+  target: 'esnext',
+  minify: !watch,
+  sourcemap: watch ? 'inline' : false,
+  define: {
+    '__PLATFORM__': JSON.stringify(target),
+  },
+  logLevel: 'info',
+};
+
+// Content scripts need IIFE format
+const contentBuildOptions = {
+  entryPoints: [resolve(SRC, 'content/cosmetic.js'), resolve(SRC, 'content/scriptlets.js')],
+  bundle: true,
+  outdir: resolve(DIST, 'content'),
+  format: 'iife',
+  target: 'esnext',
+  minify: !watch,
+  sourcemap: watch ? 'inline' : false,
+  define: {
+    '__PLATFORM__': JSON.stringify(target),
+  },
+  logLevel: 'info',
+};
+
+// Firefox MV2 background scripts don't support ES modules,
+// so we must use IIFE format for the background entry point.
+const bgFormat = target === 'firefox' ? 'iife' : 'esm';
+
+// Background build (separate because Firefox needs IIFE)
+const bgBuildOptions = {
+  entryPoints: [resolve(SRC, 'background/index.js')],
+  bundle: true,
+  outdir: resolve(DIST, 'background'),
+  format: bgFormat,
+  target: 'esnext',
+  minify: !watch,
+  sourcemap: watch ? 'inline' : false,
+  define: {
+    '__PLATFORM__': JSON.stringify(target),
+  },
+  logLevel: 'info',
+};
+
+// Popup & Options build
+const pagesBuildOptions = {
+  entryPoints: [
+    resolve(SRC, 'popup/popup.js'),
+    resolve(SRC, 'options/options.js'),
+  ],
+  bundle: true,
+  outdir: DIST,
+  outbase: SRC,
+  format: bgFormat,  // IIFE for Firefox, ESM for Chromium
+  target: 'esnext',
+  minify: !watch,
+  sourcemap: watch ? 'inline' : false,
+  define: {
+    '__PLATFORM__': JSON.stringify(target),
+  },
+  logLevel: 'info',
+};
+
+if (watch) {
+  const ctx1 = await context(bgBuildOptions);
+  const ctx2 = await context(pagesBuildOptions);
+  const ctx3 = await context(contentBuildOptions);
+  await ctx1.watch();
+  await ctx2.watch();
+  await ctx3.watch();
+  console.log('Watching for changes...');
+} else {
+  await build(bgBuildOptions);
+  await build(pagesBuildOptions);
+  await build(contentBuildOptions);
+  console.log('Build complete!');
 }

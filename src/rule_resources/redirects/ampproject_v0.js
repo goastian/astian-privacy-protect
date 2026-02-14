@@ -1,1 +1,0 @@
-(function(){"use strict";const t=document.head;if(!t)return;const n=document.createElement("style");n.textContent=["body {","  animation: none !important;","  overflow: unset !important;","}"].join("\n");t.appendChild(n)})();

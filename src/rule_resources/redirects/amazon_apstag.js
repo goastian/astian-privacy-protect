@@ -1,1 +1,0 @@
-(function(){"use strict";const t=window;const s=function(){}.bind();const n=t.apstag&&t.apstag._Q||[];const c={_Q:n,fetchBids:function(t,s){if(typeof s==="function")s([])},init:s,setDisplayBids:s,targetingKeys:s};t.apstag=c;n.push=function(t,s){try{switch(t){case"f":c.fetchBids(...s);break}}catch(t){console.trace(t)}};for(const t of n)n.push(t)})();

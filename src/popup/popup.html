@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../shared/styles.css">
+  <link rel="stylesheet" href="popup.css">
+  <title>Midori Privacy</title>
+</head>
+<body>
+  <div id="popup">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="flex items-center gap-2">
+        <svg class="logo" width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="11" fill="var(--color-primary)" stroke="var(--color-primary-dark)" stroke-width="1"/>
+          <path d="M7 12.5l3 3 7-7" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="popup-title font-bold">Midori Privacy</span>
+      </div>
+      <button id="btn-settings" class="icon-btn" title="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Status section -->
+    <div id="status-section" class="popup-status active">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div id="status-dot" class="status-dot active"></div>
+          <div>
+            <div id="status-text" class="font-semibold">Protection ACTIVE</div>
+            <div id="hostname" class="text-sm text-secondary">—</div>
+          </div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-site" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Privacy Score -->
+    <div id="privacy-score-section" class="popup-score-section">
+      <div class="score-badge-wrap">
+        <div id="score-badge" class="score-badge grade-unknown">
+          <span id="score-letter">?</span>
+        </div>
+        <div class="score-info">
+          <div id="score-label" class="font-semibold">Analyzing...</div>
+          <div id="score-detail" class="text-sm text-secondary">Waiting for data</div>
+        </div>
+      </div>
+      <div class="score-bar-wrap">
+        <div class="score-bar">
+          <div id="score-bar-fill" class="score-bar-fill" style="width:0%"></div>
+        </div>
+        <div class="score-categories">
+          <span class="score-cat" id="cat-trackers"><span class="cat-dot dot-warning"></span> <span id="cat-trackers-n">0</span> trackers</span>
+          <span class="score-cat" id="cat-ads"><span class="cat-dot dot-danger"></span> <span id="cat-ads-n">0</span> ads</span>
+          <span class="score-cat" id="cat-fingerprint"><span class="cat-dot dot-purple"></span> <span id="cat-fp-n">0</span> fingerprint</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Counter -->
+    <div class="popup-stats-row">
+      <div class="popup-stat">
+        <div class="counter-number" id="blocked-count">0</div>
+        <div class="counter-label text-sm text-secondary">blocked</div>
+      </div>
+      <div class="popup-stat-divider"></div>
+      <div class="popup-stat">
+        <div class="counter-number saved-number" id="saved-size">0</div>
+        <div class="counter-label text-sm text-secondary" id="saved-unit">KB saved</div>
+      </div>
+    </div>
+
+    <!-- Blocked requests list -->
+    <div id="requests-list" class="popup-requests">
+      <div id="empty-state" class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="1.5">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span class="text-sm text-tertiary">No activity detected on this page</span>
+      </div>
+
+      <!-- Trackers group -->
+      <div id="group-trackers" class="request-group hidden">
+        <button class="group-header" data-group="trackers">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span class="group-name">Trackers</span>
+          <span id="count-trackers" class="badge badge-primary">0</span>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="list-trackers" class="group-items"></div>
+      </div>
+
+      <!-- Ads group -->
+      <div id="group-ads" class="request-group hidden">
+        <button class="group-header" data-group="ads">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+          <span class="group-name">Ads</span>
+          <span id="count-ads" class="badge badge-danger">0</span>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="list-ads" class="group-items"></div>
+      </div>
+
+      <!-- Other group -->
+      <div id="group-other" class="request-group hidden">
+        <button class="group-header" data-group="other">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          <span class="group-name">Other</span>
+          <span id="count-other" class="badge badge-primary">0</span>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="list-other" class="group-items"></div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <button id="btn-report" class="footer-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        View full report
+      </button>
+    </footer>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

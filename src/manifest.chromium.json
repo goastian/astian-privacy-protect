@@ -1,133 +1,94 @@
 {
   "manifest_version": 3,
-  "author": "Astian",
-  "name": "__MSG_manifest_name__",
-  "short_name": "Astian Privacy",
+  "name": "__MSG_extension_name__",
+  "short_name": "Midori Privacy",
+  "description": "__MSG_extension_description__",
+  "version": "1.0.0",
   "default_locale": "en",
-  "description": "__MSG_manifest_short_description__",
-  "permissions": [
-    "alarms",
-    "cookies",
-    "declarativeNetRequest",
-    "declarativeNetRequestFeedback",
-    "webNavigation",
-    "storage",
-    "scripting",
-    "tabs",
-    "activeTab",
-    "webRequest",
-    "offscreen"
-  ],
-  "host_permissions": ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"],
+  "author": "Astian Inc",
   "icons": {
-    "64": "icons/icon-64.png",
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
   "action": {
+    "default_popup": "popup/popup.html",
     "default_icon": {
-      "64": "icons/icon-64.png",
-      "128": "icons/icon-128.png"
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
     },
-    "default_title": "Astian",
-    "default_popup": "pages/panel/index.html"
+    "default_title": "Midori Privacy"
   },
   "options_ui": {
-    "page": "pages/settings/index.html",
+    "page": "options/options.html",
     "open_in_tab": true
   },
   "background": {
     "service_worker": "background/index.js",
     "type": "module"
   },
-  "storage": {
-    "managed_schema": "managed_storage.json"
-  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "alarms",
+    "webRequest",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "declarative_net_request": {
     "rule_resources": [
       {
-        "id": "ads",
-        "enabled": false,
-        "path": "rule_resources/dnr-ads.json"
+        "id": "easylist",
+        "enabled": true,
+        "path": "rules/easylist.json"
       },
       {
-        "id": "tracking",
-        "enabled": false,
-        "path": "rule_resources/dnr-tracking.json"
+        "id": "easyprivacy",
+        "enabled": true,
+        "path": "rules/easyprivacy.json"
       },
       {
-        "id": "annoyances",
-        "enabled": false,
-        "path": "rule_resources/dnr-annoyances.json"
+        "id": "ublock-filters",
+        "enabled": true,
+        "path": "rules/ublock-filters.json"
       },
       {
-        "id": "fixes",
-        "enabled": false,
-        "path": "rule_resources/dnr-fixes.json"
+        "id": "ublock-privacy",
+        "enabled": true,
+        "path": "rules/ublock-privacy.json"
+      },
+      {
+        "id": "peter-lowe",
+        "enabled": true,
+        "path": "rules/peter-lowe.json"
       }
     ]
   },
   "content_scripts": [
     {
-      "js": ["content_scripts/adblocker/index.js"],
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["<all_urls>"],
+      "js": ["content/cosmetic.js"],
       "run_at": "document_start",
       "all_frames": true
     },
     {
-      "js": ["content_scripts/autoconsent.js"],
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["<all_urls>"],
+      "js": ["content/scriptlets.js"],
       "run_at": "document_start",
-      "all_frames": true
-    },
-    {
-      "js": ["content_scripts/notifications.js"],
-      "matches": ["http://*/*", "https://*/*"],
-      "run_at": "document_start"
-    },
-    {
-      "js": ["content_scripts/whotracksme/reporting.js"],
-      "matches": ["http://*/*", "https://*/*"],
-      "run_at": "document_start"
-    },
-    {
-      "js": ["content_scripts/youtube.js"],
-      "matches": ["*://www.youtube.com/*"],
-      "run_at": "document_start"
-    },
-    {
-      "js": ["content_scripts/trackers-preview.js"],
-      "run_at": "background_execute_script"
-    },
-    {
-      "js": ["content_scripts/prevent-serp-tracking.js"],
-      "run_at": "background_execute_script"
-    },
-    {
-      "js": ["content_scripts/element-picker.js"],
-      "run_at": "background_execute_script"
+      "all_frames": true,
+      "world": "MAIN"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": [
-        "pages/trackers-preview/index.html",
-        "pages/element-picker/index.html",
-        "pages/notifications/opera-serp.html",
-        "pages/notifications/pause-assistant.html",
-        "pages/notifications/pause-resume.html",
-        "pages/notifications/pin-it.html",
-        "pages/notifications/whats-new.html"
-      ],
-      "matches": ["<all_urls>"],
-      "use_dynamic_url": true
-    },
-    {
-      "resources": ["pages/notifications/youtube.html"],
-      "matches": ["*://www.youtube.com/*"],
-      "use_dynamic_url": true
+      "resources": ["content/scriptlets.js"],
+      "matches": ["<all_urls>"]
     }
-  ],
-  "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
-  }
+  ]
 }

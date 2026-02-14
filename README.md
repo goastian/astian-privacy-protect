@@ -1,173 +1,108 @@
-# Astian Privacy Protect
+# Midori Privacy - Ad & Tracker Blocker
 
-A high-performance ad blocker compatible with Mozilla Firefox and Chromium browsers.
-[Midori Privacy](https://ads.fund/token/0xadff55919304565a3e904fce983504fb2a764b76) project is supported by ADS.FUND
+A lightweight, fast, and privacy-focused ad & tracker blocker for Chromium and Firefox browsers. Built from scratch by [Astian Inc](https://astian.org).
 
-## 🚀 Features
+## Features
 
-### Efficient Blocking
-- **99% compatibility** with Easylist and uBlock Origin filters
-- Blocks ads, trackers, and unwanted content
-- Automatically updated filters
-- High-performance mode for better performance
+- **Ad blocking** using EasyList, uBlock Filters, and Peter Lowe's list
+- **Tracker blocking** using EasyPrivacy and uBlock Privacy
+- **Per-site toggle** — enable/disable protection on any website
+- **Blocked requests list** — see what's being blocked on each tab, grouped by category
+- **Privacy reports** — top tracked sites, blocking stats over 7/30/90 days, JSON export
+- **Custom filter lists** — add any ABP-compatible filter list URL
+- **Cosmetic filtering** — hides ad elements from pages
+- **Auto-updating lists** — configurable interval (1h, 4h, 12h, 24h)
+- **Dark mode** — automatic based on system preference
+- **Zero telemetry** — no data is sent to any external server
+- **Ultra lightweight** — < 25KB JS bundle (without filter lists)
 
-### Detailed Statistics
-- **Real-time block counter**
-- **Data saved** (KB, MB, GB)
-- **Time saved** on page loads
-- **Statistics by type** (ads, trackers, social networks)
-- **Performance metrics** (memory, CPU)
+## Supported Browsers
 
-### Performance Optimization
-- **Minimal memory consumption** (< 50MB typically)
-- **Batching** to reduce CPU load
-- **Smart caching** for better performance
-- **Automatic cleanup** of unused resources
+| Browser | Manifest | Blocking Method |
+|---------|----------|-----------------|
+| Chrome, Edge, Brave, Opera | MV3 | `declarativeNetRequest` (native) |
+| Firefox | MV2 | `webRequest` (JS engine) |
 
-### Modern Interface
-- **Intuitive popup** with statistics in real time
-- **Options page** with advanced settings
-- **Custom lists** (white/black)
-- **Statistics export**
+## Installation (Development)
 
-## 📦 Installation
-
-### For Developers
-
-1. **Clone the repository:**
 ```bash
-git clone https://github.com/goastian/astian-privacy-protect/
-cd astian-privacy-protect
-```
-
-2. **Install dependencies:**
-```bash
+git clone https://github.com/goastian/midori-privacy.git
+cd midori-privacy
 npm install
 ```
 
-3. **Compile the extension:**
+### Convert filter lists (required for Chromium)
+
 ```bash
-# For Firefox
-npm run build:firefox
-
-# For Chromium
-npm run build:chromium
-
-# For both
-npm run build:all
+npm run convert-lists
 ```
 
-### For Users
+### Build
 
-#### Firefox
-1. Download the `.xpi` file from the releases
-2. Open Firefox and go to `about:addons`
-3. Click the gear icon and select "Install add-on from file"
-4. Select the downloaded `.xpi` file
+```bash
+npm run build:chromium    # Build for Chrome/Edge/Brave
+npm run build:firefox     # Build for Firefox
+npm run dev               # Watch mode (Chromium)
+npm run dev:firefox       # Watch mode (Firefox)
+```
 
-#### Chrome/Chromium
-1. Download the `.zip` file from the releases
-2. Extract the file to a folder
-3. Open Chrome and go to `chrome://extensions/`
-4. Enable "Developer Mode"
-5. Click "Upload unpackaged extension"
-6. Select the extracted folder
+The built extension will be in the `dist/` directory.
 
-## 🛠️ Development
+### Load in Chrome
 
-### Project Structure
+1. Go to `chrome://extensions/`
+2. Enable "Developer mode"
+3. Click "Load unpacked" and select the `dist/` folder
+
+### Load in Firefox
+
+1. Go to `about:debugging#/runtime/this-firefox`
+2. Click "Load Temporary Add-on"
+3. Select `dist/manifest.json`
+
+## Project Structure
 
 ```
 src/
-├── background.ts # Main service worker
-├─── content.ts # Content script for web pages
-├─── popup.ts # Popup script
-├─── options.ts # Options page script
-├── adblocker.ts # Main adblocker logic
-├── stats-manager.ts # Statistics management
-├── performance-optimizer.ts # Performance optimizations
-├── types.ts # TypeScript type definitions
-├── manifest.json # Chromium (v3) manifest
-├── manifest-firefox.json # Firefox (v2) manifest
-├── popup.html # Popup interface
-├── options.html # Options page
-├── styles/ # CSS files
-│ ├── popup.css
-│ └── options.css
-└── icons/ # Extension icons
-├── icon-16.png
-├── icon-32.png
-├── icon-48.png
-└── icon-128.png
+├── manifest.chromium.json       # Manifest V3 (Chromium)
+├── manifest.firefox.json        # Manifest V2 (Firefox)
+├── background/
+│   ├── index.js                 # Service worker (main entry)
+│   ├── filter-engine.js         # ABP syntax parser & matcher
+│   ├── lists-manager.js         # Filter list download & cache
+│   ├── stats-collector.js       # Per-tab blocking statistics
+│   ├── report-generator.js      # Privacy report generation
+│   └── storage.js               # Storage abstraction
+├── popup/
+│   ├── popup.html / .css / .js  # Popup panel UI
+├── options/
+│   ├── options.html / .css / .js # Settings page UI
+├── content/
+│   └── cosmetic.js              # Element hiding (cosmetic rules)
+├── shared/
+│   └── styles.css               # Shared CSS variables & components
+├── _locales/en/messages.json    # Localization
+├── icons/                       # Extension icons
+└── rules/                       # Generated DNR rules (Chromium only)
+scripts/
+├── build.js                     # esbuild-based build script
+├── convert-lists.js             # ABP → DNR JSON converter
+└── generate-icons.js            # PNG icon generator
 ```
 
-### Available Scripts
+## Filter Lists
 
-```bash
-# Development
-npm run dev # Development mode with watch
-npm run build # Build for production
-npm run build:firefox # Build for Firefox only
-npm run build:chromium # Build for Chromium only
-npm run build:all # Build for both browsers
+| List | Source | Default |
+|------|--------|---------|
+| EasyList | easylist.to | Enabled |
+| EasyPrivacy | easylist.to | Enabled |
+| uBlock Filters | ublockorigin.github.io | Enabled |
+| uBlock Privacy | ublockorigin.github.io | Enabled |
+| Peter Lowe's | pgl.yoyo.org | Enabled |
+| uBlock Annoyances (Cookies) | ublockorigin.github.io | Disabled |
+| uBlock Annoyances (Other) | ublockorigin.github.io | Disabled |
+| Fanboy's Social | easylist.to | Disabled |
 
-# Code Quality
-npm run lint # Run ESLint
-npm run test # Run tests
+## License
 
-# Packaging
-npm run package:firefox # Create .xpi for Firefox
-npm run package:chromium # Create .zip for Chromium
-```
-
-## ⚙️ Configuration
-
-### Available Options
-
-- **Blocker Status**: Enable/Disable
-- **High Performance Mode**: Performance optimizations
-- **Blocking Types**: Ads, trackers, social networks
-- **Refresh Interval**: Filter update frequency
-- **Memory Limit**: Memory usage control
-- **Custom Lists**: Custom whitelists and blacklists
-
-### Configuration API
-
-```typescript
-// Configuration Example
-const config = {
-enabled: true,
-blockAds: true,
-blockTrackers: true,
-blockSocial: false,
-whitelist: ['example.com'],
-blacklist: ['ads.example.com'],
-updateInterval: 24, // hours
-showStats: true,
-performanceMode: true
-};
-```
-
-## 📊 Statistics
-
-### Available Metrics
-
-- **Total Blocked**: Total number of blocked requests
-- **Data Saved**: Amount of data saved (B, KB, MB, GB)
-- **Time Saved**: Total time saved on page loads
-- **Blocked by Type**: Breakdown by ads, trackers, etc.
-- **Performance**: Memory and CPU usage
-- **Daily Statistics**: Metrics for the current day
-
-### Data Export
-
-Statistics can be exported in JSON format for further analysis:
-
-```json
-{
-"stats": {
-"totalBlocked": 1250,
-"totalDataSaved": "15.2 MB",
-"totalTimeSaved": "2.5m 30s",
-"blockedByType": {
-"ads"
+MPL-2.0 — Copyright 2024-present Astian Inc.
