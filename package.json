@@ -1,7 +1,7 @@
 {
   "name": "midori-privacy-blocker",
   "private": true,
-  "version": "2.0.6",
+  "version": "2.0.7",
   "type": "module",
   "description": "Lightweight ad & tracker blocker by Astian Inc",
   "scripts": {
