@@ -90,7 +90,8 @@
       "name": "AstianGO",
       "search_url": "https://astiango.com/?q={searchTerms}",
       "keyword": "@astiango",
-      "favicon_url": "icons/icon-32.png",
+      "favicon_url": "https://astiango.com/favicon.ico",
+      "encoding": "UTF-8",
       "is_default": true
     }
   },

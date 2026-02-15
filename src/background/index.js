@@ -455,10 +455,6 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await collectChromiumStats();
   }
 
-  if (alarm.name === 'open-setup') {
-    const setupUrl = chrome.runtime.getURL('setup/setup.html');
-    chrome.tabs.create({ url: setupUrl });
-  }
 });
 
 // ── Message handler (popup & options communication) ─────────────────────────
@@ -673,7 +669,10 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
     const opts = await getOptions();
     if (!opts.setupCompleted) {
-      chrome.alarms.create('open-setup', { delayInMinutes: 0.05 }); // ~3 seconds
+      const setupUrl = chrome.runtime.getURL('setup/setup.html');
+      setTimeout(() => {
+        chrome.tabs.create({ url: setupUrl });
+      }, 1500);
     }
   }
 });
