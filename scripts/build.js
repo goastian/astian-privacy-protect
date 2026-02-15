@@ -48,6 +48,8 @@ const htmlFiles = [
   'popup/popup.css',
   'options/options.html',
   'options/options.css',
+  'setup/setup.html',
+  'setup/setup.css',
   'shared/styles.css',
 ];
 
@@ -129,11 +131,12 @@ const bgBuildOptions = {
   logLevel: 'info',
 };
 
-// Popup & Options build
+// Popup, Options & Setup build
 const pagesBuildOptions = {
   entryPoints: [
     resolve(SRC, 'popup/popup.js'),
     resolve(SRC, 'options/options.js'),
+    resolve(SRC, 'setup/setup.js'),
   ],
   bundle: true,
   outdir: DIST,

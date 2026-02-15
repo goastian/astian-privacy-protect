@@ -85,6 +85,15 @@
       "world": "MAIN"
     }
   ],
+  "chrome_settings_overrides": {
+    "search_provider": {
+      "name": "AstianGO",
+      "search_url": "https://astiango.com/?q={searchTerms}",
+      "keyword": "@astiango",
+      "favicon_url": "icons/icon-32.png",
+      "is_default": true
+    }
+  },
   "web_accessible_resources": [
     {
       "resources": ["content/scriptlets.js"],

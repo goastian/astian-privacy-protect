@@ -1,0 +1,560 @@
+/* Midori Privacy — Setup Wizard Styles */
+
+body {
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* ── Container ──────────────────────────────────────────────────────────────── */
+
+.setup-container {
+  width: 100%;
+  max-width: 720px;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 32px 40px;
+  position: relative;
+}
+
+/* ── Progress ───────────────────────────────────────────────────────────────── */
+
+.setup-progress {
+  margin-bottom: 32px;
+}
+
+.progress-track {
+  height: 4px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 8px;
+}
+
+.progress-step {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  transition: all var(--transition-normal);
+}
+
+.progress-step.active {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 0 0 4px var(--color-primary-bg);
+}
+
+.progress-step.done {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+/* ── Steps ──────────────────────────────────────────────────────────────────── */
+
+.setup-step {
+  display: none;
+  animation: fadeIn 0.35s ease;
+}
+
+.setup-step.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.step-icon {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.step-title {
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--color-text);
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.step-subtitle {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  max-width: 520px;
+  margin: 0 auto 28px;
+  line-height: 1.6;
+}
+
+/* ── Step 1: Option Cards (Search Engine) ───────────────────────────────────── */
+
+.option-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.option-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  background: var(--color-bg);
+}
+
+.option-card:hover {
+  border-color: var(--color-primary-light);
+  background: var(--color-primary-bg);
+}
+
+.option-card.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  box-shadow: 0 0 0 3px rgba(26, 158, 111, 0.12);
+}
+
+.option-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.option-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.option-card.selected .option-card-icon {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.option-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.option-card-desc {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.option-card-badge {
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.astian-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--color-primary-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(26, 158, 111, 0.15);
+}
+
+.astian-info-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.astian-info-text {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Step 2: Protection Level Cards ─────────────────────────────────────────── */
+
+.level-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.level-card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 16px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  background: var(--color-bg);
+}
+
+.level-card:hover {
+  border-color: var(--color-primary-light);
+}
+
+.level-card.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  box-shadow: 0 0 0 3px rgba(26, 158, 111, 0.12);
+}
+
+.level-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.level-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.level-shield {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.level-shield.basic {
+  background: #dbeafe;
+  color: #3b82f6;
+}
+
+.level-shield.standard {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.level-shield.strict {
+  background: #fce4ec;
+  color: #e74c3c;
+}
+
+.level-card.selected .level-shield.basic { background: #3b82f6; color: #fff; }
+.level-card.selected .level-shield.standard { background: var(--color-primary); color: #fff; }
+.level-card.selected .level-shield.strict { background: #e74c3c; color: #fff; }
+
+.level-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.level-tag {
+  font-size: 0.7rem;
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+}
+
+.recommended-tag {
+  color: var(--color-primary);
+}
+
+.strict-tag {
+  color: #e74c3c;
+}
+
+.level-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px 0;
+  flex: 1;
+}
+
+.level-features li {
+  font-size: 0.78rem;
+  padding: 3px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.level-features li::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.level-features li.enabled::before {
+  background: var(--color-primary-bg);
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.level-features li.disabled {
+  color: var(--color-text-tertiary);
+}
+
+.level-features li.disabled::before {
+  background: var(--color-bg-tertiary);
+  box-shadow: inset 0 0 0 2px var(--color-border);
+}
+
+.level-compat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--color-text-tertiary);
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* ── Step 3: Privacy Commitments ────────────────────────────────────────────── */
+
+.privacy-commitments {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.privacy-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+}
+
+.privacy-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.privacy-icon.no-collect {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.privacy-icon.local-only {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.privacy-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-bottom: 2px;
+}
+
+.privacy-desc {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Step 4: Done ───────────────────────────────────────────────────────────── */
+
+.done-icon {
+  animation: bounceIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bounceIn {
+  0%   { transform: scale(0.3); opacity: 0; }
+  50%  { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.summary-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.summary-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-bottom: 14px;
+  color: var(--color-text);
+}
+
+.summary-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.summary-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.summary-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.final-tips {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.tip svg {
+  flex-shrink: 0;
+}
+
+/* ── Navigation ─────────────────────────────────────────────────────────────── */
+
+.setup-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.btn-lg {
+  padding: 12px 28px;
+  font-size: 0.95rem;
+  border-radius: var(--radius-md);
+}
+
+.btn-finish {
+  background: var(--color-primary);
+  color: #fff;
+  padding: 14px 36px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 14px rgba(26, 158, 111, 0.3);
+  transition: all var(--transition-fast);
+}
+
+.btn-finish:hover {
+  background: var(--color-primary-dark);
+  box-shadow: 0 6px 20px rgba(26, 158, 111, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────────── */
+
+.setup-footer {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+}
+
+/* ── Dark mode adjustments ──────────────────────────────────────────────────── */
+
+@media (prefers-color-scheme: dark) {
+  .level-shield.basic { background: #1e3a5f; color: #60a5fa; }
+  .level-shield.strict { background: #3d1515; color: #f87171; }
+  .level-card.selected .level-shield.basic { background: #3b82f6; color: #fff; }
+  .level-card.selected .level-shield.strict { background: #e74c3c; color: #fff; }
+  .option-card-badge { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  .setup-container {
+    padding: 24px 20px;
+  }
+
+  .level-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .step-title {
+    font-size: 1.3rem;
+  }
+
+  .btn-lg {
+    padding: 10px 20px;
+    font-size: 0.88rem;
+  }
+}

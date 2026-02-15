@@ -454,6 +454,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'collect-stats') {
     await collectChromiumStats();
   }
+
+  if (alarm.name === 'open-setup') {
+    const setupUrl = chrome.runtime.getURL('setup/setup.html');
+    chrome.tabs.create({ url: setupUrl });
+  }
 });
 
 // ── Message handler (popup & options communication) ─────────────────────────
@@ -569,6 +574,52 @@ async function handleMessage(msg) {
       return { success: true, rulesCount: engine.rulesCount };
     }
 
+    case 'save-setup': {
+      const config = msg.config || {};
+      await setOptions(config);
+
+      // Update global enabled state
+      if (config.enabled !== undefined) {
+        isEnabled = config.enabled;
+      }
+
+      // For Chromium: update DNR rulesets based on enabled lists
+      if (IS_CHROMIUM && config.lists) {
+        try {
+          const enableIds = [];
+          const disableIds = [];
+          const dnrRulesets = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
+          for (const id of dnrRulesets) {
+            if (config.lists[id]?.enabled) {
+              enableIds.push(id);
+            } else {
+              disableIds.push(id);
+            }
+          }
+          await chrome.declarativeNetRequest.updateEnabledRulesets({
+            enableRulesetIds: enableIds,
+            disableRulesetIds: disableIds,
+          });
+        } catch (e) {
+          console.warn('[midori] Failed to update DNR rulesets from setup:', e);
+        }
+      }
+
+      // Reload engine for Firefox
+      if (!IS_CHROMIUM) {
+        try {
+          const freshLists = await getCachedLists();
+          if (Object.keys(freshLists).length > 0) {
+            await loadEngine(freshLists);
+          }
+        } catch (e) {
+          console.warn('[midori] Failed to reload engine from setup:', e);
+        }
+      }
+
+      return { success: true };
+    }
+
     default:
       return { error: 'Unknown action' };
   }
@@ -607,14 +658,23 @@ async function updateDnrWhitelist() {
   });
 }
 
-// ── Ensure badge is configured on install/update ─────────────────────────────
+// ── Handle install/update ────────────────────────────────────────────────────
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   if (IS_CHROMIUM) {
     chrome.declarativeNetRequest.setExtensionActionOptions({
       displayActionCountAsBadgeText: true,
     }).catch(() => {});
     chrome.action.setBadgeBackgroundColor({ color: '#e74c3c' }).catch(() => {});
+  }
+
+  // Open setup wizard on first install (delayed to let the browser
+  // finish showing the search engine change prompt from chrome_settings_overrides)
+  if (details.reason === 'install') {
+    const opts = await getOptions();
+    if (!opts.setupCompleted) {
+      chrome.alarms.create('open-setup', { delayInMinutes: 0.05 }); // ~3 seconds
+    }
   }
 });
 

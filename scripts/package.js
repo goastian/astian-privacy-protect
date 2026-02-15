@@ -269,6 +269,9 @@ function validatePackage(platform) {
     'options/options.html',
     'options/options.js',
     'options/options.css',
+    'setup/setup.html',
+    'setup/setup.js',
+    'setup/setup.css',
     'shared/styles.css',
   ];
 
