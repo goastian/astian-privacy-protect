@@ -15,6 +15,53 @@ let engine = new FilterEngine();
 let isEnabled = true;
 const IS_CHROMIUM = __PLATFORM__ === 'chromium';
 
+// ── Protection level presets ─────────────────────────────────────────────────
+const PROTECTION_LEVELS = {
+  basic: {
+    label: 'Basic',
+    antiFingerprint: false,
+    lists: {
+      'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
+      'ublock-privacy': true, 'peter-lowe': true, 'ublock-quick-fixes': true,
+      'ublock-unbreak': true,
+      'ublock-annoyances-cookies': false, 'ublock-annoyances-others': false,
+      'fanboy-social': false, 'fanboy-annoyance': false,
+      'adguard-base': false, 'adguard-tracking': false, 'adguard-social': false,
+      'adguard-annoyances': false, 'adguard-mobile': false,
+      'adguard-spyware-firstparty': false,
+      'easylist-spanish': false, 'easylist-germany': false, 'easylist-france': false,
+    },
+  },
+  standard: {
+    label: 'Standard',
+    antiFingerprint: true,
+    lists: {
+      'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
+      'ublock-privacy': true, 'peter-lowe': true, 'ublock-quick-fixes': true,
+      'ublock-unbreak': true, 'ublock-annoyances-cookies': true, 'fanboy-social': true,
+      'ublock-annoyances-others': false, 'fanboy-annoyance': false,
+      'adguard-base': false, 'adguard-tracking': false, 'adguard-social': false,
+      'adguard-annoyances': false, 'adguard-mobile': false,
+      'adguard-spyware-firstparty': false,
+      'easylist-spanish': false, 'easylist-germany': false, 'easylist-france': false,
+    },
+  },
+  strict: {
+    label: 'Strict',
+    antiFingerprint: true,
+    lists: {
+      'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
+      'ublock-privacy': true, 'peter-lowe': true, 'ublock-quick-fixes': true,
+      'ublock-unbreak': true, 'ublock-annoyances-cookies': true,
+      'ublock-annoyances-others': true, 'fanboy-social': true, 'fanboy-annoyance': true,
+      'adguard-base': true, 'adguard-tracking': true, 'adguard-social': true,
+      'adguard-annoyances': true, 'adguard-spyware-firstparty': true,
+      'adguard-mobile': false,
+      'easylist-spanish': false, 'easylist-germany': false, 'easylist-france': false,
+    },
+  },
+};
+
 // Cross-browser helpers
 const webRequestAPI = (typeof browser !== 'undefined' && browser.webRequest) ? browser.webRequest : chrome.webRequest;
 
@@ -568,6 +615,64 @@ async function handleMessage(msg) {
         await loadEngine(cached);
       }
       return { success: true, rulesCount: engine.rulesCount };
+    }
+
+    case 'change-protection-level': {
+      const level = msg.level;
+      const preset = PROTECTION_LEVELS[level];
+      if (!preset) return { error: 'Invalid protection level' };
+
+      const opts = await getOptions();
+      const lists = opts.lists || {};
+
+      // Update list enabled states from preset
+      for (const [listId, enabled] of Object.entries(preset.lists)) {
+        if (lists[listId]) {
+          lists[listId].enabled = enabled;
+        }
+      }
+
+      await setOptions({
+        protectionLevel: level,
+        antiFingerprint: preset.antiFingerprint,
+        lists,
+      });
+
+      // Chromium: update DNR rulesets
+      if (IS_CHROMIUM) {
+        try {
+          const enableIds = [];
+          const disableIds = [];
+          const dnrRulesets = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
+          for (const id of dnrRulesets) {
+            if (preset.lists[id]) {
+              enableIds.push(id);
+            } else {
+              disableIds.push(id);
+            }
+          }
+          await chrome.declarativeNetRequest.updateEnabledRulesets({
+            enableRulesetIds: enableIds,
+            disableRulesetIds: disableIds,
+          });
+        } catch (e) {
+          console.warn('[midori] Failed to update DNR rulesets:', e);
+        }
+      }
+
+      // Firefox: reload engine
+      if (!IS_CHROMIUM) {
+        try {
+          const freshLists = await getCachedLists();
+          if (Object.keys(freshLists).length > 0) {
+            await loadEngine(freshLists);
+          }
+        } catch (e) {
+          console.warn('[midori] Failed to reload engine:', e);
+        }
+      }
+
+      return { success: true, level, label: preset.label };
     }
 
     case 'save-setup': {

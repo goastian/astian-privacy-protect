@@ -42,6 +42,29 @@
       </div>
     </div>
 
+    <!-- Protection Level Selector -->
+    <div id="protection-level-section" class="popup-level-section">
+      <div class="level-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span class="level-title font-semibold">Protection Level</span>
+      </div>
+      <div class="level-selector">
+        <button class="level-btn" data-level="basic" title="Minimal blocking, best compatibility">
+          <span class="level-icon">🛡</span>
+          <span class="level-name">Basic</span>
+        </button>
+        <button class="level-btn active" data-level="standard" title="Recommended balance of protection and compatibility">
+          <span class="level-icon">🛡</span>
+          <span class="level-name">Standard</span>
+        </button>
+        <button class="level-btn" data-level="strict" title="Maximum protection, may break some sites">
+          <span class="level-icon">🛡</span>
+          <span class="level-name">Strict</span>
+        </button>
+      </div>
+      <div id="level-status" class="level-status text-sm text-secondary"></div>
+    </div>
+
     <!-- Privacy Score -->
     <div id="privacy-score-section" class="popup-score-section">
       <div class="score-badge-wrap">

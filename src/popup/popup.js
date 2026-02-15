@@ -140,11 +140,15 @@ async function init() {
 
   $('#hostname').textContent = currentHostname || 'No website';
 
-  // Get options to check whitelist
+  // Get options to check whitelist and protection level
   const options = await sendMessage({ action: 'get-options' });
   isWhitelisted = !!(options?.whitelist?.[currentHostname]);
 
   updateStatusUI();
+
+  // Set current protection level
+  const currentLevel = options?.protectionLevel || 'standard';
+  updateLevelUI(currentLevel);
 
   // Load tab stats
   await loadTabStats();
@@ -246,6 +250,40 @@ function updateStatusUI() {
   }
 }
 
+// ── Protection Level ─────────────────────────────────────────────────────────
+
+function updateLevelUI(level) {
+  for (const btn of $$('.level-btn')) {
+    btn.classList.toggle('active', btn.dataset.level === level);
+  }
+  $('#level-status').textContent = '';
+}
+
+async function changeProtectionLevel(level) {
+  const btns = $$('.level-btn');
+  const statusEl = $('#level-status');
+
+  // Disable buttons while applying
+  for (const btn of btns) btn.classList.add('loading');
+  statusEl.textContent = 'Applying...';
+  statusEl.style.color = '';
+
+  const result = await sendMessage({ action: 'change-protection-level', level });
+
+  for (const btn of btns) btn.classList.remove('loading');
+
+  if (result?.success) {
+    updateLevelUI(level);
+    statusEl.style.color = 'var(--color-primary)';
+    statusEl.textContent = `${result.label} protection applied`;
+    setTimeout(() => { statusEl.textContent = ''; }, 2500);
+  } else {
+    statusEl.style.color = 'var(--color-danger)';
+    statusEl.textContent = 'Failed to apply';
+    setTimeout(() => { statusEl.textContent = ''; }, 2500);
+  }
+}
+
 // ── Event Listeners ─────────────────────────────────────────────────────────
 
 function setupListeners() {
@@ -261,6 +299,15 @@ function setupListeners() {
     isWhitelisted = result?.whitelisted || false;
     updateStatusUI();
   });
+
+  // Protection level buttons
+  for (const btn of $$('.level-btn')) {
+    btn.addEventListener('click', () => {
+      const level = btn.dataset.level;
+      if (btn.classList.contains('active') || btn.classList.contains('loading')) return;
+      changeProtectionLevel(level);
+    });
+  }
 
   // Settings button
   $('#btn-settings').addEventListener('click', () => {
