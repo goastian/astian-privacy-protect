@@ -411,10 +411,41 @@ example.com##+js(abort-on-property-read, adBlockDetected)
           </div>
         </div>
 
-        <button class="btn btn-outline" id="btn-export-report">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export report (JSON)
-        </button>
+        <!-- Privacy Alerts -->
+        <div class="option-card mb-3">
+          <div class="p-3">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold">Privacy Alerts</h3>
+              <span class="badge badge-danger" id="alerts-count">0</span>
+            </div>
+            <div id="alerts-list">
+              <p class="text-sm text-tertiary">No alerts. Your browsing looks safe.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tracker Database -->
+        <div class="option-card mb-3">
+          <div class="p-3">
+            <h3 class="font-semibold mb-2">Tracker Database</h3>
+            <p class="text-xs text-tertiary mb-2">Known trackers detected on your browsed sites</p>
+            <div id="tracker-db-list">
+              <p class="text-sm text-tertiary">No tracker data yet.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Export buttons -->
+        <div class="flex gap-2">
+          <button class="btn btn-outline" id="btn-export-report">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export JSON
+          </button>
+          <button class="btn btn-outline" id="btn-export-html">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Export HTML Report
+          </button>
+        </div>
       </section>
 
       <!-- About Section -->

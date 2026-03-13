@@ -392,6 +392,12 @@ async function loadReports() {
 
   // Top sites
   renderTopSites(topSites || []);
+
+  // Privacy alerts
+  renderPrivacyAlerts(topSites || [], categories);
+
+  // Tracker database
+  renderTrackerDatabase(topSites || []);
 }
 
 function renderPrivacySummary(summary) {
@@ -435,6 +441,9 @@ function renderWeeklyTrend(trend) {
   }
 }
 
+// Store chart metadata for tooltip interaction
+let chartMeta = null;
+
 function renderChart(stats) {
   const canvas = $('#chart-blocking');
   if (!canvas) return;
@@ -458,11 +467,15 @@ function renderChart(stats) {
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('No data yet', w / 2, h / 2);
+    chartMeta = null;
     return;
   }
 
   const maxVal = Math.max(...stats.map(d => d.blocked), 1);
   const barWidth = Math.max(4, (chartW / stats.length) - 4);
+
+  // Store metadata for tooltip
+  chartMeta = { stats, padding, chartW, chartH, maxVal, barWidth, w, h };
 
   // Grid lines
   ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-border-light');
@@ -483,10 +496,13 @@ function renderChart(stats) {
 
   // Bars
   const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary');
+  const barPositions = [];
   stats.forEach((d, i) => {
     const x = padding.left + (chartW / stats.length) * i + 2;
     const barH = (d.blocked / maxVal) * chartH;
     const y = padding.top + chartH - barH;
+
+    barPositions.push({ x, y, w: barWidth, h: barH });
 
     ctx.fillStyle = primaryColor;
     ctx.beginPath();
@@ -501,6 +517,76 @@ function renderChart(stats) {
       ctx.fillText(label, x + barWidth / 2, h - 8);
     }
   });
+
+  // Trend line overlay
+  if (stats.length > 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(26, 158, 111, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    stats.forEach((d, i) => {
+      const cx = barPositions[i].x + barWidth / 2;
+      const cy = padding.top + chartH - (d.blocked / maxVal) * chartH;
+      if (i === 0) ctx.moveTo(cx, cy);
+      else ctx.lineTo(cx, cy);
+    });
+    ctx.stroke();
+
+    // Dots on line
+    stats.forEach((d, i) => {
+      const cx = barPositions[i].x + barWidth / 2;
+      const cy = padding.top + chartH - (d.blocked / maxVal) * chartH;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+      ctx.fillStyle = primaryColor;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+  }
+
+  chartMeta.barPositions = barPositions;
+
+  // Setup tooltip (once)
+  if (!canvas._tooltipSetup) {
+    canvas._tooltipSetup = true;
+    canvas.style.position = 'relative';
+
+    let tooltip = canvas.parentElement.querySelector('.chart-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.className = 'chart-tooltip';
+      canvas.parentElement.style.position = 'relative';
+      canvas.parentElement.appendChild(tooltip);
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!chartMeta || !chartMeta.barPositions) { tooltip.classList.remove('visible'); return; }
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const { barPositions: bp, stats: st } = chartMeta;
+
+      let found = -1;
+      for (let i = 0; i < bp.length; i++) {
+        if (mx >= bp[i].x && mx <= bp[i].x + bp[i].w) { found = i; break; }
+      }
+
+      if (found >= 0) {
+        const d = st[found];
+        tooltip.innerHTML = `<strong>${d.date}</strong><br>${formatNumber(d.blocked)} blocked`;
+        tooltip.style.left = (bp[found].x + bp[found].w / 2) + 'px';
+        tooltip.style.top = (bp[found].y - 40) + 'px';
+        tooltip.classList.add('visible');
+      } else {
+        tooltip.classList.remove('visible');
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('visible');
+    });
+  }
 }
 
 function renderCategoryDonut(categories) {
@@ -624,6 +710,254 @@ function renderTopSites(sites) {
     `;
     container.appendChild(item);
   });
+}
+
+// ── Known Tracker Database ───────────────────────────────────────────────────
+
+const TRACKER_DB = {
+  'doubleclick.net':       { company: 'Google', type: 'Ad Network', country: 'US' },
+  'googlesyndication.com': { company: 'Google', type: 'Ad Network', country: 'US' },
+  'googleadservices.com':  { company: 'Google', type: 'Ad Network', country: 'US' },
+  'google-analytics.com':  { company: 'Google', type: 'Analytics', country: 'US' },
+  'googletagmanager.com':  { company: 'Google', type: 'Tag Manager', country: 'US' },
+  'googleapis.com':        { company: 'Google', type: 'API Service', country: 'US' },
+  'facebook.net':          { company: 'Meta', type: 'Social Tracker', country: 'US' },
+  'facebook.com':          { company: 'Meta', type: 'Social Tracker', country: 'US' },
+  'fbcdn.net':             { company: 'Meta', type: 'CDN / Tracker', country: 'US' },
+  'instagram.com':         { company: 'Meta', type: 'Social Tracker', country: 'US' },
+  'amazon-adsystem.com':   { company: 'Amazon', type: 'Ad Network', country: 'US' },
+  'criteo.com':            { company: 'Criteo', type: 'Ad Retargeting', country: 'FR' },
+  'criteo.net':            { company: 'Criteo', type: 'Ad Retargeting', country: 'FR' },
+  'outbrain.com':          { company: 'Outbrain', type: 'Content Ads', country: 'US' },
+  'taboola.com':           { company: 'Taboola', type: 'Content Ads', country: 'US' },
+  'scorecardresearch.com': { company: 'comScore', type: 'Analytics', country: 'US' },
+  'quantserve.com':        { company: 'Quantcast', type: 'Audience Analytics', country: 'US' },
+  'hotjar.com':            { company: 'Hotjar', type: 'Session Recording', country: 'MT' },
+  'mouseflow.com':         { company: 'Mouseflow', type: 'Session Recording', country: 'DK' },
+  'clarity.ms':            { company: 'Microsoft', type: 'Session Recording', country: 'US' },
+  'bing.com':              { company: 'Microsoft', type: 'Ad Network', country: 'US' },
+  'linkedin.com':          { company: 'Microsoft', type: 'Social Tracker', country: 'US' },
+  'twitter.com':           { company: 'X Corp', type: 'Social Tracker', country: 'US' },
+  'x.com':                 { company: 'X Corp', type: 'Social Tracker', country: 'US' },
+  't.co':                  { company: 'X Corp', type: 'Link Tracker', country: 'US' },
+  'tiktok.com':            { company: 'ByteDance', type: 'Social Tracker', country: 'CN' },
+  'byteoversea.com':       { company: 'ByteDance', type: 'Analytics', country: 'CN' },
+  'snapchat.com':          { company: 'Snap', type: 'Social Tracker', country: 'US' },
+  'pinterest.com':         { company: 'Pinterest', type: 'Social Tracker', country: 'US' },
+  'adnxs.com':             { company: 'Xandr (Microsoft)', type: 'Ad Exchange', country: 'US' },
+  'rubiconproject.com':    { company: 'Magnite', type: 'Ad Exchange', country: 'US' },
+  'pubmatic.com':          { company: 'PubMatic', type: 'Ad Exchange', country: 'US' },
+  'openx.net':             { company: 'OpenX', type: 'Ad Exchange', country: 'US' },
+  'casalemedia.com':       { company: 'Index Exchange', type: 'Ad Exchange', country: 'CA' },
+  'newrelic.com':          { company: 'New Relic', type: 'Performance', country: 'US' },
+  'sentry.io':             { company: 'Sentry', type: 'Error Tracking', country: 'US' },
+  'segment.io':            { company: 'Twilio', type: 'Analytics', country: 'US' },
+  'segment.com':           { company: 'Twilio', type: 'Analytics', country: 'US' },
+  'mixpanel.com':          { company: 'Mixpanel', type: 'Analytics', country: 'US' },
+  'amplitude.com':         { company: 'Amplitude', type: 'Analytics', country: 'US' },
+  'optimizely.com':        { company: 'Optimizely', type: 'A/B Testing', country: 'US' },
+  'crazyegg.com':          { company: 'Crazy Egg', type: 'Heatmaps', country: 'US' },
+  'demdex.net':            { company: 'Adobe', type: 'DMP / Tracker', country: 'US' },
+  'omtrdc.net':            { company: 'Adobe', type: 'Analytics', country: 'US' },
+  'yandex.ru':             { company: 'Yandex', type: 'Analytics', country: 'RU' },
+  'mc.yandex.ru':          { company: 'Yandex', type: 'Metrica', country: 'RU' },
+  'baidu.com':             { company: 'Baidu', type: 'Analytics', country: 'CN' },
+};
+
+function lookupTracker(domain) {
+  if (TRACKER_DB[domain]) return TRACKER_DB[domain];
+  // Try parent domain (e.g. ads.google.com → google.com)
+  const parts = domain.split('.');
+  for (let i = 1; i < parts.length - 1; i++) {
+    const parent = parts.slice(i).join('.');
+    if (TRACKER_DB[parent]) return TRACKER_DB[parent];
+  }
+  return null;
+}
+
+// ── Privacy Alerts ──────────────────────────────────────────────────────────
+
+function renderPrivacyAlerts(topSites, categories) {
+  const container = $('#alerts-list');
+  const countEl = $('#alerts-count');
+  if (!container) return;
+
+  const alerts = [];
+
+  // Alert: sites with excessive trackers (>10)
+  for (const site of topSites) {
+    if (site.trackerCount > 10) {
+      alerts.push({
+        level: 'high',
+        message: `<strong>${escapeHtml(site.hostname)}</strong> has ${site.trackerCount} trackers — consider avoiding this site`,
+      });
+    } else if (site.trackerCount > 5) {
+      alerts.push({
+        level: 'medium',
+        message: `<strong>${escapeHtml(site.hostname)}</strong> has ${site.trackerCount} trackers`,
+      });
+    }
+  }
+
+  // Alert: high fingerprinter count
+  if ((categories?.fingerprinters || 0) > 20) {
+    alerts.push({
+      level: 'high',
+      message: `<strong>${categories.fingerprinters}</strong> fingerprinting attempts detected — fingerprint protection is active`,
+    });
+  }
+
+  // Alert: heavy ad activity
+  if ((categories?.ads || 0) > 500) {
+    alerts.push({
+      level: 'medium',
+      message: `<strong>${formatNumber(categories.ads)}</strong> ads blocked — heavy advertising exposure detected`,
+    });
+  }
+
+  if (countEl) countEl.textContent = alerts.length;
+
+  if (alerts.length === 0) {
+    container.innerHTML = '<p class="text-sm text-tertiary">No alerts. Your browsing looks safe.</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+  for (const alert of alerts.slice(0, 10)) {
+    const div = document.createElement('div');
+    div.className = 'alert-item alert-' + alert.level;
+    div.innerHTML = `<span class="alert-dot alert-dot-${alert.level}"></span><span class="text-sm">${alert.message}</span>`;
+    container.appendChild(div);
+  }
+}
+
+// ── Tracker Database Renderer ───────────────────────────────────────────────
+
+function renderTrackerDatabase(topSites) {
+  const container = $('#tracker-db-list');
+  if (!container) return;
+
+  // Collect all unique tracker domains across top sites
+  const allTrackers = new Map();
+  for (const site of topSites) {
+    if (!site.trackers) continue;
+    for (const domain of site.trackers) {
+      if (!allTrackers.has(domain)) {
+        const info = lookupTracker(domain);
+        allTrackers.set(domain, {
+          domain,
+          company: info?.company || 'Unknown',
+          type: info?.type || 'Tracker',
+          country: info?.country || '??',
+          sites: [site.hostname],
+        });
+      } else {
+        allTrackers.get(domain).sites.push(site.hostname);
+      }
+    }
+  }
+
+  if (allTrackers.size === 0) {
+    container.innerHTML = '<p class="text-sm text-tertiary">No tracker data yet.</p>';
+    return;
+  }
+
+  // Sort by frequency (most common first)
+  const sorted = [...allTrackers.values()].sort((a, b) => b.sites.length - a.sites.length);
+
+  container.innerHTML = '';
+  const table = document.createElement('div');
+  table.className = 'tracker-db-table';
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'tracker-db-row tracker-db-header';
+  header.innerHTML = '<span>Domain</span><span>Company</span><span>Type</span><span>Country</span><span>Sites</span>';
+  table.appendChild(header);
+
+  for (const t of sorted.slice(0, 30)) {
+    const row = document.createElement('div');
+    row.className = 'tracker-db-row';
+    row.innerHTML = `<span class="tracker-db-domain" title="${escapeHtml(t.domain)}">${escapeHtml(t.domain)}</span>` +
+      `<span class="font-semibold">${escapeHtml(t.company)}</span>` +
+      `<span class="text-tertiary">${escapeHtml(t.type)}</span>` +
+      `<span>${t.country}</span>` +
+      `<span class="badge badge-primary">${t.sites.length}</span>`;
+    table.appendChild(row);
+  }
+
+  container.appendChild(table);
+}
+
+// ── Export HTML Report ──────────────────────────────────────────────────────
+
+async function exportHtmlReport() {
+  const report = await sendMessage({ action: 'export-report' });
+  if (!report) return;
+
+  const g = scoreToGrade(report.summary?.avgScore || 100);
+  const totalBlocked = report.totalBlocked || 0;
+  const cats = report.categoryDistribution || {};
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Midori Privacy Report - ${new Date().toLocaleDateString()}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1d21; line-height: 1.6; }
+    h1 { color: #1a9e6f; } h2 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+    .grade { display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 60px; border-radius: 50%; color: #fff; font-size: 1.5rem; font-weight: 800; }
+    .grade-a { background: #1a9e6f; } .grade-b { background: #3b82f6; } .grade-c { background: #f59e0b; } .grade-d { background: #f97316; } .grade-f { background: #e74c3c; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+    .stat-box { text-align: center; padding: 16px; background: #f5f7fa; border-radius: 8px; }
+    .stat-box .num { font-size: 1.5rem; font-weight: 800; color: #1a9e6f; }
+    .stat-box .label { font-size: 0.8rem; color: #666; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #eee; }
+    th { background: #f5f7fa; font-size: 0.8rem; color: #666; text-transform: uppercase; }
+    .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #eee; font-size: 0.8rem; color: #999; }
+  </style>
+</head>
+<body>
+  <h1>Midori Privacy Report</h1>
+  <p>Generated on ${new Date().toLocaleString()}</p>
+
+  <h2>Privacy Score</h2>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="grade grade-${g.css.replace('grade-', '').replace('aplus', 'a')}">${g.grade}</div>
+    <div><strong>${report.summary?.sitesAnalyzed || 0}</strong> sites analyzed<br><strong>${formatNumber(totalBlocked)}</strong> threats blocked</div>
+  </div>
+
+  <h2>Statistics</h2>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="num">${formatNumber(totalBlocked)}</div><div class="label">Total Blocked</div></div>
+    <div class="stat-box"><div class="num" style="color:#f39c12">${formatNumber(cats.trackers || 0)}</div><div class="label">Trackers</div></div>
+    <div class="stat-box"><div class="num" style="color:#e74c3c">${formatNumber(cats.ads || 0)}</div><div class="label">Ads</div></div>
+    <div class="stat-box"><div class="num" style="color:#8b5cf6">${formatNumber(cats.fingerprinters || 0)}</div><div class="label">Fingerprinters</div></div>
+  </div>
+
+  <h2>Top Tracked Sites</h2>
+  <table>
+    <tr><th>#</th><th>Site</th><th>Blocked</th><th>Trackers</th><th>Score</th></tr>
+    ${(report.topTrackedSites || []).map((s, i) => {
+      const sg = scoreToGrade(s.score ?? 50);
+      return `<tr><td>${i + 1}</td><td>${escapeHtml(s.hostname)}</td><td>${s.blocked}</td><td>${s.trackerCount}</td><td><strong>${sg.grade}</strong></td></tr>`;
+    }).join('')}
+  </table>
+
+  <div class="footer">Report generated by Midori Privacy Blocker &mdash; <a href="https://astian.org">astian.org</a></div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `midori-privacy-report-${new Date().toISOString().slice(0, 10)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── About ───────────────────────────────────────────────────────────────────
@@ -879,7 +1213,7 @@ function setupListeners() {
     });
   }
 
-  // Export report
+  // Export report (JSON)
   $('#btn-export-report').addEventListener('click', async () => {
     const report = await sendMessage({ action: 'export-report' });
     if (!report) return;
@@ -891,6 +1225,11 @@ function setupListeners() {
     a.download = `midori-privacy-report-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  });
+
+  // Export report (HTML)
+  $('#btn-export-html')?.addEventListener('click', () => {
+    exportHtmlReport();
   });
 }
 

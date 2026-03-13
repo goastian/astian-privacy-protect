@@ -117,6 +117,17 @@ function updatePrivacyScoreUI(groups, blocked) {
   $('#cat-fp-n').textContent = result.fingerprinters;
 }
 
+// ── Category toggle state ────────────────────────────────────────────────────
+let categoryState = { ads: true, trackers: true, fingerprinting: true };
+
+// ── Pause timer state ────────────────────────────────────────────────────────
+let pauseEndTime = 0;
+let pauseInterval = null;
+
+// ── Live stream state ────────────────────────────────────────────────────────
+let lastLiveCount = 0;
+let liveStreamEnabled = true;
+
 // ── Initialize ──────────────────────────────────────────────────────────────
 
 async function init() {
@@ -140,9 +151,22 @@ async function init() {
 
   $('#hostname').textContent = currentHostname || 'No website';
 
-  // Get options to check whitelist and protection level
+  // Get options to check whitelist, protection level, category state, and pause
   const options = await sendMessage({ action: 'get-options' });
   isWhitelisted = !!(options?.whitelist?.[currentHostname]);
+
+  // Restore category toggle state
+  if (options?.categoryState) {
+    categoryState = { ...categoryState, ...options.categoryState };
+  }
+  updateCategoryTogglesUI();
+
+  // Restore pause state
+  if (options?.pauseUntil && options.pauseUntil > Date.now()) {
+    pauseEndTime = options.pauseUntil;
+    startPauseCountdown();
+  }
+  updatePauseUI();
 
   updateStatusUI();
 
@@ -156,8 +180,8 @@ async function init() {
   // Set up event listeners
   setupListeners();
 
-  // Poll for updates every 5 seconds (avoid Chromium quota limits)
-  setInterval(loadTabStats, 5000);
+  // Poll for updates every 2 seconds (live stream + stats)
+  setInterval(loadTabStats, 2000);
 }
 
 // ── Load tab stats ──────────────────────────────────────────────────────────
@@ -173,7 +197,6 @@ async function loadTabStats() {
   $('#blocked-count').textContent = blocked;
 
   // Update bandwidth saved estimate
-  // Use dataSaved from background if available, otherwise estimate at ~35KB per blocked request
   const savedKB = data.dataSaved ? Math.round(data.dataSaved / 1024) : Math.round(blocked * 35);
   if (savedKB >= 1024) {
     $('#saved-size').textContent = (savedKB / 1024).toFixed(1);
@@ -196,6 +219,9 @@ async function loadTabStats() {
   // Show/hide empty state
   const hasItems = groups.trackers.length + groups.ads.length + groups.other.length > 0;
   $('#empty-state').classList.toggle('hidden', hasItems);
+
+  // Update live stream
+  updateLiveStream(data.recentRequests || [], blocked);
 }
 
 function renderGroup(name, domains) {
@@ -284,6 +310,146 @@ async function changeProtectionLevel(level) {
   }
 }
 
+// ── Live Stream ─────────────────────────────────────────────────────────────
+
+function updateLiveStream(recentRequests, totalBlocked) {
+  const container = $('#live-stream');
+  const itemsEl = $('#live-items');
+  if (!container || !itemsEl) return;
+
+  // Show live stream when there's activity
+  if (totalBlocked > 0) {
+    container.classList.remove('hidden');
+  }
+
+  // Only update if new requests arrived
+  if (totalBlocked === lastLiveCount) return;
+  const newCount = totalBlocked - lastLiveCount;
+  lastLiveCount = totalBlocked;
+
+  // Add new items (most recent first, max 20 visible)
+  if (recentRequests && recentRequests.length > 0) {
+    const toShow = recentRequests.slice(-Math.min(newCount, 5));
+    for (const req of toShow) {
+      const item = document.createElement('div');
+      item.className = 'live-item';
+      const color = req.type === 'tracker' ? 'var(--color-warning)' :
+                    req.type === 'ad' ? 'var(--color-danger)' : 'var(--color-text-tertiary)';
+      const now = new Date();
+      const time = String(now.getHours()).padStart(2, '0') + ':' +
+                   String(now.getMinutes()).padStart(2, '0') + ':' +
+                   String(now.getSeconds()).padStart(2, '0');
+      item.innerHTML = `<span class="live-item-type" style="background:${color}"></span>` +
+        `<span class="live-item-domain">${escapeHtml(req.domain || req.url || 'unknown')}</span>` +
+        `<span class="live-item-time">${time}</span>`;
+      itemsEl.insertBefore(item, itemsEl.firstChild);
+    }
+  }
+
+  // Keep max 20 items
+  while (itemsEl.children.length > 20) {
+    itemsEl.removeChild(itemsEl.lastChild);
+  }
+}
+
+// ── Category Toggles ────────────────────────────────────────────────────────
+
+function updateCategoryTogglesUI() {
+  for (const btn of $$('.cat-toggle')) {
+    const cat = btn.dataset.cat;
+    btn.classList.toggle('active', !!categoryState[cat]);
+  }
+}
+
+async function toggleCategory(cat) {
+  categoryState[cat] = !categoryState[cat];
+  updateCategoryTogglesUI();
+
+  // Map category to options
+  const optMap = {
+    ads: { 'easylist': categoryState.ads, 'ublock-filters': categoryState.ads, 'peter-lowe': categoryState.ads },
+    trackers: { 'easyprivacy': categoryState.trackers, 'ublock-privacy': categoryState.trackers },
+    fingerprinting: { antiFingerprint: categoryState.fingerprinting },
+  };
+
+  if (cat === 'fingerprinting') {
+    await sendMessage({ action: 'save-options-partial', options: { antiFingerprint: categoryState.fingerprinting, categoryState } });
+  } else {
+    const listUpdates = optMap[cat] || {};
+    await sendMessage({ action: 'toggle-category', category: cat, enabled: categoryState[cat], listUpdates, categoryState });
+  }
+}
+
+// ── Pause Timer ─────────────────────────────────────────────────────────────
+
+function updatePauseUI() {
+  const section = $('#pause-section');
+  if (!section) return;
+
+  const isPaused = pauseEndTime > Date.now();
+  section.classList.toggle('visible', isPaused || isWhitelisted);
+
+  if (isPaused) {
+    updatePauseCountdownDisplay();
+  }
+}
+
+function startPauseCountdown() {
+  if (pauseInterval) clearInterval(pauseInterval);
+  updatePauseUI();
+
+  pauseInterval = setInterval(() => {
+    if (pauseEndTime <= Date.now()) {
+      clearInterval(pauseInterval);
+      pauseInterval = null;
+      pauseEndTime = 0;
+      // Auto-resume
+      resumeProtection();
+      return;
+    }
+    updatePauseCountdownDisplay();
+  }, 1000);
+}
+
+function updatePauseCountdownDisplay() {
+  const remaining = Math.max(0, pauseEndTime - Date.now());
+  const mins = Math.floor(remaining / 60000);
+  const secs = Math.floor((remaining % 60000) / 1000);
+  const el = $('#pause-remaining');
+  if (el) el.textContent = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+}
+
+async function pauseProtection(minutes) {
+  if (!currentHostname) return;
+  pauseEndTime = Date.now() + minutes * 60000;
+
+  // Whitelist the site temporarily
+  const result = await sendMessage({
+    action: 'pause-protection',
+    hostname: currentHostname,
+    minutes: minutes,
+    pauseUntil: pauseEndTime,
+  });
+
+  isWhitelisted = true;
+  updateStatusUI();
+  startPauseCountdown();
+}
+
+async function resumeProtection() {
+  pauseEndTime = 0;
+  if (pauseInterval) { clearInterval(pauseInterval); pauseInterval = null; }
+
+  await sendMessage({
+    action: 'resume-protection',
+    hostname: currentHostname,
+  });
+
+  isWhitelisted = false;
+  updateStatusUI();
+  updatePauseUI();
+}
+
 // ── Event Listeners ─────────────────────────────────────────────────────────
 
 function setupListeners() {
@@ -308,6 +474,26 @@ function setupListeners() {
       changeProtectionLevel(level);
     });
   }
+
+  // Category toggles
+  for (const btn of $$('.cat-toggle')) {
+    btn.addEventListener('click', () => {
+      toggleCategory(btn.dataset.cat);
+    });
+  }
+
+  // Pause buttons
+  for (const btn of $$('.pause-btn')) {
+    btn.addEventListener('click', () => {
+      const minutes = parseInt(btn.dataset.minutes);
+      pauseProtection(minutes);
+    });
+  }
+
+  // Resume button
+  $('#btn-resume')?.addEventListener('click', () => {
+    resumeProtection();
+  });
 
   // Settings button
   $('#btn-settings').addEventListener('click', () => {

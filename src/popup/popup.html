@@ -88,6 +88,38 @@
       </div>
     </div>
 
+    <!-- Quick Category Toggles -->
+    <div class="popup-category-toggles">
+      <button class="cat-toggle active" data-cat="ads" title="Toggle ad blocking">
+        <span class="cat-toggle-dot" style="background:var(--color-danger)"></span>
+        Ads
+      </button>
+      <button class="cat-toggle active" data-cat="trackers" title="Toggle tracker blocking">
+        <span class="cat-toggle-dot" style="background:var(--color-warning)"></span>
+        Trackers
+      </button>
+      <button class="cat-toggle active" data-cat="fingerprinting" title="Toggle fingerprint protection">
+        <span class="cat-toggle-dot" style="background:#8b5cf6"></span>
+        Fingerprint
+      </button>
+    </div>
+
+    <!-- Pause Timer -->
+    <div id="pause-section" class="popup-pause-section">
+      <div class="pause-bar">
+        <span class="pause-timer-label">⏸ Paused for</span>
+        <span id="pause-remaining" class="pause-timer-remaining">--:--</span>
+        <button id="btn-resume" class="pause-resume-btn">Resume</button>
+      </div>
+      <div class="pause-options">
+        <button class="pause-btn" data-minutes="1">1 min</button>
+        <button class="pause-btn" data-minutes="5">5 min</button>
+        <button class="pause-btn" data-minutes="15">15 min</button>
+        <button class="pause-btn" data-minutes="30">30 min</button>
+        <button class="pause-btn" data-minutes="60">1 hour</button>
+      </div>
+    </div>
+
     <!-- Counter -->
     <div class="popup-stats-row">
       <div class="popup-stat">
@@ -99,6 +131,15 @@
         <div class="counter-number saved-number" id="saved-size">0</div>
         <div class="counter-label text-sm text-secondary" id="saved-unit">KB saved</div>
       </div>
+    </div>
+
+    <!-- Live Request Stream -->
+    <div id="live-stream" class="popup-live-stream hidden">
+      <div class="live-stream-header">
+        <span class="live-dot"></span>
+        <span>Live blocked requests</span>
+      </div>
+      <div id="live-items"></div>
     </div>
 
     <!-- Blocked requests list -->

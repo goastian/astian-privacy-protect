@@ -535,6 +535,82 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Privacy Alerts ── */
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.alert-item:last-child { border-bottom: none; }
+
+.alert-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.alert-dot-high { background: var(--color-danger); }
+.alert-dot-medium { background: var(--color-warning); }
+.alert-dot-low { background: var(--color-primary); }
+
+/* ── Tracker Database Table ── */
+.tracker-db-table {
+  width: 100%;
+  font-size: 0.78rem;
+}
+
+.tracker-db-row {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.2fr 0.6fr 0.6fr;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--color-border-light);
+  align-items: center;
+}
+
+.tracker-db-row:last-child { border-bottom: none; }
+
+.tracker-db-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 6px;
+}
+
+.tracker-db-domain {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* ── Chart Tooltip ── */
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.chart-tooltip.visible { opacity: 1; }
+
 /* Responsive */
 @media (max-width: 768px) {
   #app {

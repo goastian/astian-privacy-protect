@@ -82,6 +82,16 @@ export function getDataSaved(tabId) {
   return tab ? tab.dataSaved : 0;
 }
 
+export function getRecentRequests(tabId, count) {
+  const tab = tabData.get(tabId);
+  if (!tab || !tab.requests.length) return [];
+  const n = count || 10;
+  return tab.requests.slice(-n).map(r => ({
+    domain: r.domain,
+    type: r.category === 'trackers' ? 'tracker' : r.category,
+  }));
+}
+
 export function getGroupedRequests(tabId) {
   const tab = tabData.get(tabId);
   if (!tab) return { trackers: [], ads: [], other: [] };
