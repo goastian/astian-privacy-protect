@@ -65,29 +65,6 @@
       <div id="level-status" class="level-status text-sm text-secondary"></div>
     </div>
 
-    <!-- Privacy Score -->
-    <div id="privacy-score-section" class="popup-score-section">
-      <div class="score-badge-wrap">
-        <div id="score-badge" class="score-badge grade-unknown">
-          <span id="score-letter">?</span>
-        </div>
-        <div class="score-info">
-          <div id="score-label" class="font-semibold">Analyzing...</div>
-          <div id="score-detail" class="text-sm text-secondary">Waiting for data</div>
-        </div>
-      </div>
-      <div class="score-bar-wrap">
-        <div class="score-bar">
-          <div id="score-bar-fill" class="score-bar-fill" style="width:0%"></div>
-        </div>
-        <div class="score-categories">
-          <span class="score-cat" id="cat-trackers"><span class="cat-dot dot-warning"></span> <span id="cat-trackers-n">0</span> trackers</span>
-          <span class="score-cat" id="cat-ads"><span class="cat-dot dot-danger"></span> <span id="cat-ads-n">0</span> ads</span>
-          <span class="score-cat" id="cat-fingerprint"><span class="cat-dot dot-purple"></span> <span id="cat-fp-n">0</span> fingerprint</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Quick Category Toggles -->
     <div class="popup-category-toggles">
       <button class="cat-toggle active" data-cat="ads" title="Toggle ad blocking">
@@ -104,20 +81,22 @@
       </button>
     </div>
 
-    <!-- Pause Timer -->
+    <!-- Pause Timer (visible only when paused) -->
     <div id="pause-section" class="popup-pause-section">
       <div class="pause-bar">
-        <span class="pause-timer-label">⏸ Paused for</span>
+        <span class="pause-timer-label">⏸ Paused</span>
         <span id="pause-remaining" class="pause-timer-remaining">--:--</span>
         <button id="btn-resume" class="pause-resume-btn">Resume</button>
       </div>
-      <div class="pause-options">
-        <button class="pause-btn" data-minutes="1">1 min</button>
-        <button class="pause-btn" data-minutes="5">5 min</button>
-        <button class="pause-btn" data-minutes="15">15 min</button>
-        <button class="pause-btn" data-minutes="30">30 min</button>
-        <button class="pause-btn" data-minutes="60">1 hour</button>
-      </div>
+    </div>
+
+    <!-- Pause quick options (always accessible) -->
+    <div class="popup-pause-options-bar">
+      <span class="pause-options-label">Pause:</span>
+      <button class="pause-btn" data-minutes="5">5m</button>
+      <button class="pause-btn" data-minutes="15">15m</button>
+      <button class="pause-btn" data-minutes="30">30m</button>
+      <button class="pause-btn" data-minutes="60">1h</button>
     </div>
 
     <!-- Counter -->
