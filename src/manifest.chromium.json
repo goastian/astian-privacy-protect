@@ -95,6 +95,10 @@
       "is_default": true
     }
   },
+  "externally_connectable": {
+    "ids": ["*"],
+    "matches": ["https://*.astian.org/*", "https://*.astiango.com/*"]
+  },
   "web_accessible_resources": [
     {
       "resources": ["content/scriptlets.js"],
