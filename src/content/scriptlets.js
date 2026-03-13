@@ -15,6 +15,20 @@
 
   const SCRIPTLETS = {};
 
+  // ── Sanitization helper ────────────────────────────────────────────────────
+  // Prevents code injection via malicious filter list arguments.
+  // Uses JSON.stringify to safely escape all special characters, then
+  // strips the surrounding quotes so the value can be used in template literals.
+  function safeArg(str) {
+    if (str === undefined || str === null) return '';
+    const s = String(str);
+    // Validate: reject strings with characters that could break out of JS context
+    if (/[\x00-\x08\x0e-\x1f]/.test(s)) return '';
+    // JSON.stringify safely escapes quotes, backslashes, newlines, etc.
+    // We slice off the surrounding quotes since we embed in our own quotes.
+    return JSON.stringify(s).slice(1, -1);
+  }
+
   // ── abort-on-property-read (aopr) ──────────────────────────────────────────
   // Prevents reading a property by throwing a ReferenceError.
   // Used heavily to defeat anti-adblock (e.g. YouTube, Forbes).
@@ -54,7 +68,7 @@
           });
         }
       };
-      try { abortOnRead(window, '${prop}'); } catch(e) {}
+      try { abortOnRead(window, '${safeArg(prop)}'); } catch(e) {}
     })();`;
   };
 
@@ -94,7 +108,7 @@
           });
         }
       };
-      try { abortOnWrite(window, '${prop}'); } catch(e) {}
+      try { abortOnWrite(window, '${safeArg(prop)}'); } catch(e) {}
     })();`;
   };
 
@@ -104,11 +118,10 @@
   // Usage: +js(abort-current-inline-script, property, search)
   SCRIPTLETS['abort-current-inline-script'] = SCRIPTLETS['acis'] = function (prop, search) {
     if (!prop) return '';
-    const searchStr = search ? search.replace(/'/g, "\\'") : '';
     return `(function() {
       var rid = '${Math.random().toString(36).slice(2)}';
-      var prop = '${prop}';
-      var search = '${searchStr}';
+      var prop = '${safeArg(prop)}';
+      var search = '${safeArg(search || '')}';
       var magic = rid;
       var abort = function() { throw new ReferenceError(magic); };
       var init = function(obj, chain) {
@@ -180,11 +193,11 @@
       case '-1': resolvedValue = '-1'; break;
       case 'NaN': resolvedValue = 'NaN'; break;
       case 'Infinity': resolvedValue = 'Infinity'; break;
-      default: resolvedValue = isNaN(value) ? "'" + value.replace(/'/g, "\\'") + "'" : value; break;
+      default: resolvedValue = isNaN(value) ? "'" + safeArg(value) + "'" : value; break;
     }
     return `(function() {
       var cValue = ${resolvedValue};
-      var chain = '${prop}'.split('.');
+      var chain = '${safeArg(prop)}'.split('.');
       var setConst = function(obj, parts) {
         if (parts.length === 0) return;
         var current = parts[0];
@@ -229,8 +242,8 @@
     if (!attr) return '';
     const sel = selector || '[' + attr + ']';
     return `(function() {
-      var attr = '${attr}';
-      var selector = '${sel.replace(/'/g, "\\'")}';
+      var attr = '${safeArg(attr)}';
+      var selector = '${safeArg(sel)}';
       var removeAttr = function() {
         var nodes = document.querySelectorAll(selector);
         for (var i = 0; i < nodes.length; i++) {
@@ -252,8 +265,8 @@
     if (!className) return '';
     const sel = selector || '.' + className;
     return `(function() {
-      var cn = '${className}';
-      var selector = '${sel.replace(/'/g, "\\'")}';
+      var cn = '${safeArg(className)}';
+      var selector = '${safeArg(sel)}';
       var removeClass = function() {
         var nodes = document.querySelectorAll(selector);
         for (var i = 0; i < nodes.length; i++) {
@@ -275,7 +288,7 @@
     const needle = match || '';
     const delay = parseInt(boostDelay) || 0.05;
     return `(function() {
-      var needle = '${needle.replace(/'/g, "\\'")}';
+      var needle = '${safeArg(needle)}';
       var boost = ${delay};
       var origSetInterval = window.setInterval;
       window.setInterval = function(fn, ms) {
@@ -296,7 +309,7 @@
     const needle = match || '';
     const delay = parseInt(boostDelay) || 0.05;
     return `(function() {
-      var needle = '${needle.replace(/'/g, "\\'")}';
+      var needle = '${safeArg(needle)}';
       var boost = ${delay};
       var origSetTimeout = window.setTimeout;
       window.setTimeout = function(fn, ms) {
@@ -334,8 +347,8 @@
   SCRIPTLETS['json-prune'] = function (propsToRemove, requiredProps) {
     if (!propsToRemove) return '';
     return `(function() {
-      var propsToRemove = '${(propsToRemove || '').replace(/'/g, "\\'")}';
-      var requiredProps = '${(requiredProps || '').replace(/'/g, "\\'")}';
+      var propsToRemove = '${safeArg(propsToRemove || '')}';
+      var requiredProps = '${safeArg(requiredProps || '')}';
       var origParse = JSON.parse;
       JSON.parse = function() {
         var r = origParse.apply(this, arguments);
@@ -370,8 +383,8 @@
     const typeStr = type || '';
     const patternStr = pattern || '';
     return `(function() {
-      var typeNeedle = '${typeStr.replace(/'/g, "\\'")}';
-      var patternNeedle = '${patternStr.replace(/'/g, "\\'")}';
+      var typeNeedle = '${safeArg(typeStr)}';
+      var patternNeedle = '${safeArg(patternStr)}';
       var origAdd = EventTarget.prototype.addEventListener;
       EventTarget.prototype.addEventListener = function(type, fn) {
         if (typeNeedle && type.indexOf(typeNeedle) === -1) {
@@ -392,7 +405,7 @@
   SCRIPTLETS['no-setTimeout-if'] = SCRIPTLETS['prevent-setTimeout'] = SCRIPTLETS['nostif'] = function (needle) {
     const needleStr = needle || '';
     return `(function() {
-      var needle = '${needleStr.replace(/'/g, "\\'")}';
+      var needle = '${safeArg(needleStr)}';
       var origSetTimeout = window.setTimeout;
       window.setTimeout = function(fn, ms) {
         if (needle) {
@@ -410,7 +423,7 @@
   SCRIPTLETS['no-setInterval-if'] = SCRIPTLETS['prevent-setInterval'] = SCRIPTLETS['nosiif'] = function (needle) {
     const needleStr = needle || '';
     return `(function() {
-      var needle = '${needleStr.replace(/'/g, "\\'")}';
+      var needle = '${safeArg(needleStr)}';
       var origSetInterval = window.setInterval;
       window.setInterval = function(fn, ms) {
         if (needle) {
@@ -428,7 +441,7 @@
   SCRIPTLETS['no-fetch-if'] = SCRIPTLETS['prevent-fetch'] = function (needle) {
     const needleStr = needle || '';
     return `(function() {
-      var needle = '${needleStr.replace(/'/g, "\\'")}';
+      var needle = '${safeArg(needleStr)}';
       var origFetch = window.fetch;
       window.fetch = function(resource) {
         var url = '';
@@ -448,7 +461,7 @@
   SCRIPTLETS['no-xhr-if'] = SCRIPTLETS['prevent-xhr'] = function (needle) {
     const needleStr = needle || '';
     return `(function() {
-      var needle = '${needleStr.replace(/'/g, "\\'")}';
+      var needle = '${safeArg(needleStr)}';
       var origOpen = XMLHttpRequest.prototype.open;
       XMLHttpRequest.prototype.open = function(method, url) {
         if (needle && String(url).indexOf(needle) !== -1) {
@@ -504,7 +517,7 @@
     if (!name) return '';
     const val = value || '1';
     return `(function() {
-      document.cookie = '${name.replace(/'/g, "\\'")}=${val.replace(/'/g, "\\'")}; path=/; max-age=31536000';
+      document.cookie = '${safeArg(name)}=${safeArg(val)}; path=/; max-age=31536000';
     })();`;
   };
 
@@ -514,7 +527,7 @@
   SCRIPTLETS['set-local-storage-item'] = function (key, value) {
     if (!key) return '';
     return `(function() {
-      try { localStorage.setItem('${key.replace(/'/g, "\\'")}', '${(value || '').replace(/'/g, "\\'")}'); } catch(e) {}
+      try { localStorage.setItem('${safeArg(key)}', '${safeArg(value || '')}'); } catch(e) {}
     })();`;
   };
 
@@ -522,7 +535,217 @@
   SCRIPTLETS['set-session-storage-item'] = function (key, value) {
     if (!key) return '';
     return `(function() {
-      try { sessionStorage.setItem('${key.replace(/'/g, "\\'")}', '${(value || '').replace(/'/g, "\\'")}'); } catch(e) {}
+      try { sessionStorage.setItem('${safeArg(key)}', '${safeArg(value || '')}'); } catch(e) {}
+    })();`;
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // YOUTUBE ANTI-ADBLOCK SCRIPTLETS
+  // Advanced scriptlets to bypass YouTube's anti-adblock detection system.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── yt-ad-pruner ─────────────────────────────────────────────────────────
+  // Intercepts fetch() and XMLHttpRequest to /youtubei/v1/player and strips
+  // ad-related properties from the JSON response before YouTube processes them.
+  SCRIPTLETS['yt-ad-pruner'] = function () {
+    return `(function() {
+      var AD_KEYS = ['adPlacements','adSlots','playerAds','adBreakHeartbeatParams',
+        'adBreakParams','advertisingId','adParams','adPlaybackContext',
+        'linearAdSequenceRenderer','instreamAdBreak','adLayoutLogging'];
+
+      function pruneObj(obj) {
+        if (!obj || typeof obj !== 'object') return obj;
+        for (var i = 0; i < AD_KEYS.length; i++) {
+          if (AD_KEYS[i] in obj) { delete obj[AD_KEYS[i]]; }
+        }
+        // Deep prune in playerResponse
+        if (obj.playerResponse && typeof obj.playerResponse === 'object') {
+          for (var j = 0; j < AD_KEYS.length; j++) {
+            if (AD_KEYS[j] in obj.playerResponse) { delete obj.playerResponse[AD_KEYS[j]]; }
+          }
+        }
+        return obj;
+      }
+
+      // Hook fetch
+      var origFetch = window.fetch;
+      window.fetch = function(resource, init) {
+        var url = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
+        if (url.indexOf('/youtubei/v1/player') !== -1 ||
+            url.indexOf('/youtubei/v1/next') !== -1 ||
+            url.indexOf('/youtubei/v1/browse') !== -1) {
+          return origFetch.apply(this, arguments).then(function(response) {
+            if (!response || !response.ok) return response;
+            return response.clone().json().then(function(data) {
+              pruneObj(data);
+              return new Response(JSON.stringify(data), {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers
+              });
+            }).catch(function() { return response; });
+          });
+        }
+        return origFetch.apply(this, arguments);
+      };
+
+      // Hook XHR
+      var origXHROpen = XMLHttpRequest.prototype.open;
+      var origXHRSend = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function(method, url) {
+        this._ytUrl = url;
+        return origXHROpen.apply(this, arguments);
+      };
+      XMLHttpRequest.prototype.send = function() {
+        var self = this;
+        var url = self._ytUrl || '';
+        if (url.indexOf('/youtubei/v1/player') !== -1 ||
+            url.indexOf('/youtubei/v1/next') !== -1) {
+          var origOnReadyState = self.onreadystatechange;
+          self.onreadystatechange = function() {
+            if (self.readyState === 4 && self.status === 200) {
+              try {
+                var data = JSON.parse(self.responseText);
+                pruneObj(data);
+                Object.defineProperty(self, 'responseText', { value: JSON.stringify(data), writable: false });
+              } catch(e) {}
+            }
+            if (origOnReadyState) origOnReadyState.apply(this, arguments);
+          };
+        }
+        return origXHRSend.apply(this, arguments);
+      };
+    })();`;
+  };
+
+  // ── yt-response-json-prune ─────────────────────────────────────────────────
+  // Hooks Response.prototype.json to filter ad data from all YouTube API responses
+  // in real-time before any YouTube JS processes them.
+  SCRIPTLETS['yt-response-json-prune'] = function () {
+    return `(function() {
+      var AD_PROPS = ['adPlacements','adSlots','playerAds','adBreakHeartbeatParams',
+        'adBreakParams','instreamAdBreak','linearAdSequenceRenderer','adLayoutLogging',
+        'advertisingId','adParams','adPlaybackContext'];
+
+      function deepPrune(obj, depth) {
+        if (!obj || typeof obj !== 'object' || depth > 5) return;
+        for (var i = 0; i < AD_PROPS.length; i++) {
+          if (AD_PROPS[i] in obj) { delete obj[AD_PROPS[i]]; }
+        }
+        var keys = Object.keys(obj);
+        for (var k = 0; k < keys.length; k++) {
+          var v = obj[keys[k]];
+          if (v && typeof v === 'object') deepPrune(v, depth + 1);
+        }
+      }
+
+      var origJson = Response.prototype.json;
+      Response.prototype.json = function() {
+        var self = this;
+        var url = self.url || '';
+        if (url.indexOf('youtube.com') !== -1 || url.indexOf('youtubei') !== -1) {
+          return origJson.call(self).then(function(data) {
+            if (data && typeof data === 'object') {
+              deepPrune(data, 0);
+            }
+            return data;
+          });
+        }
+        return origJson.call(self);
+      };
+    })();`;
+  };
+
+  // ── yt-enforce-remove ──────────────────────────────────────────────────────
+  // Monitors the DOM for YouTube anti-adblock enforcement overlays and removes
+  // them automatically. Also unpauses the video player if it was paused.
+  SCRIPTLETS['yt-enforce-remove'] = function () {
+    return `(function() {
+      var ENFORCE_SELECTORS = [
+        'ytd-enforcement-message-view-model',
+        'tp-yt-paper-dialog.ytd-popup-container',
+        '.yt-playability-error-supported-renderers'
+      ];
+
+      function removeEnforcement() {
+        for (var i = 0; i < ENFORCE_SELECTORS.length; i++) {
+          var els = document.querySelectorAll(ENFORCE_SELECTORS[i]);
+          for (var j = 0; j < els.length; j++) {
+            // Check if it's the anti-adblock dialog
+            var text = els[j].textContent || '';
+            if (text.indexOf('ad blocker') !== -1 ||
+                text.indexOf('bloqueador') !== -1 ||
+                text.indexOf('Werbeblocker') !== -1 ||
+                text.indexOf('bloqueur') !== -1 ||
+                els[j].querySelector('#dismiss-button') ||
+                els[j].querySelector('ytd-enforcement-message-view-model')) {
+              els[j].remove();
+            }
+          }
+        }
+        // Remove backdrop overlay if present
+        var backdrops = document.querySelectorAll('tp-yt-iron-overlay-backdrop');
+        for (var b = 0; b < backdrops.length; b++) {
+          if (backdrops[b].style.display !== 'none') {
+            backdrops[b].style.display = 'none';
+          }
+        }
+        // Unpause video if paused by enforcement
+        try {
+          var video = document.querySelector('video.html5-main-video');
+          if (video && video.paused && video.currentTime > 0 && !video.ended) {
+            video.play();
+          }
+        } catch(e) {}
+      }
+
+      // Run periodically and on mutations
+      var observer = new MutationObserver(function(mutations) {
+        for (var m = 0; m < mutations.length; m++) {
+          if (mutations[m].addedNodes.length > 0) {
+            removeEnforcement();
+            break;
+          }
+        }
+      });
+      observer.observe(document.documentElement || document.body || document, {
+        childList: true, subtree: true
+      });
+      setInterval(removeEnforcement, 2000);
+      removeEnforcement();
+    })();`;
+  };
+
+  // ── yt-skip-ad ─────────────────────────────────────────────────────────────
+  // Auto-clicks skip buttons on pre-roll and mid-roll ads, and skips to end
+  // of unskippable ads by setting video currentTime.
+  SCRIPTLETS['yt-skip-ad'] = function () {
+    return `(function() {
+      function skipAds() {
+        // Click skip button if available
+        var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, [class*="skip-button"]');
+        if (skipBtn) {
+          skipBtn.click();
+          return;
+        }
+        // Check for ad playing via player API
+        try {
+          var player = document.querySelector('#movie_player');
+          if (player && player.getAdState && player.getAdState() === 1) {
+            // Ad is playing — try to skip
+            if (player.skipAd) { player.skipAd(); return; }
+            // Fallback: seek to end of ad video
+            var video = player.querySelector('video');
+            if (video && video.duration && video.duration < 300) {
+              video.currentTime = video.duration;
+            }
+          }
+        } catch(e) {}
+        // Fallback: detect ad overlay and click dismiss
+        var dismissBtn = document.querySelector('.ytp-ad-overlay-close-button');
+        if (dismissBtn) dismissBtn.click();
+      }
+      setInterval(skipAds, 500);
     })();`;
   };
 
@@ -761,18 +984,22 @@
   // ── Communication Bridge ──────────────────────────────────────────────────
   // This script runs in MAIN world (page context).
   // It receives scriptlet rules from the ISOLATED world content script
-  // via window.postMessage or via the global __midoriApplyScriptlets.
-
-  // Expose for direct calls from ISOLATED world injection
-  window.__midoriApplyScriptlets = applyScriptlets;
-  window.__midoriGenerateScriptlet = generateScriptletCode;
-  window.__midoriInjectCode = injectCode;
+  // via window.postMessage.
 
   // Listen for messages from ISOLATED world content script
   window.addEventListener('message', function (event) {
     if (event.source !== window) return;
-    if (event.data && event.data.type === 'midori-scriptlets' && event.data.scriptlets) {
+    if (event.origin !== location.origin) return;
+    if (!event.data) return;
+
+    // Legacy scriptlet rules (parsed by our engine)
+    if (event.data.type === 'midori-scriptlets' && event.data.scriptlets) {
       applyScriptlets(event.data.scriptlets);
+    }
+
+    // Ghostery engine: pre-compiled scriptlet code (inject directly)
+    if (event.data.type === 'midori-compiled-scriptlet' && event.data.code) {
+      injectCode(event.data.code);
     }
   });
 })();

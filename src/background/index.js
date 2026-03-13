@@ -7,13 +7,43 @@
 
 import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock } from './storage.js';
 import { FilterEngine, extractDomain, categorizeRequest } from './filter-engine.js';
+import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
-import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getBlockedCount, getDataSaved, updateBadge } from './stats-collector.js';
+import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getRecentRequests, getBlockedCount, getDataSaved, updateBadge } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, exportReport } from './report-generator.js';
 
-let engine = new FilterEngine();
+// ── Dual engine: Ghostery (primary, high-perf) + legacy FilterEngine (fallback) ──
+let ghosteryEngine = new GhosteryEngine();
+let legacyEngine = new FilterEngine();
+// Active engine reference — points to ghosteryEngine when available, else legacy
+let engine = legacyEngine;
 let isEnabled = true;
 const IS_CHROMIUM = __PLATFORM__ === 'chromium';
+
+// ── Hourly block debounce buffer ────────────────────────────────────────────
+let _hourlyBlockBuffer = 0;
+let _hourlyFlushTimer = null;
+const HOURLY_FLUSH_INTERVAL = 60000; // 60s
+
+function bufferHourlyBlock(count) {
+  _hourlyBlockBuffer += count;
+  if (!_hourlyFlushTimer) {
+    _hourlyFlushTimer = setTimeout(flushHourlyBuffer, HOURLY_FLUSH_INTERVAL);
+  }
+}
+
+async function flushHourlyBuffer() {
+  _hourlyFlushTimer = null;
+  const count = _hourlyBlockBuffer;
+  _hourlyBlockBuffer = 0;
+  if (count > 0) {
+    try {
+      await recordHourlyBlock(count);
+    } catch (e) {
+      console.warn('[midori] Failed to flush hourly stats:', e);
+    }
+  }
+}
 
 // ── Protection level presets ─────────────────────────────────────────────────
 const PROTECTION_LEVELS = {
@@ -80,6 +110,7 @@ function safeSendMessage(tabId, msg) {
 
 async function initialize() {
   console.log('[midori] Initializing...');
+  const t0 = Date.now();
 
   const options = await getOptions();
   isEnabled = options.enabled !== false;
@@ -90,7 +121,6 @@ async function initialize() {
       await chrome.declarativeNetRequest.setExtensionActionOptions({
         displayActionCountAsBadgeText: true,
       });
-      // Set badge background color globally
       await chrome.action.setBadgeBackgroundColor({ color: '#e74c3c' });
       console.log('[midori] Native badge counter enabled');
     } catch (e) {
@@ -98,14 +128,28 @@ async function initialize() {
     }
   }
 
-  // Load filter lists (cached first, then update)
-  const cached = await getCachedLists();
-  if (Object.keys(cached).length > 0) {
-    await loadEngine(cached);
-    console.log('[midori] Loaded from cache');
+  // ── Step 1: Try to restore Ghostery engine from IndexedDB (instant startup) ──
+  let ghosteryRestored = false;
+  try {
+    ghosteryRestored = await ghosteryEngine.restoreFromCache();
+    if (ghosteryRestored) {
+      engine = ghosteryEngine;
+      console.log(`[midori] Ghostery engine restored from cache in ${Date.now() - t0}ms (${engine.rulesCount} rules)`);
+    }
+  } catch (e) {
+    console.warn('[midori] Ghostery cache restore failed:', e);
   }
 
-  // Download fresh lists in background
+  // ── Step 2: Load from filter list text cache (fallback if no serialized engine) ──
+  if (!ghosteryRestored) {
+    const cached = await getCachedLists();
+    if (Object.keys(cached).length > 0) {
+      await loadEngine(cached);
+      console.log(`[midori] Loaded from list cache in ${Date.now() - t0}ms`);
+    }
+  }
+
+  // ── Step 3: Download fresh lists in background ──
   try {
     const lists = await downloadAllLists();
     if (Object.keys(lists).length > 0) {
@@ -124,36 +168,60 @@ async function initialize() {
     chrome.alarms.create('collect-stats', { periodInMinutes: 2 });
   }
 
-  console.log(`[midori] Ready. Engine has ${engine.rulesCount} rules.`);
+  const engineName = engine === ghosteryEngine ? 'Ghostery' : 'Legacy';
+  console.log(`[midori] Ready in ${Date.now() - t0}ms. Engine: ${engineName}, ${engine.rulesCount} rules.`);
 
   // Diagnostic: verify engine can block known ad domains
   if (!IS_CHROMIUM) {
     const testDomains = ['doubleclick.net', 'googlesyndication.com', 'google-analytics.com', 'facebook.net', 'adnxs.com'];
-    console.log(`[midori] Engine stats: ${engine.blockedDomains.size} blocked domains, ${engine.exceptionDomains.size} exceptions, ${engine.domainRulesWithOptions.length} domain rules w/opts, ${engine.blockRules.length} pattern rules, ${engine.exceptionRulesWithOptions.length} exception rules w/opts, ${engine.exceptionPatternRules.length} exception patterns`);
     for (const d of testDomains) {
-      const inBlocked = engine.blockedDomains.has(d);
-      const inException = engine.exceptionDomains.has(d);
       const result = engine.shouldBlock('https://' + d + '/test', 'yahoo.com', 'script');
-      console.log(`[midori] TEST ${d}: blocked=${inBlocked} exception=${inException} shouldBlock=${result}`);
+      console.log(`[midori] TEST ${d}: shouldBlock=${result}`);
     }
   }
 }
 
 async function loadEngine(lists) {
+  // ── Primary: Ghostery engine (high performance) ──
+  try {
+    ghosteryEngine.loadLists(lists);
+    engine = ghosteryEngine;
+    console.log(`[midori] Ghostery engine loaded: ${ghosteryEngine.rulesCount} rules`);
+
+    // Load user custom filters into Ghostery engine
+    const options = await getOptions();
+    const userFilters = options.userFilters || '';
+    if (userFilters.trim()) {
+      ghosteryEngine.addUserRules(userFilters);
+      console.log('[midori] Loaded user custom filters (Ghostery)');
+    }
+
+    // Persist serialized engine to IndexedDB for next startup (async, non-blocking)
+    ghosteryEngine.persistToCache().catch(e => {
+      console.warn('[midori] Failed to persist Ghostery engine:', e);
+    });
+
+    return;
+  } catch (e) {
+    console.error('[midori] Ghostery engine failed, falling back to legacy:', e);
+  }
+
+  // ── Fallback: legacy FilterEngine ──
   const newEngine = new FilterEngine();
   for (const [id, text] of Object.entries(lists)) {
     newEngine.addList(text);
   }
-  console.log(`[midori] loadEngine: parsed ${newEngine.rulesCount} rules, ${newEngine.blockedDomains.size} domains, ${newEngine.domainRulesWithOptions.length} domain+opts, ${newEngine.blockRules.length} patterns`);
-  // Assign engine immediately so it's available even if user filters fail
-  engine = newEngine;
+  console.log(`[midori] Legacy engine loaded: ${newEngine.rulesCount} rules, ${newEngine.blockedDomains.size} domains`);
+  legacyEngine = newEngine;
+  engine = legacyEngine;
+
   // Load user custom filters
   try {
     const options = await getOptions();
     const userFilters = options.userFilters || '';
     if (userFilters.trim()) {
       newEngine.addUserRules(userFilters);
-      console.log('[midori] Loaded user custom filters');
+      console.log('[midori] Loaded user custom filters (legacy)');
     }
   } catch (e) {
     console.error('[midori] Failed to load user filters:', e);
@@ -188,9 +256,9 @@ function setupWebRequestBlocking() {
     (details) => {
       _debugReqCount++;
       if (_debugReqCount <= 5) {
-        console.log(`[midori] webRequest #${_debugReqCount}: type=${details.type} url=${details.url.substring(0, 80)} tabId=${details.tabId} engineRules=${engine.rulesCount} blockedDomains=${engine.blockedDomains.size}`);
+        console.log(`[midori] webRequest #${_debugReqCount}: type=${details.type} url=${details.url.substring(0, 80)} tabId=${details.tabId} engineRules=${engine.rulesCount}`);
       } else if (_debugReqCount === 50) {
-        console.log(`[midori] 50 requests processed, engine has ${engine.rulesCount} rules, ${engine.blockedDomains.size} blocked domains, ${engine.blockRules.length} pattern rules`);
+        console.log(`[midori] 50 requests processed, engine has ${engine.rulesCount} rules`);
       }
 
       if (!isEnabled) return { cancel: false };
@@ -215,8 +283,8 @@ function setupWebRequestBlocking() {
         recordBlock(details.tabId, url);
         updateBadge(details.tabId);
 
-        // Record hourly stats for heatmap (fire-and-forget)
-        recordHourlyBlock(1).catch(() => {});
+        // Record hourly stats for heatmap (debounced)
+        bufferHourlyBlock(1);
 
         // Debounced save for Firefox
         pendingSaveTabsFirefox.add(details.tabId);
@@ -291,8 +359,8 @@ if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
       }
     }
 
-    // Record hourly stats (fire-and-forget)
-    recordHourlyBlock(1).catch(() => {});
+    // Record hourly stats (debounced)
+    bufferHourlyBlock(1);
 
     // Resolve tab hostname lazily
     if (!entry.hostname) {
@@ -415,7 +483,7 @@ async function getChromiumTabStats(tabId) {
   // Also calculate dataSaved
   const dataSaved = getDataSaved(tabId);
 
-  return { hostname, blocked, groups, dataSaved };
+  return { hostname, blocked, groups, dataSaved, recentRequests: getRecentRequests(tabId, 10) };
 }
 
 // ── Tab lifecycle ───────────────────────────────────────────────────────────
@@ -445,7 +513,29 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         });
       }
 
-      // Send scriptlet rules to content script
+      // If Ghostery engine is active, also send pre-compiled CSS styles
+      if (engine === ghosteryEngine) {
+        try {
+          const cosmetics = ghosteryEngine.getFullCosmetics(hostname);
+          if (cosmetics.styles) {
+            safeSendMessage(tabId, {
+              action: 'apply-cosmetic-styles',
+              styles: cosmetics.styles,
+            });
+          }
+          // Send Ghostery-compiled scriptlets (from filter lists)
+          if (cosmetics.scripts && cosmetics.scripts.length > 0) {
+            safeSendMessage(tabId, {
+              action: 'apply-compiled-scriptlets',
+              scripts: cosmetics.scripts.slice(0, 100),
+            });
+          }
+        } catch (e) {
+          // Non-critical — cosmetics still work via selectors
+        }
+      }
+
+      // Send scriptlet rules to content script (legacy + custom)
       const scriptlets = engine.getScriptletRules(hostname);
       if (scriptlets.length > 0) {
         safeSendMessage(tabId, {
@@ -502,6 +592,16 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await collectChromiumStats();
   }
 
+  if (alarm.name === 'resume-protection') {
+    console.log('[midori] Auto-resuming protection after pause');
+    const opts = await getOptions();
+    const whitelist = { ...(opts.whitelist || {}) };
+    const pausedHost = opts.pausedHostname;
+    if (pausedHost) delete whitelist[pausedHost];
+    await setOptions({ whitelist, pauseUntil: 0, pausedHostname: '' });
+    if (IS_CHROMIUM) await updateDnrWhitelist();
+  }
+
 });
 
 // ── Message handler (popup & options communication) ─────────────────────────
@@ -513,6 +613,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   });
   return true; // async response
 });
+
+// ── External message handler (New Tab extension / external consumers) ───────
+// Only expose read-only stats actions for security
+const EXTERNAL_ALLOWED_ACTIONS = new Set([
+  'get-stats-summary', 'get-report-stats', 'get-report-categories',
+  'get-weekly-trend', 'get-privacy-summary', 'get-hourly-heatmap',
+]);
+
+if (chrome.runtime.onMessageExternal) {
+  chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+    if (!msg?.action || !EXTERNAL_ALLOWED_ACTIONS.has(msg.action)) {
+      sendResponse({ error: 'Action not allowed' });
+      return false;
+    }
+    handleMessage(msg).then(sendResponse).catch(e => {
+      sendResponse({ error: e.message });
+    });
+    return true;
+  });
+}
 
 async function handleMessage(msg) {
   switch (msg.action) {
@@ -529,6 +649,7 @@ async function handleMessage(msg) {
         blocked: tab?.blocked || 0,
         dataSaved: getDataSaved(msg.tabId),
         groups,
+        recentRequests: getRecentRequests(msg.tabId, 10),
       };
     }
 
@@ -719,6 +840,104 @@ async function handleMessage(msg) {
       }
 
       return { success: true };
+    }
+
+    // ── Pause / Resume protection (temporary whitelist) ──
+    case 'pause-protection': {
+      const opts = await getOptions();
+      const whitelist = { ...(opts.whitelist || {}), [msg.hostname]: true };
+      await setOptions({ whitelist, pauseUntil: msg.pauseUntil, pausedHostname: msg.hostname });
+      if (IS_CHROMIUM) await updateDnrWhitelist();
+      // Schedule auto-resume alarm
+      const mins = msg.minutes || 5;
+      chrome.alarms.create('resume-protection', { delayInMinutes: mins });
+      return { success: true };
+    }
+
+    case 'resume-protection': {
+      const opts = await getOptions();
+      const whitelist = { ...(opts.whitelist || {}) };
+      if (msg.hostname) delete whitelist[msg.hostname];
+      // Also clear pausedHostname
+      const pausedHost = opts.pausedHostname;
+      if (pausedHost && !msg.hostname) delete whitelist[pausedHost];
+      await setOptions({ whitelist, pauseUntil: 0, pausedHostname: '' });
+      if (IS_CHROMIUM) await updateDnrWhitelist();
+      chrome.alarms.clear('resume-protection');
+      return { success: true };
+    }
+
+    // ── Quick category toggle from popup ──
+    case 'toggle-category': {
+      const opts = await getOptions();
+      const lists = { ...(opts.lists || {}) };
+      const updates = msg.listUpdates || {};
+      for (const [listId, enabled] of Object.entries(updates)) {
+        if (lists[listId]) {
+          lists[listId] = { ...lists[listId], enabled };
+        }
+      }
+      await setOptions({ lists, categoryState: msg.categoryState || {} });
+
+      // Chromium: update DNR rulesets
+      if (IS_CHROMIUM) {
+        try {
+          const enableIds = [];
+          const disableIds = [];
+          const dnrRulesets = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
+          for (const id of dnrRulesets) {
+            if (lists[id]?.enabled) enableIds.push(id);
+            else disableIds.push(id);
+          }
+          await chrome.declarativeNetRequest.updateEnabledRulesets({
+            enableRulesetIds: enableIds,
+            disableRulesetIds: disableIds,
+          });
+        } catch (e) {
+          console.warn('[midori] Failed to update DNR rulesets:', e);
+        }
+      }
+
+      // Firefox: reload engine
+      if (!IS_CHROMIUM) {
+        try {
+          const freshLists = await getCachedLists();
+          if (Object.keys(freshLists).length > 0) await loadEngine(freshLists);
+        } catch (e) {}
+      }
+
+      return { success: true };
+    }
+
+    // ── Partial options save (from popup quick actions) ──
+    case 'save-options-partial': {
+      if (msg.options) {
+        await setOptions(msg.options);
+      }
+      return { success: true };
+    }
+
+    // ── API: Stats summary for external consumers (New Tab extension) ──
+    case 'get-stats-summary': {
+      const days = msg.days || 7;
+      const [stats, categories, topSites, summary, trend] = await Promise.all([
+        getBlockingStats(days),
+        getCategoryDistribution(days),
+        getTopTrackedSites(days, msg.limit || 5),
+        getPrivacySummary(days),
+        getWeeklyTrend(),
+      ]);
+      const totalBlocked = (stats || []).reduce((sum, d) => sum + d.blocked, 0);
+      return {
+        totalBlocked,
+        categories: categories || { trackers: 0, ads: 0, fingerprinters: 0, other: 0 },
+        topSites: topSites || [],
+        privacyScore: summary?.avgScore || 100,
+        privacyGrade: summary?.avgGrade || 'A+',
+        sitesAnalyzed: summary?.sitesAnalyzed || 0,
+        trend: trend || { thisWeek: 0, lastWeek: 0, change: 0 },
+        dailyStats: stats || [],
+      };
     }
 
     default:

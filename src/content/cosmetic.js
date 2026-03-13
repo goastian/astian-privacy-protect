@@ -177,6 +177,7 @@ div[style*="min-width"]:empty
 
   const BUILTIN_COSMETICS = {
     'youtube.com': [
+      // ── Standard ad elements ──
       '#masthead-ad', '#player-ads', '#ad-text',
       '#below ytd-ad-slot-renderer', 'ytd-ad-slot-renderer',
       'ytd-rich-item-renderer:has(> .ytd-ad-slot-renderer)',
@@ -199,6 +200,20 @@ div[style*="min-width"]:empty
       '#offer-module',
       'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
       '#movie_player > .ytp-paid-content-overlay',
+      // ── Anti-adblock enforcement modals ──
+      'ytd-enforcement-message-view-model',
+      'tp-yt-paper-dialog.ytd-popup-container:has(#dismiss-button)',
+      'tp-yt-paper-dialog.ytd-popup-container:has(ytd-enforcement-message-view-model)',
+      '.yt-playability-error-supported-renderers',
+      'ytd-popup-container tp-yt-paper-dialog:has(.yt-about-this-ad-renderer)',
+      // ── Pre-roll / mid-roll ad overlays ──
+      '.ytp-ad-action-interstitial', '.ytp-ad-action-interstitial-background-container',
+      '.ytp-ad-action-interstitial-slot', '.ytp-ad-image-overlay-container',
+      '.ytp-ad-survey', '.ytp-ad-feedback-dialog-container',
+      '.ytp-ad-visit-advertiser-button', '.ytp-ad-button',
+      '.ytp-ad-persistent-progress-bar-container',
+      // ── Shopping / promo overlays ──
+      'ytd-brand-video-singleton-renderer', 'ytd-brand-video-shelf-renderer',
     ],
     'yahoo.com': [
       '.gemini-ad', '.caas-da', '.native-ad-item', '.SponsoredContent',
@@ -381,10 +396,10 @@ div[style*="min-width"]:empty
    * Scan the entire document for ad elements and collapse them.
    * Uses querySelectorAll for known patterns + walks new mutations.
    */
-  function scanAndCollapse(root) {
+  function scanAndCollapse(root, fullScan) {
     if (!root || !root.querySelectorAll) return;
 
-    // Fast path: query known ad selectors
+    // Fast path: query known ad selectors (always runs)
     const fastSelectors = [
       '[id^="div-gpt-ad"]', '[id^="google_ads"]', 'ins.adsbygoogle',
       '[data-google-query-id]', '[data-ad-slot]', '[data-ad-client]',
@@ -401,15 +416,17 @@ div[style*="min-width"]:empty
       } catch {}
     }
 
-    // Slower path: check elements by heuristic
-    try {
-      const allDivs = root.querySelectorAll('div, aside, section, ins, iframe');
-      for (let i = 0; i < allDivs.length; i++) {
-        if (isAdElement(allDivs[i])) {
-          collapseElement(allDivs[i]);
+    // Slow path: heuristic check on all elements (only on initial/full scans)
+    if (fullScan) {
+      try {
+        const allDivs = root.querySelectorAll('div, aside, section, ins, iframe');
+        for (let i = 0; i < allDivs.length; i++) {
+          if (isAdElement(allDivs[i])) {
+            collapseElement(allDivs[i]);
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
   }
 
   /**
@@ -449,15 +466,26 @@ div[style*="min-width"]:empty
 
   const BUILTIN_SCRIPTLETS = {
     'youtube.com': [
+      // ── Experiment flags to disable ad systems ──
       { name: 'set-constant', args: ['ytInitialPlayerResponse.adPlacements', 'undefined'] },
       { name: 'set-constant', args: ['playerResponse.adPlacements', 'undefined'] },
       { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.web_display_new_leaderboard_ad_design', 'false'] },
-      { name: 'json-prune', args: ['playerResponse.adPlacements', ''] },
-      { name: 'json-prune', args: ['adPlacements adSlots playerAds'] },
-      { name: 'abort-on-property-read', args: ['ytInitialPlayerResponse.adPlacements'] },
-      { name: 'abort-on-property-read', args: ['playerResponse.adPlacements'] },
       { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.ad_pod_disable_bap', 'true'] },
       { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.enable_preroll', 'false'] },
+      { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.web_enable_ad_signals_in_it_context', 'false'] },
+      { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.enable_handles_account_menu_switcher', 'false'] },
+      // ── JSON pruning (legacy parser) ──
+      { name: 'json-prune', args: ['adPlacements adSlots playerAds adBreakHeartbeatParams'] },
+      // ── Property access blocking ──
+      { name: 'abort-on-property-read', args: ['ytInitialPlayerResponse.adPlacements'] },
+      { name: 'abort-on-property-read', args: ['playerResponse.adPlacements'] },
+      // ── Advanced: fetch/XHR intercept + response pruning ──
+      { name: 'yt-ad-pruner', args: [] },
+      { name: 'yt-response-json-prune', args: [] },
+      // ── Anti-adblock enforcement removal ──
+      { name: 'yt-enforce-remove', args: [] },
+      // ── Auto-skip ads ──
+      { name: 'yt-skip-ad', args: [] },
     ],
     'twitch.tv': [
       { name: 'set-constant', args: ['__twilightBuildID', ''] },
@@ -490,6 +518,8 @@ div[style*="min-width"]:empty
   // ══════════════════════════════════════════════════════════════════════════
 
   // Listen for messages from background
+  let ghosteryStyle = null;
+
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'apply-cosmetics' && msg.selectors) {
       const builtin = getBuiltinSelectors(window.location.hostname);
@@ -497,6 +527,27 @@ div[style*="min-width"]:empty
     }
     if (msg.action === 'apply-scriptlets' && msg.scriptlets) {
       forwardScriptletsToPage(msg.scriptlets);
+    }
+    // Ghostery engine: pre-compiled CSS styles (more complete than selectors alone)
+    if (msg.action === 'apply-cosmetic-styles' && msg.styles) {
+      if (ghosteryStyle && ghosteryStyle.parentNode) {
+        ghosteryStyle.parentNode.removeChild(ghosteryStyle);
+      }
+      ghosteryStyle = document.createElement('style');
+      ghosteryStyle.setAttribute('data-midori-privacy', 'ghostery-cosmetic');
+      ghosteryStyle.textContent = msg.styles;
+      (document.head || document.documentElement).appendChild(ghosteryStyle);
+    }
+    // Ghostery engine: pre-compiled scriptlet code (inject directly into page)
+    if (msg.action === 'apply-compiled-scriptlets' && msg.scripts) {
+      for (const code of msg.scripts) {
+        if (code && typeof code === 'string') {
+          window.postMessage({
+            type: 'midori-compiled-scriptlet',
+            code: code,
+          }, '*');
+        }
+      }
     }
   });
 
@@ -542,7 +593,7 @@ div[style*="min-width"]:empty
 
   // ── Step 4: Run initial JS-based ad scan ──
   function initialScan() {
-    scanAndCollapse(document.body || document.documentElement);
+    scanAndCollapse(document.body || document.documentElement, true);
   }
 
   if (document.readyState === 'loading') {
@@ -607,7 +658,25 @@ div[style*="min-width"]:empty
   // Use both popstate and MutationObserver for SPA detection
   window.addEventListener('popstate', checkSPANavigation);
 
-  // For pushState/replaceState SPAs (YouTube, etc.)
+  // YouTube-specific: listen for yt-navigate-finish (native SPA event)
+  if (hostname.endsWith('youtube.com')) {
+    document.addEventListener('yt-navigate-finish', () => {
+      lastUrl = location.href;
+      // Re-apply cosmetics
+      if (builtin.length > 0) {
+        applySelectors(builtin);
+      }
+      // Re-inject YouTube scriptlets on SPA navigation
+      if (builtinScriptlets.length > 0) {
+        forwardScriptletsToPage(builtinScriptlets);
+      }
+      // Re-scan for ads
+      setTimeout(initialScan, 300);
+      setTimeout(initialScan, 1500);
+    });
+  }
+
+  // For pushState/replaceState SPAs (non-YouTube sites)
   function startSPAObserver() {
     const target = document.body || document.documentElement;
     if (!target) {
