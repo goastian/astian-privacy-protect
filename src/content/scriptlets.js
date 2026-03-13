@@ -540,214 +540,163 @@
   };
 
   // ══════════════════════════════════════════════════════════════════════════
-  // YOUTUBE ANTI-ADBLOCK SCRIPTLETS
-  // Advanced scriptlets to bypass YouTube's anti-adblock detection system.
+  // YOUTUBE AD BLOCKER
+  // Single, robust scriptlet that handles all YouTube ad blocking.
+  // Strategy: Auto-skip ads instantly + remove enforcement modals.
+  // Does NOT hook into YouTube's internal APIs (no Object.defineProperty,
+  // no JSON.parse, no Response.prototype.json) to avoid breaking playback.
   // ══════════════════════════════════════════════════════════════════════════
 
-  // ── yt-ad-pruner ─────────────────────────────────────────────────────────
-  // Intercepts fetch() and XMLHttpRequest to /youtubei/v1/player and strips
-  // ad-related properties from the JSON response before YouTube processes them.
   SCRIPTLETS['yt-ad-pruner'] = function () {
     return `(function() {
-      var AD_KEYS = ['adPlacements','adSlots','playerAds','adBreakHeartbeatParams',
-        'adBreakParams','advertisingId','adParams','adPlaybackContext',
-        'linearAdSequenceRenderer','instreamAdBreak','adLayoutLogging'];
+      // ── CONFIG ──
+      var SKIP_BTN = '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button.ytp-ad-skip-button-modern, .ytp-ad-skip-button-slot button, .ytp-ad-skip-button-slot .ytp-ad-skip-button-container';
+      var OVERLAY_CLOSE = '.ytp-ad-overlay-close-button, .ytp-ad-overlay-close-container button';
+      var ENFORCEMENT_KEYWORDS = ['ad blocker','bloqueador','werbeblocker','bloqueur','adblocker','bloqueador de anuncios'];
+      var userWasMuted = false;
+      var userPlaybackRate = 1;
+      var savedState = false;
 
-      function pruneObj(obj) {
-        if (!obj || typeof obj !== 'object') return obj;
-        for (var i = 0; i < AD_KEYS.length; i++) {
-          if (AD_KEYS[i] in obj) { delete obj[AD_KEYS[i]]; }
-        }
-        // Deep prune in playerResponse
-        if (obj.playerResponse && typeof obj.playerResponse === 'object') {
-          for (var j = 0; j < AD_KEYS.length; j++) {
-            if (AD_KEYS[j] in obj.playerResponse) { delete obj.playerResponse[AD_KEYS[j]]; }
+      // ── AD DETECTION ──
+      function isAdShowing() {
+        var p = document.getElementById('movie_player');
+        return p && p.classList.contains('ad-showing');
+      }
+
+      // ── SKIP LOGIC ──
+      function tryClickSkip() {
+        var btns = document.querySelectorAll(SKIP_BTN);
+        for (var i = 0; i < btns.length; i++) {
+          if (btns[i].offsetParent !== null) {
+            btns[i].click();
+            return true;
           }
         }
-        return obj;
+        return false;
       }
 
-      // Hook fetch
-      var origFetch = window.fetch;
-      window.fetch = function(resource, init) {
-        var url = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
-        if (url.indexOf('/youtubei/v1/player') !== -1 ||
-            url.indexOf('/youtubei/v1/next') !== -1 ||
-            url.indexOf('/youtubei/v1/browse') !== -1) {
-          return origFetch.apply(this, arguments).then(function(response) {
-            if (!response || !response.ok) return response;
-            return response.clone().json().then(function(data) {
-              pruneObj(data);
-              return new Response(JSON.stringify(data), {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers
-              });
-            }).catch(function() { return response; });
-          });
-        }
-        return origFetch.apply(this, arguments);
-      };
-
-      // Hook XHR
-      var origXHROpen = XMLHttpRequest.prototype.open;
-      var origXHRSend = XMLHttpRequest.prototype.send;
-      XMLHttpRequest.prototype.open = function(method, url) {
-        this._ytUrl = url;
-        return origXHROpen.apply(this, arguments);
-      };
-      XMLHttpRequest.prototype.send = function() {
-        var self = this;
-        var url = self._ytUrl || '';
-        if (url.indexOf('/youtubei/v1/player') !== -1 ||
-            url.indexOf('/youtubei/v1/next') !== -1) {
-          var origOnReadyState = self.onreadystatechange;
-          self.onreadystatechange = function() {
-            if (self.readyState === 4 && self.status === 200) {
-              try {
-                var data = JSON.parse(self.responseText);
-                pruneObj(data);
-                Object.defineProperty(self, 'responseText', { value: JSON.stringify(data), writable: false });
-              } catch(e) {}
-            }
-            if (origOnReadyState) origOnReadyState.apply(this, arguments);
-          };
-        }
-        return origXHRSend.apply(this, arguments);
-      };
-    })();`;
-  };
-
-  // ── yt-response-json-prune ─────────────────────────────────────────────────
-  // Hooks Response.prototype.json to filter ad data from all YouTube API responses
-  // in real-time before any YouTube JS processes them.
-  SCRIPTLETS['yt-response-json-prune'] = function () {
-    return `(function() {
-      var AD_PROPS = ['adPlacements','adSlots','playerAds','adBreakHeartbeatParams',
-        'adBreakParams','instreamAdBreak','linearAdSequenceRenderer','adLayoutLogging',
-        'advertisingId','adParams','adPlaybackContext'];
-
-      function deepPrune(obj, depth) {
-        if (!obj || typeof obj !== 'object' || depth > 5) return;
-        for (var i = 0; i < AD_PROPS.length; i++) {
-          if (AD_PROPS[i] in obj) { delete obj[AD_PROPS[i]]; }
-        }
-        var keys = Object.keys(obj);
-        for (var k = 0; k < keys.length; k++) {
-          var v = obj[keys[k]];
-          if (v && typeof v === 'object') deepPrune(v, depth + 1);
-        }
+      function tryAPISkip() {
+        try {
+          var p = document.getElementById('movie_player');
+          if (p && typeof p.skipAd === 'function') { p.skipAd(); return true; }
+        } catch(e) {}
+        return false;
       }
 
-      var origJson = Response.prototype.json;
-      Response.prototype.json = function() {
-        var self = this;
-        var url = self.url || '';
-        if (url.indexOf('youtube.com') !== -1 || url.indexOf('youtubei') !== -1) {
-          return origJson.call(self).then(function(data) {
-            if (data && typeof data === 'object') {
-              deepPrune(data, 0);
-            }
-            return data;
-          });
-        }
-        return origJson.call(self);
-      };
-    })();`;
-  };
+      function forceSkipVideo() {
+        try {
+          var v = document.querySelector('video.html5-main-video');
+          if (!v || !v.duration || !isFinite(v.duration) || v.duration <= 0) return;
 
-  // ── yt-enforce-remove ──────────────────────────────────────────────────────
-  // Monitors the DOM for YouTube anti-adblock enforcement overlays and removes
-  // them automatically. Also unpauses the video player if it was paused.
-  SCRIPTLETS['yt-enforce-remove'] = function () {
-    return `(function() {
-      var ENFORCE_SELECTORS = [
-        'ytd-enforcement-message-view-model',
-        'tp-yt-paper-dialog.ytd-popup-container',
-        '.yt-playability-error-supported-renderers'
-      ];
+          // Save user state once when ad starts
+          if (!savedState) {
+            userWasMuted = v.muted;
+            userPlaybackRate = v.playbackRate;
+            savedState = true;
+          }
 
+          // Mute and speed through the ad
+          v.muted = true;
+          v.playbackRate = 16;
+          v.currentTime = Math.max(v.duration - 0.1, 0);
+        } catch(e) {}
+      }
+
+      function restoreState() {
+        if (!savedState) return;
+        try {
+          var v = document.querySelector('video.html5-main-video');
+          if (!v) return;
+          v.muted = userWasMuted;
+          v.playbackRate = userPlaybackRate;
+          savedState = false;
+        } catch(e) {}
+      }
+
+      // ── OVERLAY ADS ──
+      function closeOverlays() {
+        try {
+          var btn = document.querySelector(OVERLAY_CLOSE);
+          if (btn) btn.click();
+        } catch(e) {}
+      }
+
+      // ── ENFORCEMENT MODAL REMOVAL ──
       function removeEnforcement() {
-        for (var i = 0; i < ENFORCE_SELECTORS.length; i++) {
-          var els = document.querySelectorAll(ENFORCE_SELECTORS[i]);
-          for (var j = 0; j < els.length; j++) {
-            // Check if it's the anti-adblock dialog
-            var text = els[j].textContent || '';
-            if (text.indexOf('ad blocker') !== -1 ||
-                text.indexOf('bloqueador') !== -1 ||
-                text.indexOf('Werbeblocker') !== -1 ||
-                text.indexOf('bloqueur') !== -1 ||
-                els[j].querySelector('#dismiss-button') ||
-                els[j].querySelector('ytd-enforcement-message-view-model')) {
-              els[j].remove();
+        var els = document.querySelectorAll('ytd-enforcement-message-view-model');
+        for (var i = 0; i < els.length; i++) els[i].remove();
+
+        var dialogs = document.querySelectorAll('tp-yt-paper-dialog.ytd-popup-container');
+        for (var d = 0; d < dialogs.length; d++) {
+          var text = (dialogs[d].textContent || '').toLowerCase();
+          for (var k = 0; k < ENFORCEMENT_KEYWORDS.length; k++) {
+            if (text.indexOf(ENFORCEMENT_KEYWORDS[k]) !== -1) {
+              dialogs[d].remove();
+              break;
             }
           }
         }
-        // Remove backdrop overlay if present
-        var backdrops = document.querySelectorAll('tp-yt-iron-overlay-backdrop');
-        for (var b = 0; b < backdrops.length; b++) {
-          if (backdrops[b].style.display !== 'none') {
-            backdrops[b].style.display = 'none';
-          }
-        }
-        // Unpause video if paused by enforcement
-        try {
-          var video = document.querySelector('video.html5-main-video');
-          if (video && video.paused && video.currentTime > 0 && !video.ended) {
-            video.play();
-          }
-        } catch(e) {}
+
+        var bds = document.querySelectorAll('tp-yt-iron-overlay-backdrop[opened]');
+        for (var b = 0; b < bds.length; b++) bds[b].style.display = 'none';
       }
 
-      // Run periodically and on mutations
-      var observer = new MutationObserver(function(mutations) {
-        for (var m = 0; m < mutations.length; m++) {
-          if (mutations[m].addedNodes.length > 0) {
-            removeEnforcement();
-            break;
-          }
-        }
-      });
-      observer.observe(document.documentElement || document.body || document, {
-        childList: true, subtree: true
-      });
-      setInterval(removeEnforcement, 2000);
-      removeEnforcement();
-    })();`;
-  };
+      // ── MAIN TICK ──
+      function tick() {
+        closeOverlays();
 
-  // ── yt-skip-ad ─────────────────────────────────────────────────────────────
-  // Auto-clicks skip buttons on pre-roll and mid-roll ads, and skips to end
-  // of unskippable ads by setting video currentTime.
-  SCRIPTLETS['yt-skip-ad'] = function () {
-    return `(function() {
-      function skipAds() {
-        // Click skip button if available
-        var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, [class*="skip-button"]');
-        if (skipBtn) {
-          skipBtn.click();
-          return;
+        if (isAdShowing()) {
+          // Try skip methods in order of preference
+          if (!tryClickSkip() && !tryAPISkip()) {
+            forceSkipVideo();
+          }
+        } else {
+          restoreState();
         }
-        // Check for ad playing via player API
-        try {
-          var player = document.querySelector('#movie_player');
-          if (player && player.getAdState && player.getAdState() === 1) {
-            // Ad is playing — try to skip
-            if (player.skipAd) { player.skipAd(); return; }
-            // Fallback: seek to end of ad video
-            var video = player.querySelector('video');
-            if (video && video.duration && video.duration < 300) {
-              video.currentTime = video.duration;
+      }
+
+      // ── OBSERVERS ──
+      // Poll at 250ms for reliability
+      setInterval(tick, 250);
+
+      // MutationObserver for instant reaction to ad-showing class change
+      function startObserver() {
+        var player = document.getElementById('movie_player');
+        if (!player) { setTimeout(startObserver, 500); return; }
+
+        new MutationObserver(function(muts) {
+          for (var i = 0; i < muts.length; i++) {
+            if (muts[i].attributeName === 'class') { tick(); return; }
+            if (muts[i].addedNodes.length > 0) { tick(); return; }
+          }
+        }).observe(player, {
+          attributes: true, attributeFilter: ['class'],
+          childList: true, subtree: true
+        });
+      }
+      startObserver();
+
+      // Enforcement modal observer (separate, on body)
+      function startEnforcementObserver() {
+        var body = document.body;
+        if (!body) { setTimeout(startEnforcementObserver, 500); return; }
+
+        new MutationObserver(function(muts) {
+          for (var i = 0; i < muts.length; i++) {
+            if (muts[i].addedNodes.length > 0) {
+              removeEnforcement();
+              return;
             }
           }
-        } catch(e) {}
-        // Fallback: detect ad overlay and click dismiss
-        var dismissBtn = document.querySelector('.ytp-ad-overlay-close-button');
-        if (dismissBtn) dismissBtn.click();
+        }).observe(body, { childList: true, subtree: true });
       }
-      setInterval(skipAds, 500);
+      startEnforcementObserver();
     })();`;
   };
+
+  // Keep these as aliases pointing to the same scriptlet for backward compat
+  SCRIPTLETS['yt-skip-ad'] = SCRIPTLETS['yt-ad-pruner'];
+  SCRIPTLETS['yt-enforce-remove'] = SCRIPTLETS['yt-ad-pruner'];
 
   // ══════════════════════════════════════════════════════════════════════════
   // ANTI-FINGERPRINTING SCRIPTLETS
@@ -941,24 +890,32 @@
    */
   function injectCode(code) {
     if (!code) return;
+    var parent = document.head || document.documentElement;
+    if (!parent) {
+      // Extremely early — wait for documentElement
+      new MutationObserver(function(_, obs) {
+        if (document.documentElement) {
+          obs.disconnect();
+          injectCode(code);
+        }
+      }).observe(document, { childList: true });
+      return;
+    }
     try {
-      const script = document.createElement('script');
+      var script = document.createElement('script');
       script.textContent = code;
-      (document.head || document.documentElement).appendChild(script);
+      parent.appendChild(script);
       script.remove();
     } catch (e) {
-      // Fallback: use blob URL
       try {
-        const blob = new Blob([code], { type: 'text/javascript' });
-        const url = URL.createObjectURL(blob);
-        const script = document.createElement('script');
-        script.src = url;
-        (document.head || document.documentElement).appendChild(script);
-        script.remove();
+        var blob = new Blob([code], { type: 'text/javascript' });
+        var url = URL.createObjectURL(blob);
+        var s = document.createElement('script');
+        s.src = url;
+        parent.appendChild(s);
+        s.remove();
         URL.revokeObjectURL(url);
-      } catch (e2) {
-        console.error('[midori-scriptlets] Injection failed:', e2);
-      }
+      } catch (e2) {}
     }
   }
 
@@ -981,10 +938,25 @@
     }
   }
 
+  // ── Immediate YouTube scriptlet injection ─────────────────────────────────
+  // Inject YouTube ad-skip scriptlet immediately at document_start (MAIN world)
+  // without waiting for postMessage from cosmetic.js. This ensures the
+  // MutationObserver and setInterval are active as early as possible.
+
+  var hn = '';
+  try { hn = window.location.hostname; } catch(e) {}
+
+  if (hn === 'www.youtube.com' || hn === 'youtube.com' || hn === 'm.youtube.com') {
+    applyScriptlets([{ name: 'yt-ad-pruner', args: [] }]);
+  }
+
   // ── Communication Bridge ──────────────────────────────────────────────────
   // This script runs in MAIN world (page context).
   // It receives scriptlet rules from the ISOLATED world content script
   // via window.postMessage.
+
+  // Track which scriptlets have already been applied to prevent duplicates
+  var _appliedScriptlets = {};
 
   // Listen for messages from ISOLATED world content script
   window.addEventListener('message', function (event) {
@@ -994,7 +966,14 @@
 
     // Legacy scriptlet rules (parsed by our engine)
     if (event.data.type === 'midori-scriptlets' && event.data.scriptlets) {
-      applyScriptlets(event.data.scriptlets);
+      // Filter out already-applied scriptlets (prevents duplicate hooks)
+      var newRules = event.data.scriptlets.filter(function(rule) {
+        var key = rule.name + ':' + (rule.args || []).join(',');
+        if (_appliedScriptlets[key]) return false;
+        _appliedScriptlets[key] = true;
+        return true;
+      });
+      if (newRules.length > 0) applyScriptlets(newRules);
     }
 
     // Ghostery engine: pre-compiled scriptlet code (inject directly)
@@ -1002,4 +981,9 @@
       injectCode(event.data.code);
     }
   });
+
+  // Mark YouTube scriptlet as already applied (prevent duplicate from postMessage)
+  if (hn === 'www.youtube.com' || hn === 'youtube.com' || hn === 'm.youtube.com') {
+    _appliedScriptlets['yt-ad-pruner:'] = true;
+  }
 })();

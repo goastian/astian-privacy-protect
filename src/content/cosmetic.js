@@ -163,8 +163,19 @@ div[style*="min-width"]:empty
 }
 `;
 
+  // Sites where generic ad CSS causes false positives (breaks UI)
+  const GLOBAL_CSS_EXCLUDE = ['youtube.com', 'youtu.be', 'youtube-nocookie.com'];
+
+  function shouldExcludeGlobalCSS(host) {
+    for (const domain of GLOBAL_CSS_EXCLUDE) {
+      if (host === domain || host.endsWith('.' + domain)) return true;
+    }
+    return false;
+  }
+
   function injectGlobalAdCSS() {
     if (globalAdStyle) return;
+    if (shouldExcludeGlobalCSS(window.location.hostname)) return;
     globalAdStyle = document.createElement('style');
     globalAdStyle.setAttribute('data-midori-privacy', 'global-ad-collapse');
     globalAdStyle.textContent = GLOBAL_AD_CSS;
@@ -177,7 +188,7 @@ div[style*="min-width"]:empty
 
   const BUILTIN_COSMETICS = {
     'youtube.com': [
-      // ── Standard ad elements ──
+      // ── Feed / page-level ad elements (safe to hide) ──
       '#masthead-ad', '#player-ads', '#ad-text',
       '#below ytd-ad-slot-renderer', 'ytd-ad-slot-renderer',
       'ytd-rich-item-renderer:has(> .ytd-ad-slot-renderer)',
@@ -187,33 +198,28 @@ div[style*="min-width"]:empty
       'ytd-compact-promoted-video-renderer',
       '#related ytd-promoted-sparkles-web-renderer',
       '#related ytd-promoted-sparkles-text-search-renderer',
-      '.ytp-ad-module', '.ytp-ad-overlay-container', '.ytp-ad-text-overlay',
-      '.ytp-ad-skip-button-container', '.ytp-ad-player-overlay',
-      '.ytp-ad-player-overlay-instream-info', '.ytp-ad-image-overlay',
-      '.ytp-ad-overlay-slot', '.ytp-ad-message-container',
-      '.video-ads', '.ytp-ad-progress-list',
-      '#companion', '#player-overlay\\:8',
+      '#companion', '#offer-module',
       'ytd-merch-shelf-renderer', 'ytd-action-companion-ad-renderer',
       'ytd-search-pyv-renderer', 'ytd-promoted-sparkles-text-search-renderer',
       '.ytd-mealbar-promo-renderer', 'ytd-mealbar-promo-renderer',
       'tp-yt-paper-dialog:has(> ytd-mealbar-promo-renderer)',
-      '#offer-module',
       'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
+      'ytd-brand-video-singleton-renderer', 'ytd-brand-video-shelf-renderer',
+      // ── Overlay ads on player (non-intrusive, safe to hide) ──
+      '.ytp-ad-text-overlay', '.ytp-ad-image-overlay',
+      '.ytp-ad-overlay-slot', '.ytp-ad-message-container',
+      '.ytp-ad-overlay-container',
+      '.ytp-ad-survey', '.ytp-ad-feedback-dialog-container',
       '#movie_player > .ytp-paid-content-overlay',
       // ── Anti-adblock enforcement modals ──
       'ytd-enforcement-message-view-model',
       'tp-yt-paper-dialog.ytd-popup-container:has(#dismiss-button)',
       'tp-yt-paper-dialog.ytd-popup-container:has(ytd-enforcement-message-view-model)',
-      '.yt-playability-error-supported-renderers',
       'ytd-popup-container tp-yt-paper-dialog:has(.yt-about-this-ad-renderer)',
-      // ── Pre-roll / mid-roll ad overlays ──
-      '.ytp-ad-action-interstitial', '.ytp-ad-action-interstitial-background-container',
-      '.ytp-ad-action-interstitial-slot', '.ytp-ad-image-overlay-container',
-      '.ytp-ad-survey', '.ytp-ad-feedback-dialog-container',
-      '.ytp-ad-visit-advertiser-button', '.ytp-ad-button',
-      '.ytp-ad-persistent-progress-bar-container',
-      // ── Shopping / promo overlays ──
-      'ytd-brand-video-singleton-renderer', 'ytd-brand-video-shelf-renderer',
+      // NOTE: Do NOT hide .ytp-ad-module, .ytp-ad-skip-button-container,
+      // .video-ads, .ytp-ad-player-overlay, .ytp-ad-action-interstitial,
+      // .ytp-ad-persistent-progress-bar-container — hiding them breaks
+      // player controls (pause, seek, skip) and causes infinite ad loops.
     ],
     'yahoo.com': [
       '.gemini-ad', '.caas-da', '.native-ad-item', '.SponsoredContent',
@@ -466,26 +472,9 @@ div[style*="min-width"]:empty
 
   const BUILTIN_SCRIPTLETS = {
     'youtube.com': [
-      // ── Experiment flags to disable ad systems ──
-      { name: 'set-constant', args: ['ytInitialPlayerResponse.adPlacements', 'undefined'] },
-      { name: 'set-constant', args: ['playerResponse.adPlacements', 'undefined'] },
-      { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.web_display_new_leaderboard_ad_design', 'false'] },
-      { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.ad_pod_disable_bap', 'true'] },
-      { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.enable_preroll', 'false'] },
-      { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.web_enable_ad_signals_in_it_context', 'false'] },
-      { name: 'set-constant', args: ['yt.config_.EXPERIMENT_FLAGS.enable_handles_account_menu_switcher', 'false'] },
-      // ── JSON pruning (legacy parser) ──
-      { name: 'json-prune', args: ['adPlacements adSlots playerAds adBreakHeartbeatParams'] },
-      // ── Property access blocking ──
-      { name: 'abort-on-property-read', args: ['ytInitialPlayerResponse.adPlacements'] },
-      { name: 'abort-on-property-read', args: ['playerResponse.adPlacements'] },
-      // ── Advanced: fetch/XHR intercept + response pruning ──
+      // Single scriptlet handles: auto-skip ads + enforcement modal removal.
+      // Does NOT hook into YouTube internal APIs to avoid breaking playback.
       { name: 'yt-ad-pruner', args: [] },
-      { name: 'yt-response-json-prune', args: [] },
-      // ── Anti-adblock enforcement removal ──
-      { name: 'yt-enforce-remove', args: [] },
-      // ── Auto-skip ads ──
-      { name: 'yt-skip-ad', args: [] },
     ],
     'twitch.tv': [
       { name: 'set-constant', args: ['__twilightBuildID', ''] },
@@ -592,27 +581,37 @@ div[style*="min-width"]:empty
   });
 
   // ── Step 4: Run initial JS-based ad scan ──
+  // Skip heuristic scanning on sites with complex UIs where generic patterns
+  // cause false positives (YouTube, etc.). These sites rely solely on their
+  // BUILTIN_COSMETICS selectors.
+  const skipHeuristicScan = shouldExcludeGlobalCSS(hostname);
+
   function initialScan() {
+    if (skipHeuristicScan) return;
     scanAndCollapse(document.body || document.documentElement, true);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initialScan, { once: true });
-  } else {
-    initialScan();
+  if (!skipHeuristicScan) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initialScan, { once: true });
+    } else {
+      initialScan();
+    }
+
+    // Also scan after full load (catches lazy-loaded ads)
+    window.addEventListener('load', () => {
+      setTimeout(initialScan, 500);
+      setTimeout(initialScan, 2000);
+      setTimeout(initialScan, 5000);
+    }, { once: true });
   }
 
-  // Also scan after full load (catches lazy-loaded ads)
-  window.addEventListener('load', () => {
-    setTimeout(initialScan, 500);
-    setTimeout(initialScan, 2000);
-    setTimeout(initialScan, 5000);
-  }, { once: true });
-
   // ── Step 5: Universal MutationObserver — watches for dynamically inserted ads ──
+  // Skip on excluded sites to avoid false positives and performance overhead.
   let observerTimer = null;
 
   function startUniversalObserver() {
+    if (skipHeuristicScan) return;
     const target = document.body || document.documentElement;
     if (!target) {
       document.addEventListener('DOMContentLoaded', startUniversalObserver, { once: true });
@@ -662,17 +661,12 @@ div[style*="min-width"]:empty
   if (hostname.endsWith('youtube.com')) {
     document.addEventListener('yt-navigate-finish', () => {
       lastUrl = location.href;
-      // Re-apply cosmetics
+      // Re-apply cosmetics only — scriptlets (Response.prototype.json hook,
+      // MutationObserver, setInterval) persist across SPA navigations.
+      // Re-injecting them creates duplicate hooks that multiply latency.
       if (builtin.length > 0) {
         applySelectors(builtin);
       }
-      // Re-inject YouTube scriptlets on SPA navigation
-      if (builtinScriptlets.length > 0) {
-        forwardScriptletsToPage(builtinScriptlets);
-      }
-      // Re-scan for ads
-      setTimeout(initialScan, 300);
-      setTimeout(initialScan, 1500);
     });
   }
 
