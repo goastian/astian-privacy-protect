@@ -146,10 +146,8 @@ iframe[name*="google_ads"],
 [data-widget-id*="taboola"],
 [id*="mgid"],
 [class*="mgid"],
-/* ── Empty ad placeholders ── */
-div[style*="min-height"]:empty,
-div[style*="min-width"]:empty
 {
+  /* Note: empty div selectors removed — high false-positive rate */
   display: none !important;
   height: 0 !important;
   min-height: 0 !important;
@@ -239,6 +237,64 @@ div[style*="min-width"]:empty
     'twitch.tv': [
       '[data-a-target="video-ad-label"]', '[data-a-target="video-ad-countdown"]',
       '[data-a-target="ad-banner"]', '.channel-leaderboard', '.stream-display-ad',
+      '.video-player__overlay[data-a-target="video-ad-overlay"]',
+      '[data-a-target="video-ad-info-bar"]',
+      '.ad-banner', '.prime-offers', '.top-nav__prime-link',
+      '.community-highlight-stack__card--ad',
+      '[data-a-target="ad-countdown-text"]',
+      '[data-a-target="video-ad-pause-overlay"]',
+      '.ad-overlay', '.ad-notification',
+    ],
+    'facebook.com': [
+      '[data-pagelet*="FeedUnit"]:has(a[href*="ads/about"])',
+      '[data-pagelet*="FeedUnit"]:has(span:has-text("Sponsored"))',
+      'div[data-testid="fbfeed_story"]:has(a[href="#"]>span:has-text("Sponsored"))',
+      'div[role="article"]:has(a[href*="/ads/"])',
+      '[aria-label="Sponsored"]', '[aria-label="Patrocinado"]',
+      '.x1lliihq:has(a[href*="ads/about"])',
+      '.sponsored_stories', '.ego_column', '.pagelet_side_ads',
+      '._5pcq', '._5lQU', '._5qdq',
+    ],
+    'twitter.com': [
+      '[data-testid="placementTracking"]',
+      'article:has(path[d*="M19.498"])',
+      '[data-testid="tweet"]:has([data-testid="placementTracking"])',
+      '[data-testid="cellInnerDiv"]:has([data-testid="placementTracking"])',
+      '[data-testid="UserCell"]:has(a[href*="/i/premium"])',
+      'aside[role="complementary"] [data-testid="trend"]:has(span:has-text("Promoted"))',
+      '[data-testid="trend"]:has(path[d*="M19.498"])',
+    ],
+    'x.com': [
+      '[data-testid="placementTracking"]',
+      'article:has(path[d*="M19.498"])',
+      '[data-testid="tweet"]:has([data-testid="placementTracking"])',
+      '[data-testid="cellInnerDiv"]:has([data-testid="placementTracking"])',
+      '[data-testid="UserCell"]:has(a[href*="/i/premium"])',
+      'aside[role="complementary"] [data-testid="trend"]:has(span:has-text("Promoted"))',
+      '[data-testid="trend"]:has(path[d*="M19.498"])',
+    ],
+    'reddit.com': [
+      'shreddit-ad-post', '.promotedlink', '.promoted',
+      '[data-testid="adPost"]', '[data-ad-clicked]',
+      'shreddit-experience-tree [bundlename="ad_post"]',
+      '.ad-container', '[data-testid="post-container"]:has([data-ad-clicked])',
+      '.listing-ad', '#ad_1', '#ad_2',
+    ],
+    'instagram.com': [
+      'article:has([aria-label="Sponsored"])',
+      'article:has([aria-label="Patrocinado"])',
+      'div:has(> span:has-text("Sponsored"))',
+      '[data-testid="post-container"]:has(a[href*="/ads/"])',
+    ],
+    'linkedin.com': [
+      '.feed-shared-update-v2:has(.update-components-actor__description:has-text("Promoted"))',
+      '.feed-shared-update-v2--ad', '[data-id*="urn:li:sponsoredCreative"]',
+      '.ad-banner-container', '.ads-container',
+      '.artdeco-card:has(.feed-shared-actor__description:has-text("Promoted"))',
+    ],
+    'tiktok.com': [
+      '[data-e2e="recommend-list-item-container"]:has([class*="SpanAdTag"])',
+      '[class*="DivAdBadge"]', '[class*="SpanAdTag"]',
     ],
     'forbes.com': [
       '.fbs-ad', '.top-ad-container', '.article-body-ad', '.ad-rail',
@@ -422,13 +478,14 @@ div[style*="min-width"]:empty
       } catch {}
     }
 
-    // Slow path: heuristic check on all elements (only on initial/full scans)
+    // Slow path: heuristic check (only on initial/full scans)
     if (fullScan) {
       try {
-        const allDivs = root.querySelectorAll('div, aside, section, ins, iframe');
-        for (let i = 0; i < allDivs.length; i++) {
-          if (isAdElement(allDivs[i])) {
-            collapseElement(allDivs[i]);
+        // Target only likely ad containers — skip already-collapsed
+        const candidates = root.querySelectorAll('div:not([data-midori-c]), aside:not([data-midori-c]), ins:not([data-midori-c]), iframe:not([data-midori-c])');
+        for (let i = 0; i < candidates.length; i++) {
+          if (isAdElement(candidates[i])) {
+            collapseElement(candidates[i]);
           }
         }
       } catch {}
@@ -477,6 +534,7 @@ div[style*="min-width"]:empty
       { name: 'yt-ad-pruner', args: [] },
     ],
     'twitch.tv': [
+      { name: 'twitch-ad-mute', args: [] },
       { name: 'set-constant', args: ['__twilightBuildID', ''] },
       { name: 'abort-on-property-read', args: ['navigator.brave'] },
     ],
@@ -601,8 +659,7 @@ div[style*="min-width"]:empty
     // Also scan after full load (catches lazy-loaded ads)
     window.addEventListener('load', () => {
       setTimeout(initialScan, 500);
-      setTimeout(initialScan, 2000);
-      setTimeout(initialScan, 5000);
+      setTimeout(initialScan, 3000);
     }, { once: true });
   }
 
@@ -618,13 +675,17 @@ div[style*="min-width"]:empty
       return;
     }
 
+    let pendingMutations = [];
     const observer = new MutationObserver((mutations) => {
-      // Debounce: batch mutations to avoid excessive processing
+      // Batch mutations via rAF for lower overhead than setTimeout
+      pendingMutations.push(...mutations);
       if (observerTimer) return;
-      observerTimer = setTimeout(() => {
+      observerTimer = requestAnimationFrame(() => {
         observerTimer = null;
-        scanMutations(mutations);
-      }, 100);
+        const batch = pendingMutations;
+        pendingMutations = [];
+        scanMutations(batch);
+      });
     });
 
     observer.observe(target, { childList: true, subtree: true });
