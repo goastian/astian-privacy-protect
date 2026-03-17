@@ -1,67 +1,87 @@
-/* Midori Privacy Blocker - Base Styles */
+/* Midori Privacy Blocker - Base Styles
+   Design System: Flat "Midnight Sage"
+   Palette: #080D14 / #0F1520 / #1E2D3D / #1D3530 / #7EC4A8 / #04A469 / #C4F0E0 */
 
 :root {
-  /* Brand colors - Midori green palette */
-  --color-primary: #1a9e6f;
-  --color-primary-light: #2bc48d;
-  --color-primary-dark: #14805a;
-  --color-primary-bg: #e8f8f0;
+  /* ── Light mode (default) ── */
+  /* Sage-tinted light palette */
+  --color-primary: #04A469;
+  --color-primary-light: #2EB87E;
+  --color-primary-dark: #038A58;
+  --color-primary-bg: #E6F5EE;
 
   /* Danger / blocked */
-  --color-danger: #e74c3c;
-  --color-danger-light: #fdecea;
-  --color-danger-dark: #c0392b;
+  --color-danger: #D94452;
+  --color-danger-light: #FCEDEF;
+  --color-danger-dark: #B8333F;
 
   /* Warning */
-  --color-warning: #f39c12;
-  --color-warning-light: #fef9e7;
+  --color-warning: #E09D2C;
+  --color-warning-light: #FDF5E6;
 
-  /* Neutrals */
-  --color-bg: #ffffff;
-  --color-bg-secondary: #f5f7fa;
-  --color-bg-tertiary: #eef1f6;
-  --color-text: #1a1d21;
-  --color-text-secondary: #5a6270;
-  --color-text-tertiary: #8b95a5;
-  --color-border: #e2e6ec;
-  --color-border-light: #f0f2f5;
+  /* Info */
+  --color-info: #3B82F6;
+  --color-info-light: #EBF2FE;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  /* Neutrals — sage-tinted grays */
+  --color-bg: #F8FAF9;
+  --color-bg-secondary: #EFF3F1;
+  --color-bg-tertiary: #E4EBE8;
+  --color-text: #0F1520;
+  --color-text-secondary: #4A5E54;
+  --color-text-tertiary: #7E9189;
+  --color-border: #D1DDD7;
+  --color-border-light: #E4EBE8;
 
-  /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  /* Flat design — no shadows by default */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: 0 2px 8px rgba(8, 13, 20, 0.06);
+
+  /* Flat radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
   --radius-full: 9999px;
 
   /* Transitions */
-  --transition-fast: 150ms ease;
-  --transition-normal: 250ms ease;
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
 
   /* Font */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* Dark mode */
+/* ── Dark mode — Midnight Sage palette ── */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-primary-bg: #0d2e20;
-    --color-danger-light: #2d1515;
-    --color-warning-light: #2d2210;
-    --color-bg: #1a1d21;
-    --color-bg-secondary: #22262b;
-    --color-bg-tertiary: #2a2f35;
-    --color-text: #e8eaed;
-    --color-text-secondary: #a0a8b4;
-    --color-text-tertiary: #6b7380;
-    --color-border: #333840;
-    --color-border-light: #2a2f35;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --color-primary: #04A469;
+    --color-primary-light: #2EB87E;
+    --color-primary-dark: #7EC4A8;
+    --color-primary-bg: #1D3530;
+
+    --color-danger: #E05A67;
+    --color-danger-light: #2A1A1D;
+    --color-danger-dark: #F27983;
+
+    --color-warning: #E9AD3E;
+    --color-warning-light: #2A2416;
+
+    --color-info: #5B9BF7;
+    --color-info-light: #1A2235;
+
+    --color-bg: #080D14;
+    --color-bg-secondary: #0F1520;
+    --color-bg-tertiary: #1E2D3D;
+    --color-text: #C4F0E0;
+    --color-text-secondary: #7EC4A8;
+    --color-text-tertiary: #4A7566;
+    --color-border: #1E2D3D;
+    --color-border-light: #162230;
+
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -166,7 +186,7 @@ input, select {
   color: #fff;
 }
 .btn-primary:hover {
-  background: var(--color-primary-dark);
+  background: var(--color-primary-light);
 }
 
 .btn-outline {
@@ -192,6 +212,11 @@ input, select {
   font-size: 0.78rem;
 }
 
+.btn-lg {
+  padding: 10px 24px;
+  font-size: 0.95rem;
+}
+
 .card {
   background: var(--color-bg);
   border: 1px solid var(--color-border);
@@ -203,11 +228,11 @@ input, select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
+  min-width: 20px;
+  height: 20px;
   padding: 0 6px;
-  border-radius: var(--radius-full);
-  font-size: 0.72rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
   font-weight: 700;
 }
 
@@ -221,11 +246,16 @@ input, select {
   color: var(--color-primary);
 }
 
-/* Toggle switch */
+.badge-warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+/* Toggle switch — flat */
 .toggle {
   position: relative;
-  width: 44px;
-  height: 24px;
+  width: 40px;
+  height: 22px;
   flex-shrink: 0;
 }
 
@@ -250,12 +280,11 @@ input, select {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   background: #fff;
   border-radius: 50%;
   transition: transform var(--transition-fast);
-  box-shadow: var(--shadow-sm);
 }
 
 .toggle input:checked + .toggle-slider {
@@ -263,5 +292,5 @@ input, select {
 }
 
 .toggle input:checked + .toggle-slider::before {
-  transform: translateX(20px);
+  transform: translateX(18px);
 }

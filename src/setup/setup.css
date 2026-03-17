@@ -1,4 +1,5 @@
-/* Midori Privacy — Setup Wizard Styles */
+/* Midori Privacy — Setup Wizard Styles
+   Design: Flat "Midnight Sage" */
 
 body {
   background: var(--color-bg-secondary);
@@ -9,37 +10,37 @@ body {
   padding: 20px;
 }
 
-/* ── Container ──────────────────────────────────────────────────────────────── */
+/* ── Container ── */
 
 .setup-container {
   width: 100%;
-  max-width: 720px;
+  max-width: 700px;
   background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: 32px 40px;
+  padding: 28px 36px;
   position: relative;
 }
 
-/* ── Progress ───────────────────────────────────────────────────────────────── */
+/* ── Progress ── */
 
 .setup-progress {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .progress-track {
-  height: 4px;
+  height: 3px;
   background: var(--color-border);
   border-radius: var(--radius-full);
   overflow: hidden;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .progress-fill {
   height: 100%;
   background: var(--color-primary);
   border-radius: var(--radius-full);
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s ease;
 }
 
 .progress-steps {
@@ -49,23 +50,22 @@ body {
 }
 
 .progress-step {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   background: var(--color-bg-tertiary);
   color: var(--color-text-tertiary);
-  transition: all var(--transition-normal);
+  transition: all var(--transition-fast);
 }
 
 .progress-step.active {
   background: var(--color-primary);
   color: #fff;
-  box-shadow: 0 0 0 4px var(--color-primary-bg);
 }
 
 .progress-step.done {
@@ -73,60 +73,54 @@ body {
   color: var(--color-primary);
 }
 
-/* ── Steps ──────────────────────────────────────────────────────────────────── */
+/* ── Steps ── */
 
 .setup-step {
   display: none;
-  animation: fadeIn 0.35s ease;
 }
 
 .setup-step.active {
   display: block;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
 .step-icon {
   text-align: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .step-title {
   text-align: center;
-  font-size: 1.6rem;
+  font-size: 1.4rem;
   font-weight: 800;
   color: var(--color-text);
-  margin-bottom: 8px;
-  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
 }
 
 .step-subtitle {
   text-align: center;
   color: var(--color-text-secondary);
-  font-size: 0.95rem;
-  max-width: 520px;
-  margin: 0 auto 28px;
-  line-height: 1.6;
+  font-size: 0.88rem;
+  max-width: 500px;
+  margin: 0 auto 24px;
+  line-height: 1.5;
 }
 
-/* ── Step 1: Option Cards (Search Engine) ───────────────────────────────────── */
+/* ── Step 1: Option Cards ── */
 
 .option-cards {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .option-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  border: 2px solid var(--color-border);
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -135,14 +129,12 @@ body {
 }
 
 .option-card:hover {
-  border-color: var(--color-primary-light);
-  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
 }
 
 .option-card.selected {
   border-color: var(--color-primary);
   background: var(--color-primary-bg);
-  box-shadow: 0 0 0 3px rgba(26, 158, 111, 0.12);
 }
 
 .option-card input[type="radio"] {
@@ -152,10 +144,10 @@ body {
 }
 
 .option-card-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -175,38 +167,38 @@ body {
 
 .option-card-title {
   font-weight: 700;
-  font-size: 0.95rem;
-  margin-bottom: 2px;
+  font-size: 0.88rem;
+  margin-bottom: 1px;
 }
 
 .option-card-desc {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--color-text-secondary);
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .option-card-badge {
   position: absolute;
-  top: -8px;
-  right: 12px;
+  top: -7px;
+  right: 10px;
   background: var(--color-primary);
   color: #fff;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 700;
-  padding: 2px 10px;
-  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
 .astian-info {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 10px 14px;
   background: var(--color-primary-bg);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(26, 158, 111, 0.15);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
 }
 
 .astian-info-icon {
@@ -215,25 +207,25 @@ body {
 }
 
 .astian-info-text {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
-/* ── Step 2: Protection Level Cards ─────────────────────────────────────────── */
+/* ── Step 2: Level Cards ── */
 
 .level-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 10px;
   margin-bottom: 8px;
 }
 
 .level-card {
   display: flex;
   flex-direction: column;
-  padding: 18px 16px;
-  border: 2px solid var(--color-border);
+  padding: 14px 12px;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -242,13 +234,12 @@ body {
 }
 
 .level-card:hover {
-  border-color: var(--color-primary-light);
+  border-color: var(--color-primary);
 }
 
 .level-card.selected {
   border-color: var(--color-primary);
   background: var(--color-primary-bg);
-  box-shadow: 0 0 0 3px rgba(26, 158, 111, 0.12);
 }
 
 .level-card input[type="radio"] {
@@ -260,14 +251,14 @@ body {
 .level-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .level-shield {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -275,8 +266,8 @@ body {
 }
 
 .level-shield.basic {
-  background: #dbeafe;
-  color: #3b82f6;
+  background: var(--color-info-light);
+  color: var(--color-info);
 }
 
 .level-shield.standard {
@@ -285,21 +276,21 @@ body {
 }
 
 .level-shield.strict {
-  background: #fce4ec;
-  color: #e74c3c;
+  background: var(--color-danger-light);
+  color: var(--color-danger);
 }
 
-.level-card.selected .level-shield.basic { background: #3b82f6; color: #fff; }
+.level-card.selected .level-shield.basic { background: var(--color-info); color: #fff; }
 .level-card.selected .level-shield.standard { background: var(--color-primary); color: #fff; }
-.level-card.selected .level-shield.strict { background: #e74c3c; color: #fff; }
+.level-card.selected .level-shield.strict { background: var(--color-danger); color: #fff; }
 
 .level-name {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.92rem;
 }
 
 .level-tag {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--color-text-tertiary);
   font-weight: 600;
 }
@@ -309,36 +300,36 @@ body {
 }
 
 .strict-tag {
-  color: #e74c3c;
+  color: var(--color-danger);
 }
 
 .level-features {
   list-style: none;
   padding: 0;
-  margin: 0 0 14px 0;
+  margin: 0 0 12px 0;
   flex: 1;
 }
 
 .level-features li {
-  font-size: 0.78rem;
-  padding: 3px 0;
+  font-size: 0.72rem;
+  padding: 2px 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .level-features li::before {
   content: '';
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
   flex-shrink: 0;
   display: inline-block;
 }
 
 .level-features li.enabled::before {
   background: var(--color-primary-bg);
-  box-shadow: inset 0 0 0 2px var(--color-primary);
+  border: 1.5px solid var(--color-primary);
 }
 
 .level-features li.disabled {
@@ -347,41 +338,41 @@ body {
 
 .level-features li.disabled::before {
   background: var(--color-bg-tertiary);
-  box-shadow: inset 0 0 0 2px var(--color-border);
+  border: 1.5px solid var(--color-border);
 }
 
 .level-compat {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
+  gap: 5px;
+  font-size: 0.68rem;
   color: var(--color-text-tertiary);
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid var(--color-border-light);
 }
 
-/* ── Step 3: Privacy Commitments ────────────────────────────────────────────── */
+/* ── Step 3: Privacy Commitments ── */
 
 .privacy-commitments {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .privacy-item {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 12px 14px;
   border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-light);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
 }
 
 .privacy-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -400,54 +391,44 @@ body {
 
 .privacy-title {
   font-weight: 700;
-  font-size: 0.92rem;
-  margin-bottom: 2px;
+  font-size: 0.85rem;
+  margin-bottom: 1px;
 }
 
 .privacy-desc {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
-/* ── Step 4: Done ───────────────────────────────────────────────────────────── */
-
-.done-icon {
-  animation: bounceIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes bounceIn {
-  0%   { transform: scale(0.3); opacity: 0; }
-  50%  { transform: scale(1.05); }
-  100% { transform: scale(1); opacity: 1; }
-}
+/* ── Step 4: Done ── */
 
 .summary-card {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 20px 24px;
-  margin-bottom: 24px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
 }
 
 .summary-title {
   font-weight: 700;
-  font-size: 0.92rem;
-  margin-bottom: 14px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
   color: var(--color-text);
 }
 
 .summary-items {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .summary-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 0;
+  padding: 5px 0;
   border-bottom: 1px solid var(--color-border-light);
 }
 
@@ -456,12 +437,12 @@ body {
 }
 
 .summary-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
 }
 
 .summary-value {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--color-primary);
 }
@@ -469,80 +450,70 @@ body {
 .final-tips {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .tip {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.85rem;
+  gap: 8px;
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .tip svg {
   flex-shrink: 0;
 }
 
-/* ── Navigation ─────────────────────────────────────────────────────────────── */
+/* ── Navigation ── */
 
 .setup-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 32px;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-border-light);
-}
-
-.btn-lg {
-  padding: 12px 28px;
-  font-size: 0.95rem;
-  border-radius: var(--radius-md);
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
 }
 
 .btn-finish {
   background: var(--color-primary);
   color: #fff;
-  padding: 14px 36px;
-  font-size: 1rem;
+  padding: 10px 28px;
+  font-size: 0.92rem;
   font-weight: 700;
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 14px rgba(26, 158, 111, 0.3);
-  transition: all var(--transition-fast);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
 }
 
 .btn-finish:hover {
-  background: var(--color-primary-dark);
-  box-shadow: 0 6px 20px rgba(26, 158, 111, 0.4);
-  transform: translateY(-1px);
+  background: var(--color-primary-light);
 }
 
-/* ── Footer ─────────────────────────────────────────────────────────────────── */
+/* ── Footer ── */
 
 .setup-footer {
   text-align: center;
-  margin-top: 20px;
-  font-size: 0.75rem;
+  margin-top: 16px;
+  font-size: 0.7rem;
   color: var(--color-text-tertiary);
 }
 
-/* ── Dark mode adjustments ──────────────────────────────────────────────────── */
+/* ── Dark mode ── */
 
 @media (prefers-color-scheme: dark) {
-  .level-shield.basic { background: #1e3a5f; color: #60a5fa; }
-  .level-shield.strict { background: #3d1515; color: #f87171; }
-  .level-card.selected .level-shield.basic { background: #3b82f6; color: #fff; }
-  .level-card.selected .level-shield.strict { background: #e74c3c; color: #fff; }
-  .option-card-badge { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  .level-shield.basic { background: var(--color-info-light); color: var(--color-info); }
+  .level-shield.strict { background: var(--color-danger-light); color: var(--color-danger); }
+  .level-card.selected .level-shield.basic { background: var(--color-info); color: #fff; }
+  .level-card.selected .level-shield.strict { background: var(--color-danger); color: #fff; }
 }
 
-/* ── Responsive ─────────────────────────────────────────────────────────────── */
+/* ── Responsive ── */
 
 @media (max-width: 700px) {
   .setup-container {
-    padding: 24px 20px;
+    padding: 20px 16px;
   }
 
   .level-cards {
@@ -550,11 +521,6 @@ body {
   }
 
   .step-title {
-    font-size: 1.3rem;
-  }
-
-  .btn-lg {
-    padding: 10px 20px;
-    font-size: 0.88rem;
+    font-size: 1.2rem;
   }
 }

@@ -161,12 +161,12 @@ function updateStatusUI() {
   if (isWhitelisted) {
     statusSection.className = 'popup-status paused';
     statusDot.className = 'status-dot paused';
-    statusText.textContent = 'Protection PAUSED';
+    statusText.textContent = 'Protection Paused';
     toggle.checked = false;
   } else {
     statusSection.className = 'popup-status active';
     statusDot.className = 'status-dot active';
-    statusText.textContent = 'Protection ACTIVE';
+    statusText.textContent = 'Protection Active';
     toggle.checked = true;
   }
 }
@@ -250,7 +250,7 @@ function updateLiveStream(recentRequests, totalBlocked) {
 // ── Category Toggles ────────────────────────────────────────────────────────
 
 function updateCategoryTogglesUI() {
-  for (const btn of $$('.cat-toggle')) {
+  for (const btn of $$('.cat-chip')) {
     const cat = btn.dataset.cat;
     btn.classList.toggle('active', !!categoryState[cat]);
   }
@@ -371,14 +371,14 @@ function setupListeners() {
   }
 
   // Category toggles
-  for (const btn of $$('.cat-toggle')) {
+  for (const btn of $$('.cat-chip')) {
     btn.addEventListener('click', () => {
       toggleCategory(btn.dataset.cat);
     });
   }
 
   // Pause buttons
-  for (const btn of $$('.pause-btn')) {
+  for (const btn of $$('.pause-opt')) {
     btn.addEventListener('click', () => {
       const minutes = parseInt(btn.dataset.minutes);
       pauseProtection(minutes);
