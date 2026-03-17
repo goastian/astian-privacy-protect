@@ -171,14 +171,6 @@ async function initialize() {
   const engineName = engine === ghosteryEngine ? 'Ghostery' : 'Legacy';
   console.log(`[midori] Ready in ${Date.now() - t0}ms. Engine: ${engineName}, ${engine.rulesCount} rules.`);
 
-  // Diagnostic: verify engine can block known ad domains
-  if (!IS_CHROMIUM) {
-    const testDomains = ['doubleclick.net', 'googlesyndication.com', 'google-analytics.com', 'facebook.net', 'adnxs.com'];
-    for (const d of testDomains) {
-      const result = engine.shouldBlock('https://' + d + '/test', 'yahoo.com', 'script');
-      console.log(`[midori] TEST ${d}: shouldBlock=${result}`);
-    }
-  }
 }
 
 async function loadEngine(lists) {
@@ -235,7 +227,7 @@ let whitelistCache = {};
 let whitelistCacheTime = 0;
 
 function isWhitelistedSync(hostname) {
-  if (Date.now() - whitelistCacheTime > 5000) {
+  if (Date.now() - whitelistCacheTime > 30000) {
     getOptions().then(opts => {
       whitelistCache = opts.whitelist || {};
       whitelistCacheTime = Date.now();
@@ -247,20 +239,10 @@ function isWhitelistedSync(hostname) {
 const pendingSaveTabsFirefox = new Set();
 let firefoxSaveTimer = null;
 
-let _debugReqCount = 0;
-
 function setupWebRequestBlocking() {
   console.log('[midori] Setting up webRequest blocking, engine rules:', engine.rulesCount);
-  console.log('[midori] webRequestAPI:', webRequestAPI ? 'available' : 'missing');
   webRequestAPI.onBeforeRequest.addListener(
     (details) => {
-      _debugReqCount++;
-      if (_debugReqCount <= 5) {
-        console.log(`[midori] webRequest #${_debugReqCount}: type=${details.type} url=${details.url.substring(0, 80)} tabId=${details.tabId} engineRules=${engine.rulesCount}`);
-      } else if (_debugReqCount === 50) {
-        console.log(`[midori] 50 requests processed, engine has ${engine.rulesCount} rules`);
-      }
-
       if (!isEnabled) return { cancel: false };
       if (details.tabId < 0) return { cancel: false };
       if (details.type === 'main_frame') return { cancel: false };
@@ -274,12 +256,8 @@ function setupWebRequestBlocking() {
       if (pageHostname && isWhitelistedSync(pageHostname)) return { cancel: false };
 
       const blocked = engine.shouldBlock(url, pageHostname, details.type);
-      if (_debugReqCount <= 20) {
-        console.log(`[midori] shouldBlock(${extractDomain(url)}, ${pageHostname}, ${details.type}) = ${blocked}`);
-      }
 
       if (blocked) {
-        console.log(`[midori] BLOCKED: ${extractDomain(url)} on ${pageHostname}`);
         recordBlock(details.tabId, url);
         updateBadge(details.tabId);
 
@@ -542,7 +520,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
           action: 'apply-scriptlets',
           scriptlets: scriptlets.slice(0, 100),
         });
-        console.log(`[midori] Sent ${scriptlets.length} scriptlets to ${hostname}`);
       }
     }
   }
