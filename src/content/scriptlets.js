@@ -550,17 +550,56 @@
   SCRIPTLETS['yt-ad-pruner'] = function () {
     return `(function() {
       // ── CONFIG ──
-      var SKIP_BTN = '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button.ytp-ad-skip-button-modern, .ytp-ad-skip-button-slot button, .ytp-ad-skip-button-slot .ytp-ad-skip-button-container';
-      var OVERLAY_CLOSE = '.ytp-ad-overlay-close-button, .ytp-ad-overlay-close-container button';
-      var ENFORCEMENT_KEYWORDS = ['ad blocker','bloqueador','werbeblocker','bloqueur','adblocker','bloqueador de anuncios'];
+      var SKIP_BTN = [
+        '.ytp-ad-skip-button',
+        '.ytp-ad-skip-button-modern',
+        '.ytp-skip-ad-button',
+        'button.ytp-ad-skip-button-modern',
+        '.ytp-ad-skip-button-slot button',
+        '.ytp-ad-skip-button-slot .ytp-ad-skip-button-container',
+        '.ytp-ad-skip-button-slot .ytp-ad-skip-button-text',
+        'button[id^="skip-button"]',
+        '.videoAdUiSkipButton',
+        '.ytp-ad-skip-button-slot',
+      ].join(',');
+      var OVERLAY_CLOSE = '.ytp-ad-overlay-close-button, .ytp-ad-overlay-close-container button, .ytp-ad-overlay-close-button svg';
+      var ENFORCEMENT_KEYWORDS = ['ad blocker','bloqueador','werbeblocker','bloqueur','adblocker','bloqueador de anuncios','adblock','premium'];
       var userWasMuted = false;
       var userPlaybackRate = 1;
       var savedState = false;
 
+      // ── INJECT CSS to hide ad UI elements instantly ──
+      var s = document.createElement('style');
+      s.textContent = [
+        '.ytp-ad-module,',
+        '.ytp-ad-overlay-container,',
+        '.ytp-ad-overlay-slot,',
+        '.ytp-ad-image-overlay,',
+        '.ytp-ad-text-overlay,',
+        'ytd-promoted-sparkles-web-renderer,',
+        'ytd-promoted-video-renderer,',
+        'ytd-compact-promoted-video-renderer,',
+        'ytd-banner-promo-renderer,',
+        'ytd-statement-banner-renderer,',
+        'ytd-in-feed-ad-layout-renderer,',
+        'ytd-ad-slot-renderer,',
+        'ytd-rich-item-renderer:has(ytd-ad-slot-renderer),',
+        '#masthead-ad,',
+        '#player-ads,',
+        '#panels .ytd-ads-engagement-panel-content-renderer,',
+        'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)',
+        '{ display: none !important; }'
+      ].join('');
+      (document.head || document.documentElement).appendChild(s);
+
       // ── AD DETECTION ──
       function isAdShowing() {
         var p = document.getElementById('movie_player');
-        return p && p.classList.contains('ad-showing');
+        if (!p) return false;
+        if (p.classList.contains('ad-showing')) return true;
+        // Fallback: check for ad elements in player
+        var adEl = p.querySelector('.ytp-ad-player-overlay, .ytp-ad-player-overlay-layout');
+        return !!adEl;
       }
 
       // ── SKIP LOGIC ──
@@ -579,6 +618,10 @@
         try {
           var p = document.getElementById('movie_player');
           if (p && typeof p.skipAd === 'function') { p.skipAd(); return true; }
+          if (p && typeof p.cancelPlayback === 'function' && isAdShowing()) {
+            p.cancelPlayback();
+            return true;
+          }
         } catch(e) {}
         return false;
       }
@@ -595,7 +638,7 @@
             savedState = true;
           }
 
-          // Mute and speed through the ad
+          // Mute and fast-forward through the ad
           v.muted = true;
           v.playbackRate = 16;
           v.currentTime = Math.max(v.duration - 0.1, 0);
@@ -616,8 +659,19 @@
       // ── OVERLAY ADS ──
       function closeOverlays() {
         try {
-          var btn = document.querySelector(OVERLAY_CLOSE);
-          if (btn) btn.click();
+          var btns = document.querySelectorAll(OVERLAY_CLOSE);
+          for (var i = 0; i < btns.length; i++) btns[i].click();
+        } catch(e) {}
+      }
+
+      // ── SURVEY ADS ──
+      function dismissSurveys() {
+        try {
+          var sur = document.querySelectorAll('.ytp-ad-survey, .ytp-ad-feedback-dialog-renderer');
+          for (var i = 0; i < sur.length; i++) sur[i].remove();
+          // Click "Skip Survey" or "No thanks" if visible
+          var surBtns = document.querySelectorAll('.ytp-ad-survey .ytp-ad-skip-button, .ytp-ad-feedback-dialog-renderer button');
+          for (var j = 0; j < surBtns.length; j++) surBtns[j].click();
         } catch(e) {}
       }
 
@@ -626,7 +680,7 @@
         var els = document.querySelectorAll('ytd-enforcement-message-view-model');
         for (var i = 0; i < els.length; i++) els[i].remove();
 
-        var dialogs = document.querySelectorAll('tp-yt-paper-dialog.ytd-popup-container');
+        var dialogs = document.querySelectorAll('tp-yt-paper-dialog.ytd-popup-container, tp-yt-paper-dialog');
         for (var d = 0; d < dialogs.length; d++) {
           var text = (dialogs[d].textContent || '').toLowerCase();
           for (var k = 0; k < ENFORCEMENT_KEYWORDS.length; k++) {
@@ -639,11 +693,18 @@
 
         var bds = document.querySelectorAll('tp-yt-iron-overlay-backdrop[opened]');
         for (var b = 0; b < bds.length; b++) bds[b].style.display = 'none';
+
+        // Unfreeze playback if YouTube paused the video
+        try {
+          var v = document.querySelector('video.html5-main-video');
+          if (v && v.paused && !isAdShowing()) v.play();
+        } catch(e) {}
       }
 
       // ── MAIN TICK ──
       function tick() {
         closeOverlays();
+        dismissSurveys();
 
         if (isAdShowing()) {
           // Try skip methods in order of preference
@@ -656,8 +717,8 @@
       }
 
       // ── OBSERVERS ──
-      // Poll at 250ms for reliability
-      setInterval(tick, 250);
+      // Poll at 200ms for fast reaction
+      setInterval(tick, 200);
 
       // MutationObserver for instant reaction to ad-showing class change
       function startObserver() {
@@ -697,6 +758,99 @@
   // Keep these as aliases pointing to the same scriptlet for backward compat
   SCRIPTLETS['yt-skip-ad'] = SCRIPTLETS['yt-ad-pruner'];
   SCRIPTLETS['yt-enforce-remove'] = SCRIPTLETS['yt-ad-pruner'];
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TWITCH AD BLOCKER
+  // Twitch ads are embedded in the HLS stream so they can't be fully skipped.
+  // This scriptlet: mutes audio during ads, hides ad overlay/countdown UI,
+  // and restores state when the ad ends.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  SCRIPTLETS['twitch-ad-mute'] = function () {
+    return `(function() {
+      var wasMuted = false;
+      var savedVol = 1;
+      var adActive = false;
+
+      function isAdPlaying() {
+        // Twitch signals ads via data attributes and specific elements
+        var label = document.querySelector('[data-a-target="video-ad-label"]');
+        if (label) return true;
+        var countdown = document.querySelector('[data-a-target="video-ad-countdown"]');
+        if (countdown) return true;
+        var overlay = document.querySelector('.video-player__overlay[data-a-target="video-ad-overlay"]');
+        if (overlay) return true;
+        // Check for "Ad" text in player status
+        var status = document.querySelector('.tw-media-card-stat');
+        if (status && /\\bad\\b/i.test(status.textContent)) return true;
+        return false;
+      }
+
+      function hideAdUI() {
+        var sels = [
+          '[data-a-target="video-ad-label"]',
+          '[data-a-target="video-ad-countdown"]',
+          '[data-a-target="ad-countdown-text"]',
+          '[data-a-target="video-ad-info-bar"]',
+          '.video-player__overlay[data-a-target="video-ad-overlay"]',
+          '[data-a-target="video-ad-pause-overlay"]',
+        ];
+        for (var i = 0; i < sels.length; i++) {
+          try {
+            var els = document.querySelectorAll(sels[i]);
+            for (var j = 0; j < els.length; j++) {
+              els[j].style.display = 'none';
+            }
+          } catch(e) {}
+        }
+      }
+
+      function muteAd() {
+        try {
+          var v = document.querySelector('video');
+          if (!v) return;
+          if (!adActive) {
+            wasMuted = v.muted;
+            savedVol = v.volume;
+            adActive = true;
+          }
+          v.muted = true;
+        } catch(e) {}
+      }
+
+      function restoreAudio() {
+        if (!adActive) return;
+        try {
+          var v = document.querySelector('video');
+          if (!v) return;
+          v.muted = wasMuted;
+          v.volume = savedVol;
+          adActive = false;
+        } catch(e) {}
+      }
+
+      function tick() {
+        if (isAdPlaying()) {
+          muteAd();
+          hideAdUI();
+        } else {
+          restoreAudio();
+        }
+      }
+
+      setInterval(tick, 300);
+
+      // MutationObserver for faster reaction
+      function startObs() {
+        var target = document.querySelector('.video-player') || document.body;
+        if (!target) { setTimeout(startObs, 500); return; }
+        new MutationObserver(function() { tick(); }).observe(target, {
+          childList: true, subtree: true, attributes: true, attributeFilter: ['class']
+        });
+      }
+      startObs();
+    })();`;
+  };
 
   // ══════════════════════════════════════════════════════════════════════════
   // ANTI-FINGERPRINTING SCRIPTLETS
