@@ -568,14 +568,12 @@
       var userPlaybackRate = 1;
       var savedState = false;
 
-      // ── INJECT CSS to hide ad UI elements instantly ──
+      // ── INJECT CSS to hide feed-level ad elements instantly ──
+      // NOTE: Do NOT hide .ytp-ad-module, .ytp-ad-overlay-container,
+      // .ytp-ad-overlay-slot, .ytp-ad-player-overlay — these are part of the
+      // player control layer; hiding them breaks pause/click/spacebar.
       var s = document.createElement('style');
       s.textContent = [
-        '.ytp-ad-module,',
-        '.ytp-ad-overlay-container,',
-        '.ytp-ad-overlay-slot,',
-        '.ytp-ad-image-overlay,',
-        '.ytp-ad-text-overlay,',
         'ytd-promoted-sparkles-web-renderer,',
         'ytd-promoted-video-renderer,',
         'ytd-compact-promoted-video-renderer,',
@@ -596,10 +594,9 @@
       function isAdShowing() {
         var p = document.getElementById('movie_player');
         if (!p) return false;
-        if (p.classList.contains('ad-showing')) return true;
-        // Fallback: check for ad elements in player
-        var adEl = p.querySelector('.ytp-ad-player-overlay, .ytp-ad-player-overlay-layout');
-        return !!adEl;
+        // Only trust the definitive 'ad-showing' class — overlay elements
+        // can persist in DOM after ads end and cause false positives.
+        return p.classList.contains('ad-showing');
       }
 
       // ── SKIP LOGIC ──
@@ -694,19 +691,15 @@
         var bds = document.querySelectorAll('tp-yt-iron-overlay-backdrop[opened]');
         for (var b = 0; b < bds.length; b++) bds[b].style.display = 'none';
 
-        // Unfreeze playback if YouTube paused the video
-        try {
-          var v = document.querySelector('video.html5-main-video');
-          if (v && v.paused && !isAdShowing()) v.play();
-        } catch(e) {}
+        // NOTE: Do NOT auto-play here — this observer fires on every DOM
+        // mutation and would override the user's manual pause.
       }
 
       // ── MAIN TICK ──
       function tick() {
-        closeOverlays();
-        dismissSurveys();
-
         if (isAdShowing()) {
+          closeOverlays();
+          dismissSurveys();
           // Try skip methods in order of preference
           if (!tryClickSkip() && !tryAPISkip()) {
             forceSkipVideo();

@@ -52,9 +52,10 @@
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* ── Dark mode — Midnight Sage palette ── */
+/* ── Dark mode — Midnight Sage palette ──
+   Supports both: @media query (native) and [data-theme] (JS fallback for extensions) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --color-primary: #04A469;
     --color-primary-light: #2EB87E;
     --color-primary-dark: #7EC4A8;
@@ -82,7 +83,42 @@
     --shadow-sm: none;
     --shadow-md: none;
     --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+    color-scheme: dark;
   }
+}
+
+/* JS-driven dark mode (for extension popups where @media may not work) */
+:root[data-theme="dark"] {
+  --color-primary: #04A469;
+  --color-primary-light: #2EB87E;
+  --color-primary-dark: #7EC4A8;
+  --color-primary-bg: #1D3530;
+
+  --color-danger: #E05A67;
+  --color-danger-light: #2A1A1D;
+  --color-danger-dark: #F27983;
+
+  --color-warning: #E9AD3E;
+  --color-warning-light: #2A2416;
+
+  --color-info: #5B9BF7;
+  --color-info-light: #1A2235;
+
+  --color-bg: #080D14;
+  --color-bg-secondary: #0F1520;
+  --color-bg-tertiary: #1E2D3D;
+  --color-text: #C4F0E0;
+  --color-text-secondary: #7EC4A8;
+  --color-text-tertiary: #4A7566;
+  --color-border: #1E2D3D;
+  --color-border-light: #162230;
+
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  color-scheme: dark;
 }
 
 /* Reset */

@@ -503,11 +503,16 @@ body {
 /* ── Dark mode ── */
 
 @media (prefers-color-scheme: dark) {
-  .level-shield.basic { background: var(--color-info-light); color: var(--color-info); }
-  .level-shield.strict { background: var(--color-danger-light); color: var(--color-danger); }
-  .level-card.selected .level-shield.basic { background: var(--color-info); color: #fff; }
-  .level-card.selected .level-shield.strict { background: var(--color-danger); color: #fff; }
+  :root:not([data-theme="light"]) .level-shield.basic { background: var(--color-info-light); color: var(--color-info); }
+  :root:not([data-theme="light"]) .level-shield.strict { background: var(--color-danger-light); color: var(--color-danger); }
+  :root:not([data-theme="light"]) .level-card.selected .level-shield.basic { background: var(--color-info); color: #fff; }
+  :root:not([data-theme="light"]) .level-card.selected .level-shield.strict { background: var(--color-danger); color: #fff; }
 }
+
+:root[data-theme="dark"] .level-shield.basic { background: var(--color-info-light); color: var(--color-info); }
+:root[data-theme="dark"] .level-shield.strict { background: var(--color-danger-light); color: var(--color-danger); }
+:root[data-theme="dark"] .level-card.selected .level-shield.basic { background: var(--color-info); color: #fff; }
+:root[data-theme="dark"] .level-card.selected .level-shield.strict { background: var(--color-danger); color: #fff; }
 
 /* ── Responsive ── */
 

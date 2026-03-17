@@ -203,12 +203,13 @@ iframe[name*="google_ads"],
       'tp-yt-paper-dialog:has(> ytd-mealbar-promo-renderer)',
       'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
       'ytd-brand-video-singleton-renderer', 'ytd-brand-video-shelf-renderer',
-      // ── Overlay ads on player (non-intrusive, safe to hide) ──
+      // ── Overlay ads on player (only leaf elements, not containers) ──
       '.ytp-ad-text-overlay', '.ytp-ad-image-overlay',
-      '.ytp-ad-overlay-slot', '.ytp-ad-message-container',
-      '.ytp-ad-overlay-container',
+      '.ytp-ad-message-container',
       '.ytp-ad-survey', '.ytp-ad-feedback-dialog-container',
       '#movie_player > .ytp-paid-content-overlay',
+      // NOTE: Do NOT hide .ytp-ad-overlay-container or .ytp-ad-overlay-slot —
+      // they are in the player's click event path and break pause/spacebar.
       // ── Anti-adblock enforcement modals ──
       'ytd-enforcement-message-view-model',
       'tp-yt-paper-dialog.ytd-popup-container:has(#dismiss-button)',

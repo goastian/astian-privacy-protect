@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    // Detect system theme and set data-theme before CSS renders (no FOUC)
+    (function(){var m=window.matchMedia('(prefers-color-scheme:dark)');function a(d){document.documentElement.setAttribute('data-theme',d.matches?'dark':'light')}a(m);m.addEventListener('change',a)})();
+  </script>
   <link rel="stylesheet" href="../shared/styles.css">
   <link rel="stylesheet" href="options.css">
   <title>Midori Privacy - Settings</title>
