@@ -1,122 +1,112 @@
 /* Midori Privacy Blocker - Base Styles
-   Design System: Flat "Midnight Sage"
-   Palette: #080D14 / #0F1520 / #1E2D3D / #1D3530 / #7EC4A8 / #04A469 / #C4F0E0 */
+   Design System: Ultra-Flat "Vibrant Sage"
+   Palette: #0B0F14 / #151B24 / #222B36 / #00D084 / #FF4B5C / #FFB400 / #007AFF */
 
 :root {
   /* ── Light mode (default) ── */
-  /* Sage-tinted light palette */
-  --color-primary: #04A469;
-  --color-primary-light: #2EB87E;
-  --color-primary-dark: #038A58;
-  --color-primary-bg: #E6F5EE;
+  --color-primary: #00D084;
+  --color-primary-light: #33D99D;
+  --color-primary-dark: #00A669;
+  --color-primary-bg: #E6FAF3;
 
   /* Danger / blocked */
-  --color-danger: #D94452;
-  --color-danger-light: #FCEDEF;
-  --color-danger-dark: #B8333F;
+  --color-danger: #FF4B5C;
+  --color-danger-light: #FFF0F1;
+  --color-danger-dark: #E64352;
 
   /* Warning */
-  --color-warning: #E09D2C;
-  --color-warning-light: #FDF5E6;
+  --color-warning: #FFB400;
+  --color-warning-light: #FFF8E6;
 
   /* Info */
-  --color-info: #3B82F6;
-  --color-info-light: #EBF2FE;
+  --color-info: #007AFF;
+  --color-info-light: #E6F2FF;
 
-  /* Neutrals — sage-tinted grays */
-  --color-bg: #F8FAF9;
-  --color-bg-secondary: #EFF3F1;
-  --color-bg-tertiary: #E4EBE8;
-  --color-text: #0F1520;
-  --color-text-secondary: #4A5E54;
-  --color-text-tertiary: #7E9189;
-  --color-border: #D1DDD7;
-  --color-border-light: #E4EBE8;
+  /* Neutrals — ultra-flat grays */
+  --color-bg: #FFFFFF;
+  --color-bg-secondary: #F0F4F2;
+  --color-bg-tertiary: #E0E6E3;
+  --color-text: #0B0F14;
+  --color-text-secondary: #45524B;
+  --color-text-tertiary: #7D8C84;
+  --color-border: #E0E6E3;
+  --color-border-light: #F0F4F2;
 
-  /* Flat design — no shadows by default */
+  /* Flat design — NO shadows */
   --shadow-sm: none;
   --shadow-md: none;
-  --shadow-lg: 0 2px 8px rgba(8, 13, 20, 0.06);
+  --shadow-lg: none;
 
-  /* Flat radius */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  /* Sharp Flat radius (2px) */
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
   --radius-full: 9999px;
 
   /* Transitions */
-  --transition-fast: 120ms ease;
-  --transition-normal: 200ms ease;
+  --transition-fast: 100ms ease;
+  --transition-normal: 180ms ease;
 
-  /* Font */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Font — Modern system stack */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* ── Dark mode — Midnight Sage palette ──
-   Supports both: @media query (native) and [data-theme] (JS fallback for extensions) */
+/* ── Dark mode — Vibrant Sage palette ── */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-primary: #04A469;
-    --color-primary-light: #2EB87E;
-    --color-primary-dark: #7EC4A8;
-    --color-primary-bg: #1D3530;
+    --color-primary: #00D084;
+    --color-primary-light: #33D99D;
+    --color-primary-dark: #00A669;
+    --color-primary-bg: #0D241C;
 
-    --color-danger: #E05A67;
-    --color-danger-light: #2A1A1D;
-    --color-danger-dark: #F27983;
+    --color-danger: #FF4B5C;
+    --color-danger-light: #2D1417;
+    --color-danger-dark: #FF6B7A;
 
-    --color-warning: #E9AD3E;
-    --color-warning-light: #2A2416;
+    --color-warning: #FFB400;
+    --color-warning-light: #2D2300;
 
-    --color-info: #5B9BF7;
-    --color-info-light: #1A2235;
+    --color-info: #0A84FF;
+    --color-info-light: #001A33;
 
-    --color-bg: #080D14;
-    --color-bg-secondary: #0F1520;
-    --color-bg-tertiary: #1E2D3D;
-    --color-text: #C4F0E0;
-    --color-text-secondary: #7EC4A8;
-    --color-text-tertiary: #4A7566;
-    --color-border: #1E2D3D;
-    --color-border-light: #162230;
-
-    --shadow-sm: none;
-    --shadow-md: none;
-    --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --color-bg: #0B0F14;
+    --color-bg-secondary: #151B24;
+    --color-bg-tertiary: #222B36;
+    --color-text: #E0F5EE;
+    --color-text-secondary: #9DB0A7;
+    --color-text-tertiary: #5E7369;
+    --color-border: #222B36;
+    --color-border-light: #1A222B;
 
     color-scheme: dark;
   }
 }
 
-/* JS-driven dark mode (for extension popups where @media may not work) */
+/* JS-driven dark mode */
 :root[data-theme="dark"] {
-  --color-primary: #04A469;
-  --color-primary-light: #2EB87E;
-  --color-primary-dark: #7EC4A8;
-  --color-primary-bg: #1D3530;
+  --color-primary: #00D084;
+  --color-primary-light: #33D99D;
+  --color-primary-dark: #00A669;
+  --color-primary-bg: #0D241C;
 
-  --color-danger: #E05A67;
-  --color-danger-light: #2A1A1D;
-  --color-danger-dark: #F27983;
+  --color-danger: #FF4B5C;
+  --color-danger-light: #2D1417;
+  --color-danger-dark: #FF6B7A;
 
-  --color-warning: #E9AD3E;
-  --color-warning-light: #2A2416;
+  --color-warning: #FFB400;
+  --color-warning-light: #2D2300;
 
-  --color-info: #5B9BF7;
-  --color-info-light: #1A2235;
+  --color-info: #0A84FF;
+  --color-info-light: #001A33;
 
-  --color-bg: #080D14;
-  --color-bg-secondary: #0F1520;
-  --color-bg-tertiary: #1E2D3D;
-  --color-text: #C4F0E0;
-  --color-text-secondary: #7EC4A8;
-  --color-text-tertiary: #4A7566;
-  --color-border: #1E2D3D;
-  --color-border-light: #162230;
-
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --color-bg: #0B0F14;
+  --color-bg-secondary: #151B24;
+  --color-bg-tertiary: #222B36;
+  --color-text: #E0F5EE;
+  --color-text-secondary: #9DB0A7;
+  --color-text-tertiary: #5E7369;
+  --color-border: #222B36;
+  --color-border-light: #1A222B;
 
   color-scheme: dark;
 }
