@@ -6,6 +6,77 @@
  * License: MPL-2.0
  */
 
+// ── Bloom Filter & LRU Cache for performance ────────────────────────────────
+
+/**
+ * Probabilistic data structure for ultra-fast set membership tests.
+ * Zero false negatives, low false positives.
+ */
+class BloomFilter {
+  constructor(size = 1000000, hashCount = 3) {
+    this.size = size;
+    this.hashCount = hashCount;
+    this.bits = new Uint32Array(Math.ceil(size / 32));
+  }
+
+  add(str) {
+    for (let i = 0; i < this.hashCount; i++) {
+      const hash = this._hash(str, i);
+      this.bits[Math.floor(hash / 32)] |= (1 << (hash % 32));
+    }
+  }
+
+  has(str) {
+    for (let i = 0; i < this.hashCount; i++) {
+      const hash = this._hash(str, i);
+      if (!(this.bits[Math.floor(hash / 32)] & (1 << (hash % 32)))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  _hash(str, seed) {
+    let h1 = 0x811c9dc5 ^ seed;
+    for (let i = 0; i < str.length; i++) {
+      h1 ^= str.charCodeAt(i);
+      h1 = Math.imul(h1, 0x01000193);
+    }
+    return (h1 >>> 0) % this.size;
+  }
+}
+
+/**
+ * Least Recently Used cache to store results of blocking decisions.
+ */
+class LRUCache {
+  constructor(capacity = 5000) {
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  get(key) {
+    if (!this.cache.has(key)) return undefined;
+    const val = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, val);
+    return val;
+  }
+
+  set(key, value) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.capacity) {
+      this.cache.delete(this.cache.keys().next().value);
+    }
+    this.cache.set(key, value);
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
 // ── Tracker / Ad categorization ─────────────────────────────────────────────
 // Comprehensive domain→category mapping for accurate classification
 
@@ -246,6 +317,10 @@ export class FilterEngine {
     this.scriptletRules = new Map();  // domain → [{ name, args }]
     this.genericScriptlets = [];
 
+    // Performance optimizations
+    this.bloomFilter = new BloomFilter();
+    this.lruCache = new LRUCache();
+
     // Stats
     this.rulesCount = 0;
   }
@@ -261,6 +336,8 @@ export class FilterEngine {
       this.rulesCount++;
       this._parseLine(line);
     }
+    // Clear cache when rules are updated
+    this.lruCache.clear();
   }
 
   // ── Line parser ───────────────────────────────────────────────────────────
@@ -441,6 +518,7 @@ export class FilterEngine {
 
   _addBlockRule(domain, pattern, opts) {
     if (domain) {
+      this.bloomFilter.add(domain);
       if (!opts) {
         // Pure domain rule, no options → fast set
         this.blockedDomains.add(domain);
@@ -461,6 +539,7 @@ export class FilterEngine {
 
   _addExceptionRule(domain, pattern, opts) {
     if (domain) {
+      this.bloomFilter.add(domain);
       if (!opts) {
         this.exceptionDomains.add(domain);
       } else {
@@ -601,11 +680,28 @@ export class FilterEngine {
    * @returns {boolean}
    */
   shouldBlock(url, pageHostname, resourceType) {
+    // 1. Check LRU Cache (Fastest)
+    const cacheKey = `${url}|${pageHostname}|${resourceType}`;
+    const cached = this.lruCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
     const requestDomain = extractDomain(url);
-    if (!requestDomain) return false;
+    if (!requestDomain) {
+      this.lruCache.set(cacheKey, false);
+      return false;
+    }
+
+    // 2. Bloom Filter (Fast Domain Check)
+    // If the domain is not in the bloom filter, it's definitely not in our
+    // blockedDomains, exceptionDomains, or domainRulesWithOptions.
+    // We only need to check pattern-based rules.
+    const domainInBloom = this.bloomFilter.has(requestDomain);
 
     // Never block main_frame navigations
-    if (resourceType === 'main_frame') return false;
+    if (resourceType === 'main_frame') {
+      this.lruCache.set(cacheKey, false);
+      return false;
+    }
 
     // Map webRequest type to ABP type
     const abpType = resourceType ? (WEBREQUEST_TO_ABP[resourceType] || 'other') : null;
@@ -615,14 +711,20 @@ export class FilterEngine {
 
     // ── Check exceptions first ──
 
-    // Simple domain exceptions (no options)
-    if (this._domainMatches(requestDomain, this.exceptionDomains)) return false;
-
-    // Domain exceptions with options
-    for (const rule of this.exceptionRulesWithOptions) {
-      if (this._domainMatchesSingle(requestDomain, rule.domain) &&
-          this._optionsMatch(rule.opts, isThirdParty, abpType, pageHostname)) {
+    if (domainInBloom) {
+      // Simple domain exceptions (no options)
+      if (this._domainMatches(requestDomain, this.exceptionDomains)) {
+        this.lruCache.set(cacheKey, false);
         return false;
+      }
+
+      // Domain exceptions with options
+      for (const rule of this.exceptionRulesWithOptions) {
+        if (this._domainMatchesSingle(requestDomain, rule.domain) &&
+            this._optionsMatch(rule.opts, isThirdParty, abpType, pageHostname)) {
+          this.lruCache.set(cacheKey, false);
+          return false;
+        }
       }
     }
 
@@ -630,22 +732,25 @@ export class FilterEngine {
     for (const rule of this.exceptionPatternRules) {
       if (rule.regex.test(url) &&
           this._optionsMatch(rule.opts, isThirdParty, abpType, pageHostname)) {
+        this.lruCache.set(cacheKey, false);
         return false;
       }
     }
 
     // ── Check $important block rules first (override exceptions) ──
-    // (checked after exceptions above, but $important rules take priority)
     let importantMatch = false;
 
-    for (const rule of this.domainRulesWithOptions) {
-      if (rule.opts?.important &&
-          this._domainMatchesSingle(requestDomain, rule.domain) &&
-          this._optionsMatch(rule.opts, isThirdParty, abpType, pageHostname)) {
-        importantMatch = true;
-        break;
+    if (domainInBloom) {
+      for (const rule of this.domainRulesWithOptions) {
+        if (rule.opts?.important &&
+            this._domainMatchesSingle(requestDomain, rule.domain) &&
+            this._optionsMatch(rule.opts, isThirdParty, abpType, pageHostname)) {
+          importantMatch = true;
+          break;
+        }
       }
     }
+
     if (!importantMatch) {
       for (const rule of this.blockRules) {
         if (rule.opts?.important &&
@@ -656,31 +761,42 @@ export class FilterEngine {
         }
       }
     }
-    if (importantMatch) return true;
+    if (importantMatch) {
+      this.lruCache.set(cacheKey, true);
+      return true;
+    }
 
     // ── Check block rules ──
 
-    // Fast path: pure domain rules (no options)
-    if (this._domainMatches(requestDomain, this.blockedDomains)) return true;
-
-    // Domain rules with options
-    for (const rule of this.domainRulesWithOptions) {
-      if (rule.opts?.important) continue; // already checked
-      if (this._domainMatchesSingle(requestDomain, rule.domain) &&
-          this._optionsMatch(rule.opts, isThirdParty, abpType, pageHostname)) {
+    if (domainInBloom) {
+      // Fast path: pure domain rules (no options)
+      if (this._domainMatches(requestDomain, this.blockedDomains)) {
+        this.lruCache.set(cacheKey, true);
         return true;
+      }
+
+      // Domain rules with options
+      for (const rule of this.domainRulesWithOptions) {
+        if (rule.opts?.important) continue;
+        if (this._domainMatchesSingle(requestDomain, rule.domain) &&
+            this._optionsMatch(rule.opts, isThirdParty, abpType, pageHostname)) {
+          this.lruCache.set(cacheKey, true);
+          return true;
+        }
       }
     }
 
     // Pattern-based block rules
     for (const rule of this.blockRules) {
-      if (rule.opts?.important) continue; // already checked
+      if (rule.opts?.important) continue;
       if (rule.regex.test(url) &&
           this._optionsMatch(rule.opts, isThirdParty, abpType, pageHostname)) {
+        this.lruCache.set(cacheKey, true);
         return true;
       }
     }
 
+    this.lruCache.set(cacheKey, false);
     return false;
   }
 

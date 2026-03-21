@@ -101,8 +101,13 @@ async function loadTabStats() {
     $('#saved-unit').textContent = 'MB saved';
   } else {
     $('#saved-size').textContent = savedKB;
-    $('#saved-unit').textContent = 'KB saved';
+    $('#saved-unit').textContent = 'KB Saved';
   }
+
+  // Update Eco Stats
+  const energyWh = (data.energySaved || 0) * 1000;
+  $('#eco-energy').textContent = energyWh >= 1000 ? (energyWh / 1000).toFixed(2) + ' kWh' : Math.round(energyWh) + ' Wh';
+  $('#eco-co2').textContent = (data.co2Saved || 0).toFixed(1) + ' g';
 
   // Update groups
   const groups = data.groups || { trackers: [], ads: [], other: [] };

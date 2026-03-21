@@ -562,6 +562,48 @@ iframe[name*="google_ads"],
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // LAYER 6 — Never-Consent (Cookie Banner Auto-Reject)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  const COOKIE_BANNER_PATTERNS = [
+    'cookie', 'consent', 'privacy-policy', 'gdpr', 'banner', 'notice'
+  ];
+
+  const REJECT_BUTTON_TEXTS = [
+    'reject', 'decline', 'deny', 'refuse', 'disagree', 'no thanks',
+    'rechazar', 'denegar', 'no aceptar', 'configurar'
+  ];
+
+  function handleNeverConsent() {
+    // 1. Look for common banner containers
+    const banners = document.querySelectorAll('[id*="cookie" i], [class*="cookie" i], [id*="consent" i], [class*="consent" i], [role="dialog"], [role="alertdialog"]');
+    
+    for (const banner of banners) {
+      if (!banner.offsetParent) continue; // Skip hidden banners
+
+      // 2. Look for buttons inside the banner
+      const buttons = banner.querySelectorAll('button, a[role="button"], [class*="button" i]');
+      
+      for (const btn of buttons) {
+        const text = (btn.textContent || '').trim().toLowerCase();
+        
+        // 3. Try to find a "Reject" or "Manage" button
+        // We prioritize "Reject" but "Manage" often leads to a quick reject all
+        if (REJECT_BUTTON_TEXTS.some(t => text.includes(t))) {
+          try {
+            btn.click();
+            console.log('[midori] Never-Consent: Auto-rejected cookie banner');
+            // Hide the banner just in case clicking doesn't close it immediately
+            banner.style.display = 'none';
+            return true;
+          } catch (e) {}
+        }
+      }
+    }
+    return false;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // INITIALIZATION — runs on every page
   // ══════════════════════════════════════════════════════════════════════════
 
@@ -648,6 +690,9 @@ iframe[name*="google_ads"],
   function initialScan() {
     if (skipHeuristicScan) return;
     scanAndCollapse(document.body || document.documentElement, true);
+    // Never-Consent
+    setTimeout(handleNeverConsent, 500);
+    setTimeout(handleNeverConsent, 2000);
   }
 
   if (!skipHeuristicScan) {

@@ -17,6 +17,10 @@ const AVG_BYTES_BY_CATEGORY = {
   other: 25000,     // General blocked resources ~25KB
 };
 
+// Eco-savings constants (conservative estimates)
+const ENERGY_SAVED_PER_BLOCK_KWH = 0.0005; // 0.5 Wh per block
+const CO2_SAVED_PER_BLOCK_G = 0.2;         // 0.2g CO2 per block
+
 // Badge update debounce — one timer per tab
 const badgeTimers = new Map();
 const BADGE_DEBOUNCE_MS = 500;
@@ -26,6 +30,8 @@ export function initTab(tabId, hostname) {
     hostname,
     blocked: 0,
     dataSaved: 0,
+    energySaved: 0, // In kWh
+    co2Saved: 0,    // In grams
     requests: [],
     _savedBlocked: 0,
     _savedRequestIdx: 0,
@@ -39,7 +45,16 @@ export function getTab(tabId) {
 export function ensureTab(tabId) {
   let tab = tabData.get(tabId);
   if (!tab) {
-    tab = { hostname: '', blocked: 0, dataSaved: 0, requests: [], _savedBlocked: 0, _savedRequestIdx: 0 };
+    tab = { 
+      hostname: '', 
+      blocked: 0, 
+      dataSaved: 0, 
+      energySaved: 0, 
+      co2Saved: 0, 
+      requests: [], 
+      _savedBlocked: 0, 
+      _savedRequestIdx: 0 
+    };
     tabData.set(tabId, tab);
   }
   return tab;
@@ -55,6 +70,10 @@ export function recordBlock(tabId, url) {
 
   // Estimate bandwidth saved based on category
   tab.dataSaved += (AVG_BYTES_BY_CATEGORY[category] || AVG_BYTES_BY_CATEGORY.other);
+  
+  // Eco-calculations
+  tab.energySaved += ENERGY_SAVED_PER_BLOCK_KWH;
+  tab.co2Saved += CO2_SAVED_PER_BLOCK_G;
 
   // Only store details for the first 100 unique domains (saves memory)
   if (tab.requests.length < 100) {
@@ -80,6 +99,14 @@ export function getBlockedCount(tabId) {
 export function getDataSaved(tabId) {
   const tab = tabData.get(tabId);
   return tab ? tab.dataSaved : 0;
+}
+
+export function getEcoStats(tabId) {
+  const tab = tabData.get(tabId);
+  return {
+    energySaved: tab ? tab.energySaved : 0,
+    co2Saved: tab ? tab.co2Saved : 0
+  };
 }
 
 export function getRecentRequests(tabId, count) {

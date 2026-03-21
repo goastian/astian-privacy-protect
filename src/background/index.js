@@ -9,7 +9,7 @@ import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, r
 import { FilterEngine, extractDomain, categorizeRequest } from './filter-engine.js';
 import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
-import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getRecentRequests, getBlockedCount, getDataSaved, updateBadge } from './stats-collector.js';
+import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getRecentRequests, getBlockedCount, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, exportReport } from './report-generator.js';
 
 // ── Dual engine: Ghostery (primary, high-perf) + legacy FilterEngine (fallback) ──
@@ -616,17 +616,21 @@ async function handleMessage(msg) {
     case 'get-tab-stats': {
       // Chromium: use getMatchedRules for real-time data
       if (IS_CHROMIUM) {
-        return await getChromiumTabStats(msg.tabId);
+        const stats = await getChromiumTabStats(msg.tabId);
+        const eco = getEcoStats(msg.tabId);
+        return { ...stats, ...eco };
       }
       // Firefox: use in-memory data
       const tab = getTab(msg.tabId);
       const groups = getGroupedRequests(msg.tabId);
+      const eco = getEcoStats(msg.tabId);
       return {
         hostname: tab?.hostname || '',
         blocked: tab?.blocked || 0,
         dataSaved: getDataSaved(msg.tabId),
         groups,
         recentRequests: getRecentRequests(msg.tabId, 10),
+        ...eco
       };
     }
 
