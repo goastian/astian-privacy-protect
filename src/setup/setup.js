@@ -348,9 +348,22 @@ async function saveDirectToStorage(config) {
   });
 }
 
+function applyTheme(theme) {
+  if (theme === 'system' || !theme) {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Apply theme
+  const options = await sendMessage({ action: 'get-options' });
+  applyTheme(options?.theme || 'system');
+
   setupOptionCards();
 
   $('#btn-next').addEventListener('click', () => {

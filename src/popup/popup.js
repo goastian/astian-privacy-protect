@@ -72,6 +72,9 @@ async function init() {
   const currentLevel = options?.protectionLevel || 'standard';
   updateLevelUI(currentLevel);
 
+  // Apply theme
+  applyTheme(options?.theme || 'system');
+
   // Load tab stats
   await loadTabStats();
 
@@ -437,6 +440,15 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function applyTheme(theme) {
+  if (theme === 'system' || !theme) {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
 }
 
 // ── Start ───────────────────────────────────────────────────────────────────

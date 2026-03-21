@@ -140,6 +140,7 @@ let reportDays = 7;
 
 async function init() {
   currentOptions = await sendMessage({ action: 'get-options' });
+  applyTheme(currentOptions?.theme || 'system');
 
   setupNavigation();
   renderGeneral();
@@ -200,6 +201,7 @@ function renderGeneral() {
   $('#opt-block-annoyances').checked = lists['ublock-annoyances-cookies']?.enabled === true;
   $('#opt-block-social').checked = lists['fanboy-social']?.enabled === true;
   $('#opt-anti-fingerprint').checked = currentOptions.antiFingerprint !== false;
+  $('#opt-theme').value = currentOptions.theme || 'system';
   $('#opt-update-interval').value = String(currentOptions.updateInterval || 4);
 
   if (currentOptions.lastUpdated) {
@@ -1066,6 +1068,12 @@ function setupListeners() {
     currentOptions = await saveOptions({ antiFingerprint: e.target.checked });
   });
 
+  $('#opt-theme').addEventListener('change', async (e) => {
+    const theme = e.target.value;
+    currentOptions = await saveOptions({ theme });
+    applyTheme(theme);
+  });
+
   $('#opt-update-interval').addEventListener('change', async (e) => {
     currentOptions = await saveOptions({ updateInterval: parseInt(e.target.value) });
   });
@@ -1266,6 +1274,15 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function applyTheme(theme) {
+  if (theme === 'system' || !theme) {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
 }
 
 function formatNumber(n) {
