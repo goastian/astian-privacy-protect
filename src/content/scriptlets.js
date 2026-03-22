@@ -9,6 +9,10 @@
 (function () {
   'use strict';
 
+  let isTopFrame = false;
+  try { isTopFrame = window.top === window; } catch(e) { isTopFrame = false; }
+  if (!isTopFrame) return;
+
   // ── Scriptlet Registry ─────────────────────────────────────────────────────
   // Each scriptlet is a function that receives (...args) and returns a string
   // of JS code to be injected into the page context via a <script> element.
@@ -1092,7 +1096,6 @@
 
   var hn = '';
   try { hn = window.location.hostname; } catch(e) {}
-
   if (hn === 'www.youtube.com' || hn === 'youtube.com' || hn === 'm.youtube.com') {
     applyScriptlets([{ name: 'yt-ad-pruner', args: [] }]);
   }

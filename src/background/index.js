@@ -480,48 +480,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (!IS_CHROMIUM) {
       updateBadge(tabId);
     }
-
-    // Send cosmetic rules to content script
-    if (hostname && isEnabled) {
-      const selectors = engine.getCosmeticSelectors(hostname);
-      if (selectors.length > 0) {
-        safeSendMessage(tabId, {
-          action: 'apply-cosmetics',
-          selectors: selectors.slice(0, 500),
-        });
-      }
-
-      // If Ghostery engine is active, also send pre-compiled CSS styles
-      if (engine === ghosteryEngine) {
-        try {
-          const cosmetics = ghosteryEngine.getFullCosmetics(hostname);
-          if (cosmetics.styles) {
-            safeSendMessage(tabId, {
-              action: 'apply-cosmetic-styles',
-              styles: cosmetics.styles,
-            });
-          }
-          // Send Ghostery-compiled scriptlets (from filter lists)
-          if (cosmetics.scripts && cosmetics.scripts.length > 0) {
-            safeSendMessage(tabId, {
-              action: 'apply-compiled-scriptlets',
-              scripts: cosmetics.scripts.slice(0, 100),
-            });
-          }
-        } catch (e) {
-          // Non-critical — cosmetics still work via selectors
-        }
-      }
-
-      // Send scriptlet rules to content script (legacy + custom)
-      const scriptlets = engine.getScriptletRules(hostname);
-      if (scriptlets.length > 0) {
-        safeSendMessage(tabId, {
-          action: 'apply-scriptlets',
-          scriptlets: scriptlets.slice(0, 100),
-        });
-      }
-    }
   }
 });
 
@@ -692,11 +650,20 @@ async function handleMessage(msg) {
     }
 
     case 'get-cosmetics': {
-      return { selectors: engine.getCosmeticSelectors(msg.hostname).slice(0, 500) };
+      const hostname = msg.hostname || '';
+      if (engine === ghosteryEngine) {
+        const cosmetics = ghosteryEngine.getFullCosmetics(hostname);
+        return {
+          selectors: [],
+          styles: cosmetics.styles || '',
+          compiledScripts: (cosmetics.scripts || []).slice(0, 100),
+        };
+      }
+      return { selectors: engine.getCosmeticSelectors(hostname).slice(0, 500), styles: '', compiledScripts: [] };
     }
 
     case 'get-scriptlets': {
-      return { scriptlets: engine.getScriptletRules(msg.hostname).slice(0, 100) };
+      return { scriptlets: engine.getScriptletRules(msg.hostname || '').slice(0, 100) };
     }
 
     case 'get-anti-fingerprint': {

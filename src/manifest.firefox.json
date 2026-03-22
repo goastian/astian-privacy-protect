@@ -42,13 +42,13 @@
       "matches": ["<all_urls>"],
       "js": ["content/cosmetic.js"],
       "run_at": "document_start",
-      "all_frames": true
+      "all_frames": false
     },
     {
       "matches": ["<all_urls>"],
       "js": ["content/scriptlets.js"],
       "run_at": "document_start",
-      "all_frames": true
+      "all_frames": false
     }
   ],
   "chrome_settings_overrides": {

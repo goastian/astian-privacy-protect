@@ -10,6 +10,14 @@
 (function () {
   'use strict';
 
+  let isTopFrame = false;
+  try {
+    isTopFrame = window.top === window;
+  } catch {
+    isTopFrame = false;
+  }
+  if (!isTopFrame) return;
+
   const COLLAPSE_CSS = 'display:none!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;border:0!important;opacity:0!important;pointer-events:none!important;';
   const ATTR_COLLAPSED = 'data-midori-c';
   let appliedStyle = null;
@@ -319,17 +327,13 @@ iframe[name*="google_ads"],
       appliedStyle.parentNode.removeChild(appliedStyle);
     }
 
-    const CHUNK_SIZE = 50;
     const cssRules = [];
 
-    for (let i = 0; i < selectors.length; i += CHUNK_SIZE) {
-      const chunk = selectors.slice(i, i + CHUNK_SIZE);
-      const validSelectors = chunk.filter(s => {
-        try { document.querySelector(s); return true; } catch { return false; }
-      });
-      if (validSelectors.length > 0) {
-        cssRules.push(validSelectors.join(',\n') + ' { ' + COLLAPSE_CSS.replace(/!/g, ' !') + ' }');
-      }
+    for (const sel of selectors) {
+      const s = String(sel || '').trim();
+      if (!s) continue;
+      if (s.includes('{') || s.includes('}')) continue;
+      cssRules.push(s + ' { ' + COLLAPSE_CSS + ' }');
     }
 
     if (cssRules.length === 0) return;
@@ -653,6 +657,22 @@ iframe[name*="google_ads"],
   sendMsg({ action: 'get-cosmetics', hostname }).then(response => {
     const all = [...builtin, ...(response?.selectors || [])];
     applySelectors(all);
+    if (response?.styles) {
+      if (ghosteryStyle && ghosteryStyle.parentNode) {
+        ghosteryStyle.parentNode.removeChild(ghosteryStyle);
+      }
+      ghosteryStyle = document.createElement('style');
+      ghosteryStyle.setAttribute('data-midori-privacy', 'ghostery-cosmetic');
+      ghosteryStyle.textContent = response.styles;
+      (document.head || document.documentElement).appendChild(ghosteryStyle);
+    }
+    if (response?.compiledScripts?.length > 0) {
+      for (const code of response.compiledScripts) {
+        if (code && typeof code === 'string') {
+          window.postMessage({ type: 'midori-compiled-scriptlet', code }, '*');
+        }
+      }
+    }
   });
 
   // ── Step 3: Inject scriptlets ──
@@ -662,9 +682,7 @@ iframe[name*="google_ads"],
   }
 
   sendMsg({ action: 'get-scriptlets', hostname }).then(response => {
-    if (response?.scriptlets?.length > 0) {
-      forwardScriptletsToPage(response.scriptlets);
-    }
+    if (response?.scriptlets?.length > 0) forwardScriptletsToPage(response.scriptlets);
   });
 
   // ── Step 3b: Anti-fingerprinting protection ──
