@@ -180,6 +180,103 @@
             <button class="btn btn-outline btn-sm" id="btn-update-now">Update now</button>
           </div>
         </div>
+
+        <div class="option-card mt-3">
+          <div class="option-row">
+            <div class="option-info">
+              <div class="font-semibold">Local KPI telemetry</div>
+              <div class="text-sm text-secondary">Stores performance and quality metrics locally only. Nothing is sent externally.</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="opt-local-telemetry" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="option-divider"></div>
+          <div class="option-row">
+            <div class="option-info">
+              <div class="font-semibold">Experiment flags</div>
+              <div class="text-sm text-secondary">Enable or disable upcoming modules locally for staged testing.</div>
+            </div>
+          </div>
+          <div class="option-divider"></div>
+          <div class="option-row">
+            <div class="option-info">
+              <div class="font-semibold">SERP bar</div>
+              <div class="text-sm text-secondary">Pre-site risk badge for Google/Bing/DuckDuckGo results</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="exp-serp-bar">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="option-divider"></div>
+          <div class="option-row">
+            <div class="option-info">
+              <div class="font-semibold">TrackerDB assisted</div>
+              <div class="text-sm text-secondary">TrackerDB-assisted classification and blocking signals</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="exp-trackerdb-assisted">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="option-divider"></div>
+          <div class="option-row">
+            <div class="option-info">
+              <div class="font-semibold">IA Shield</div>
+              <div class="text-sm text-secondary">Prompt-injection guardrails for AI sites</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="exp-ia-shield">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="option-divider"></div>
+          <div class="option-row">
+            <div class="option-info">
+              <div class="font-semibold">Aggressive vertical rules</div>
+              <div class="text-sm text-secondary">Higher blocking strictness for selected vertical profiles</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="exp-aggressive-vertical-rules">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="option-card mt-3">
+          <div class="option-row">
+            <div class="option-info">
+              <div class="font-semibold">Baseline KPI snapshot</div>
+              <div class="text-sm text-secondary">Phase 0 metrics captured locally for performance and quality baselining.</div>
+            </div>
+            <button class="btn btn-outline btn-sm" id="btn-reset-kpis">Reset KPIs</button>
+          </div>
+          <div class="option-divider"></div>
+          <div class="kpi-grid" id="kpi-grid">
+            <div class="kpi-item">
+              <div class="kpi-label">Engine startup latency</div>
+              <div class="kpi-value" id="kpi-startup-latency">-</div>
+            </div>
+            <div class="kpi-item">
+              <div class="kpi-label">Matching response time</div>
+              <div class="kpi-value" id="kpi-matching-latency">-</div>
+            </div>
+            <div class="kpi-item">
+              <div class="kpi-label">Content script cost/page</div>
+              <div class="kpi-value" id="kpi-content-cost">-</div>
+            </div>
+            <div class="kpi-item">
+              <div class="kpi-label">Block rate by category</div>
+              <div class="kpi-value" id="kpi-block-rate">-</div>
+            </div>
+            <div class="kpi-item">
+              <div class="kpi-label">False positive report rate</div>
+              <div class="kpi-value" id="kpi-fp-rate">-</div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- Filter Lists Section -->

@@ -24,6 +24,11 @@ const IS_CHROMIUM = __PLATFORM__ === 'chromium';
 let _hourlyBlockBuffer = 0;
 let _hourlyFlushTimer = null;
 const HOURLY_FLUSH_INTERVAL = 60000; // 60s
+const TELEMETRY_FLUSH_INTERVAL = 15000; // 15s
+
+let telemetryState = null;
+let telemetryFlushTimer = null;
+let telemetryDirty = false;
 
 function bufferHourlyBlock(count) {
   _hourlyBlockBuffer += count;
@@ -43,6 +48,148 @@ async function flushHourlyBuffer() {
       console.warn('[midori] Failed to flush hourly stats:', e);
     }
   }
+}
+
+function createMetricBucket() {
+  return { count: 0, avg: 0, min: 0, max: 0, last: 0 };
+}
+
+function normalizeTelemetry(raw) {
+  const t = raw || {};
+  const contentScriptCostMs = t.contentScriptCostMs || {};
+  const falsePositiveReports = t.falsePositiveReports || {};
+  return {
+    enabled: t.enabled !== false,
+    version: 1,
+    updatedAt: t.updatedAt || 0,
+    startupLatencyMs: { ...createMetricBucket(), ...(t.startupLatencyMs || {}) },
+    matchingLatencyMs: { ...createMetricBucket(), ...(t.matchingLatencyMs || {}) },
+    contentScriptCostMs: {
+      cosmetic: { ...createMetricBucket(), ...(contentScriptCostMs.cosmetic || {}) },
+      scriptlets: { ...createMetricBucket(), ...(contentScriptCostMs.scriptlets || {}) },
+      perPage: { ...(contentScriptCostMs.perPage || {}) },
+    },
+    blockedByCategory: {
+      total: 0,
+      ads: 0,
+      trackers: 0,
+      other: 0,
+      unknown: 0,
+      ...(t.blockedByCategory || {}),
+    },
+    falsePositiveReports: {
+      total: 0,
+      byCategory: { ads: 0, trackers: 0, other: 0, unknown: 0, ...(falsePositiveReports.byCategory || {}) },
+      byHostname: { ...(falsePositiveReports.byHostname || {}) },
+    },
+  };
+}
+
+function updateMetricBucket(bucket, value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return;
+
+  bucket.count = (bucket.count || 0) + 1;
+  bucket.last = numeric;
+  bucket.avg = bucket.count === 1 ? numeric : ((bucket.avg || 0) * (bucket.count - 1) + numeric) / bucket.count;
+  bucket.min = bucket.count === 1 ? numeric : Math.min(bucket.min, numeric);
+  bucket.max = bucket.count === 1 ? numeric : Math.max(bucket.max, numeric);
+}
+
+function markTelemetryDirty() {
+  if (!telemetryState?.enabled) return;
+  telemetryDirty = true;
+  if (!telemetryFlushTimer) {
+    telemetryFlushTimer = setTimeout(() => {
+      flushTelemetry().catch((e) => {
+        console.warn('[midori] Failed to flush local telemetry:', e);
+      });
+    }, TELEMETRY_FLUSH_INTERVAL);
+  }
+}
+
+async function flushTelemetry() {
+  if (telemetryFlushTimer) {
+    clearTimeout(telemetryFlushTimer);
+    telemetryFlushTimer = null;
+  }
+  if (!telemetryDirty || !telemetryState) return;
+  telemetryDirty = false;
+  telemetryState.updatedAt = Date.now();
+  await setOptions({ localTelemetry: telemetryState });
+}
+
+function initTelemetryFromOptions(options) {
+  telemetryState = normalizeTelemetry(options?.localTelemetry);
+}
+
+function recordStartupLatency(ms) {
+  if (!telemetryState?.enabled) return;
+  updateMetricBucket(telemetryState.startupLatencyMs, ms);
+  markTelemetryDirty();
+}
+
+function recordMatchingLatency(ms) {
+  if (!telemetryState?.enabled) return;
+  updateMetricBucket(telemetryState.matchingLatencyMs, ms);
+  markTelemetryDirty();
+}
+
+function recordBlockedCategory(category) {
+  if (!telemetryState?.enabled) return;
+  const cat = (category === 'ads' || category === 'trackers' || category === 'other') ? category : 'unknown';
+  telemetryState.blockedByCategory.total = (telemetryState.blockedByCategory.total || 0) + 1;
+  telemetryState.blockedByCategory[cat] = (telemetryState.blockedByCategory[cat] || 0) + 1;
+  markTelemetryDirty();
+}
+
+function recordContentScriptCost(script, hostname, durationMs) {
+  if (!telemetryState?.enabled) return;
+  const key = script === 'scriptlets' ? 'scriptlets' : 'cosmetic';
+  updateMetricBucket(telemetryState.contentScriptCostMs[key], durationMs);
+
+  const host = (hostname || '').toLowerCase();
+  if (host) {
+    const perPage = telemetryState.contentScriptCostMs.perPage;
+    const current = perPage[host] || { count: 0, avg: 0, last: 0, total: 0 };
+    current.count += 1;
+    current.total += Number(durationMs) || 0;
+    current.last = Number(durationMs) || 0;
+    current.avg = current.total / current.count;
+    perPage[host] = current;
+
+    const keys = Object.keys(perPage);
+    if (keys.length > 250) {
+      const oldest = keys.slice(0, keys.length - 250);
+      for (const k of oldest) {
+        delete perPage[k];
+      }
+    }
+  }
+
+  markTelemetryDirty();
+}
+
+function recordFalsePositive(hostname, category) {
+  if (!telemetryState?.enabled) return;
+  const cat = (category === 'ads' || category === 'trackers' || category === 'other') ? category : 'unknown';
+  const fp = telemetryState.falsePositiveReports;
+  fp.total = (fp.total || 0) + 1;
+  fp.byCategory[cat] = (fp.byCategory[cat] || 0) + 1;
+
+  const host = (hostname || '').toLowerCase();
+  if (host) {
+    fp.byHostname[host] = (fp.byHostname[host] || 0) + 1;
+    const keys = Object.keys(fp.byHostname);
+    if (keys.length > 250) {
+      const oldest = keys.slice(0, keys.length - 250);
+      for (const k of oldest) {
+        delete fp.byHostname[k];
+      }
+    }
+  }
+
+  markTelemetryDirty();
 }
 
 // ── Protection level presets ─────────────────────────────────────────────────
@@ -113,6 +260,7 @@ async function initialize() {
   const t0 = Date.now();
 
   const options = await getOptions();
+  initTelemetryFromOptions(options);
   isEnabled = options.enabled !== false;
 
   // Chromium: enable native badge counter (zero overhead)
@@ -170,6 +318,7 @@ async function initialize() {
 
   const engineName = engine === ghosteryEngine ? 'Ghostery' : 'Legacy';
   console.log(`[midori] Ready in ${Date.now() - t0}ms. Engine: ${engineName}, ${engine.rulesCount} rules.`);
+  recordStartupLatency(Date.now() - t0);
 
 }
 
@@ -255,9 +404,12 @@ function setupWebRequestBlocking() {
 
       if (pageHostname && isWhitelistedSync(pageHostname)) return { cancel: false };
 
+      const tMatchStart = performance.now();
       const blocked = engine.shouldBlock(url, pageHostname, details.type);
+      recordMatchingLatency(performance.now() - tMatchStart);
 
       if (blocked) {
+        recordBlockedCategory(categorizeRequest(url));
         recordBlock(details.tabId, url);
         updateBadge(details.tabId);
 
@@ -327,6 +479,9 @@ if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
 
     // Capture tracker domain (cap at 200 unique domains per tab)
     const url = info.request?.url;
+    if (url) {
+      recordBlockedCategory(categorizeRequest(url));
+    }
     if (entry.domains.size < 200 && url) {
       const d = extractDomain(url);
       if (d) {
@@ -535,6 +690,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (pausedHost) delete whitelist[pausedHost];
     await setOptions({ whitelist, pauseUntil: 0, pausedHostname: '' });
     if (IS_CHROMIUM) await updateDnrWhitelist();
+  }
+
+  if (telemetryDirty) {
+    await flushTelemetry().catch(() => {});
   }
 
 });
@@ -861,7 +1020,37 @@ async function handleMessage(msg) {
     case 'save-options-partial': {
       if (msg.options) {
         await setOptions(msg.options);
+        if (Object.prototype.hasOwnProperty.call(msg.options, 'localTelemetry')) {
+          telemetryState = normalizeTelemetry(msg.options.localTelemetry);
+        }
       }
+      return { success: true };
+    }
+
+    case 'record-content-script-kpi': {
+      recordContentScriptCost(msg.script, msg.hostname, msg.durationMs);
+      return { success: true };
+    }
+
+    case 'report-false-positive': {
+      recordFalsePositive(msg.hostname, msg.category);
+      return { success: true, total: telemetryState?.falsePositiveReports?.total || 0 };
+    }
+
+    case 'set-telemetry-enabled': {
+      const enabled = msg.enabled !== false;
+      telemetryState = telemetryState || normalizeTelemetry(null);
+      telemetryState.enabled = enabled;
+      telemetryState.updatedAt = Date.now();
+      await setOptions({ localTelemetry: telemetryState });
+      telemetryDirty = false;
+      return { success: true, enabled };
+    }
+
+    case 'reset-local-telemetry': {
+      telemetryState = normalizeTelemetry(null);
+      await setOptions({ localTelemetry: telemetryState });
+      telemetryDirty = false;
       return { success: true };
     }
 
@@ -971,11 +1160,18 @@ if (IS_CHROMIUM && webRequestAPI?.onErrorOccurred) {
 
       const tab = getTab(details.tabId);
       if (tab) {
+        recordBlockedCategory(categorizeRequest(details.url));
         recordBlock(details.tabId, details.url);
       }
     },
     { urls: ['<all_urls>'] }
   );
+}
+
+if (chrome.runtime?.onSuspend) {
+  chrome.runtime.onSuspend.addListener(() => {
+    flushTelemetry().catch(() => {});
+  });
 }
 
 // ── Start ───────────────────────────────────────────────────────────────────

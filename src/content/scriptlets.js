@@ -12,6 +12,20 @@
   let isTopFrame = false;
   try { isTopFrame = window.top === window; } catch(e) { isTopFrame = false; }
   if (!isTopFrame) return;
+  const scriptStart = performance.now();
+
+  function reportContentCost(durationMs) {
+    try {
+      const payload = {
+        action: 'record-content-script-kpi',
+        script: 'scriptlets',
+        hostname: window.location.hostname || '',
+        durationMs,
+      };
+      const p = chrome.runtime.sendMessage(payload);
+      if (p && typeof p.then === 'function') p.catch(() => {});
+    } catch (e) {}
+  }
 
   // ── Scriptlet Registry ─────────────────────────────────────────────────────
   // Each scriptlet is a function that receives (...args) and returns a string
@@ -1136,4 +1150,8 @@
   if (hn === 'www.youtube.com' || hn === 'youtube.com' || hn === 'm.youtube.com') {
     _appliedScriptlets['yt-ad-pruner:'] = true;
   }
+
+  setTimeout(function() {
+    reportContentCost(performance.now() - scriptStart);
+  }, 0);
 })();

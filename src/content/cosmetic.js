@@ -17,6 +17,7 @@
     isTopFrame = false;
   }
   if (!isTopFrame) return;
+  const scriptStart = performance.now();
 
   const COLLAPSE_CSS = 'display:none!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;border:0!important;opacity:0!important;pointer-events:none!important;';
   const ATTR_COLLAPSED = 'data-midori-c';
@@ -39,6 +40,16 @@
         resolve(null);
       }
     });
+  }
+
+  function reportContentCost(durationMs) {
+    const hostname = window.location.hostname || '';
+    sendMsg({
+      action: 'record-content-script-kpi',
+      script: 'cosmetic',
+      hostname,
+      durationMs,
+    }).catch(() => {});
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -808,5 +819,9 @@ iframe[name*="google_ads"],
     });
   }
   startSPAObserver();
+
+  setTimeout(() => {
+    reportContentCost(performance.now() - scriptStart);
+  }, 0);
 
 })();

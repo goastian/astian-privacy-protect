@@ -116,6 +116,35 @@ body {
   margin: 0 20px;
 }
 
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 20px 18px;
+}
+
+.kpi-item {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  padding: 10px 12px;
+}
+
+.kpi-label {
+  font-size: 0.72rem;
+  color: var(--color-text-tertiary);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.kpi-value {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  font-weight: 800;
+}
+
 /* ── Inputs ── */
 .select-input {
   padding: 8px 12px;
@@ -433,4 +462,15 @@ body {
 .tracker-db-domain {
   color: var(--color-primary);
   font-weight: 700;
+}
+
+@media (max-width: 980px) {
+  #content {
+    padding: 24px;
+    max-width: 100%;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
 }

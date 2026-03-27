@@ -14,6 +14,7 @@ const api = (typeof browser !== 'undefined' && browser.runtime) ? browser : chro
 let currentTabId = null;
 let currentHostname = '';
 let isWhitelisted = false;
+let lastGroups = { trackers: [], ads: [], other: [] };
 
 // ── Category toggle state ────────────────────────────────────────────────────
 let categoryState = { ads: true, trackers: true, fingerprinting: true };
@@ -114,6 +115,7 @@ async function loadTabStats() {
 
   // Update groups
   const groups = data.groups || { trackers: [], ads: [], other: [] };
+  lastGroups = groups;
 
   renderGroup('trackers', groups.trackers);
   renderGroup('ads', groups.ads);
@@ -322,6 +324,16 @@ function updatePauseCountdownDisplay() {
   if (el) el.textContent = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
 }
 
+function inferFalsePositiveCategory() {
+  const ads = lastGroups?.ads?.length || 0;
+  const trackers = lastGroups?.trackers?.length || 0;
+  const other = lastGroups?.other?.length || 0;
+  if (ads >= trackers && ads >= other && ads > 0) return 'ads';
+  if (trackers >= other && trackers > 0) return 'trackers';
+  if (other > 0) return 'other';
+  return 'unknown';
+}
+
 async function pauseProtection(minutes) {
   if (!currentHostname) return;
   pauseEndTime = Date.now() + minutes * 60000;
@@ -409,6 +421,29 @@ function setupListeners() {
     const url = api.runtime.getURL('options/options.html#reports');
     api.tabs.create({ url });
     window.close();
+  });
+
+  $('#btn-report-fp').addEventListener('click', async () => {
+    const btn = $('#btn-report-fp');
+    const prevHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = 'Reporting...';
+    const category = inferFalsePositiveCategory();
+    const result = await sendMessage({
+      action: 'report-false-positive',
+      hostname: currentHostname,
+      category,
+    });
+    if (result?.success) {
+      btn.textContent = 'Reported';
+      setTimeout(() => {
+        btn.innerHTML = prevHTML;
+        btn.disabled = false;
+      }, 1200);
+      return;
+    }
+    btn.textContent = 'Retry Report';
+    btn.disabled = false;
   });
 
   // Group toggle (collapse/expand)

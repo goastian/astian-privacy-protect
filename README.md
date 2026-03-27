@@ -13,7 +13,7 @@ A lightweight, fast, and privacy-focused ad & tracker blocker for Chromium and F
 - **Cosmetic filtering** — hides ad elements from pages
 - **Auto-updating lists** — configurable interval (1h, 4h, 12h, 24h)
 - **Dark mode** — automatic based on system preference
-- **Zero telemetry** — no data is sent to any external server
+- **Local-only telemetry** — optional KPI metrics stay on-device and are never sent externally
 - **Ultra lightweight** — < 25KB JS bundle (without filter lists)
 
 ## Supported Browsers
@@ -22,6 +22,8 @@ A lightweight, fast, and privacy-focused ad & tracker blocker for Chromium and F
 |---------|----------|-----------------|
 | Chrome, Edge, Brave, Opera | MV3 | `declarativeNetRequest` (native) |
 | Firefox | MV2 | `webRequest` (JS engine) |
+
+See compatibility limits and feature viability notes in `docs/browser-compat-mv3-mv2.md`.
 
 ## Installation (Development)
 

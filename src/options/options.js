@@ -196,11 +196,18 @@ function renderGeneral() {
   if (!currentOptions) return;
 
   const lists = currentOptions.lists || {};
+  const experiments = currentOptions.experiments || {};
+  const telemetry = currentOptions.localTelemetry || {};
   $('#opt-block-ads').checked = lists['easylist']?.enabled !== false;
   $('#opt-block-trackers').checked = lists['easyprivacy']?.enabled !== false;
   $('#opt-block-annoyances').checked = lists['ublock-annoyances-cookies']?.enabled === true;
   $('#opt-block-social').checked = lists['fanboy-social']?.enabled === true;
   $('#opt-anti-fingerprint').checked = currentOptions.antiFingerprint !== false;
+  $('#opt-local-telemetry').checked = telemetry.enabled !== false;
+  $('#exp-serp-bar').checked = experiments.serpBar === true;
+  $('#exp-trackerdb-assisted').checked = experiments.trackerDbAssisted === true;
+  $('#exp-ia-shield').checked = experiments.iaShield === true;
+  $('#exp-aggressive-vertical-rules').checked = experiments.aggressiveVerticalRules === true;
   $('#opt-theme').value = currentOptions.theme || 'system';
   $('#opt-update-interval').value = String(currentOptions.updateInterval || 4);
 
@@ -209,6 +216,48 @@ function renderGeneral() {
     const ago = getTimeAgo(date);
     $('#last-updated').textContent = ago;
   }
+
+  renderKpiSnapshot();
+}
+
+function formatMetric(metric, unit = 'ms') {
+  if (!metric || !metric.count) return 'No data yet';
+  return `${metric.avg.toFixed(2)} ${unit} avg (${metric.count} samples)`;
+}
+
+function renderKpiSnapshot() {
+  const telemetry = currentOptions?.localTelemetry || {};
+  const startup = telemetry.startupLatencyMs || {};
+  const matching = telemetry.matchingLatencyMs || {};
+  const content = telemetry.contentScriptCostMs || {};
+  const blocked = telemetry.blockedByCategory || {};
+  const fp = telemetry.falsePositiveReports || {};
+
+  $('#kpi-startup-latency').textContent = formatMetric(startup);
+  $('#kpi-matching-latency').textContent = formatMetric(matching);
+
+  const cosmeticAvg = content.cosmetic?.avg || 0;
+  const scriptletsAvg = content.scriptlets?.avg || 0;
+  const scriptCount = (content.cosmetic?.count || 0) + (content.scriptlets?.count || 0);
+  $('#kpi-content-cost').textContent = scriptCount > 0
+    ? `${(cosmeticAvg + scriptletsAvg).toFixed(2)} ms (cosmetic ${cosmeticAvg.toFixed(2)} / scriptlets ${scriptletsAvg.toFixed(2)})`
+    : 'No data yet';
+
+  const totalBlocked = blocked.total || 0;
+  if (totalBlocked > 0) {
+    const adsRate = Math.round(((blocked.ads || 0) / totalBlocked) * 100);
+    const trackersRate = Math.round(((blocked.trackers || 0) / totalBlocked) * 100);
+    const otherRate = Math.max(0, 100 - adsRate - trackersRate);
+    $('#kpi-block-rate').textContent = `Ads ${adsRate}% · Trackers ${trackersRate}% · Other ${otherRate}%`;
+  } else {
+    $('#kpi-block-rate').textContent = 'No data yet';
+  }
+
+  const fpTotal = fp.total || 0;
+  const fpRate = totalBlocked > 0 ? ((fpTotal / totalBlocked) * 100) : 0;
+  $('#kpi-fp-rate').textContent = totalBlocked > 0
+    ? `${fpRate.toFixed(2)}% (${fpTotal} reports / ${totalBlocked} blocked)`
+    : 'No data yet';
 }
 
 // ── Filter Lists ────────────────────────────────────────────────────────────
@@ -1068,6 +1117,32 @@ function setupListeners() {
     currentOptions = await saveOptions({ antiFingerprint: e.target.checked });
   });
 
+  $('#opt-local-telemetry').addEventListener('change', async (e) => {
+    const localTelemetry = {
+      ...(currentOptions.localTelemetry || {}),
+      enabled: e.target.checked,
+    };
+    currentOptions = await saveOptions({ localTelemetry });
+    await sendMessage({ action: 'set-telemetry-enabled', enabled: e.target.checked });
+    renderKpiSnapshot();
+  });
+
+  const syncExperimentFlags = async () => {
+    const experiments = {
+      ...(currentOptions.experiments || {}),
+      serpBar: $('#exp-serp-bar').checked,
+      trackerDbAssisted: $('#exp-trackerdb-assisted').checked,
+      iaShield: $('#exp-ia-shield').checked,
+      aggressiveVerticalRules: $('#exp-aggressive-vertical-rules').checked,
+    };
+    currentOptions = await saveOptions({ experiments });
+  };
+
+  $('#exp-serp-bar').addEventListener('change', syncExperimentFlags);
+  $('#exp-trackerdb-assisted').addEventListener('change', syncExperimentFlags);
+  $('#exp-ia-shield').addEventListener('change', syncExperimentFlags);
+  $('#exp-aggressive-vertical-rules').addEventListener('change', syncExperimentFlags);
+
   $('#opt-theme').addEventListener('change', async (e) => {
     const theme = e.target.value;
     currentOptions = await saveOptions({ theme });
@@ -1092,6 +1167,17 @@ function setupListeners() {
       console.error('Update failed:', e);
     }
     btn.textContent = 'Update now';
+    btn.disabled = false;
+  });
+
+  $('#btn-reset-kpis').addEventListener('click', async () => {
+    const btn = $('#btn-reset-kpis');
+    btn.disabled = true;
+    btn.textContent = 'Resetting...';
+    await sendMessage({ action: 'reset-local-telemetry' });
+    currentOptions = await sendMessage({ action: 'get-options' });
+    renderGeneral();
+    btn.textContent = 'Reset KPIs';
     btn.disabled = false;
   });
 

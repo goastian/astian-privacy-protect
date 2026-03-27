@@ -65,6 +65,12 @@ const storageLocal = {
 const DEFAULTS = {
   enabled: true,
   whitelist: {},
+  experiments: {
+    serpBar: false,
+    trackerDbAssisted: false,
+    iaShield: false,
+    aggressiveVerticalRules: false,
+  },
   lists: {
     // ── Core lists (enabled by default) ──
     'easylist': { enabled: true, url: 'https://easylist.to/easylist/easylist.txt' },
@@ -104,6 +110,24 @@ const DEFAULTS = {
   dailyStats: [],
   hourlyStats: {},
   totalBlocked: 0,
+  localTelemetry: {
+    enabled: true,
+    version: 1,
+    updatedAt: 0,
+    startupLatencyMs: { count: 0, avg: 0, min: 0, max: 0, last: 0 },
+    matchingLatencyMs: { count: 0, avg: 0, min: 0, max: 0, last: 0 },
+    contentScriptCostMs: {
+      cosmetic: { count: 0, avg: 0, min: 0, max: 0, last: 0 },
+      scriptlets: { count: 0, avg: 0, min: 0, max: 0, last: 0 },
+      perPage: {},
+    },
+    blockedByCategory: { total: 0, ads: 0, trackers: 0, other: 0, unknown: 0 },
+    falsePositiveReports: {
+      total: 0,
+      byCategory: { ads: 0, trackers: 0, other: 0, unknown: 0 },
+      byHostname: {},
+    },
+  },
 };
 
 export async function getOptions() {
