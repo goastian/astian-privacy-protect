@@ -2,9 +2,9 @@
    Design: Ultra-Flat "Vibrant Sage" */
 
 body {
-  width: 360px;
+  width: 390px;
   min-height: 200px;
-  max-height: 580px;
+  max-height: 640px;
   overflow: hidden;
 }
 
@@ -12,7 +12,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-height: 580px;
+  max-height: 640px;
   overflow: hidden;
 }
 
@@ -21,7 +21,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
 }
@@ -33,7 +33,7 @@ body {
 }
 
 .popup-title {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 800;
   color: var(--color-text);
   letter-spacing: -0.01em;
@@ -45,8 +45,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-sm);
   color: var(--color-text-tertiary);
   transition: all var(--transition-fast);
@@ -59,7 +59,7 @@ body {
 
 /* ── Status section ── */
 .popup-status {
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--color-border);
   transition: all var(--transition-fast);
   background: var(--color-bg);
@@ -86,8 +86,8 @@ body {
 }
 
 .status-dot {
-  width: 10px;
-  height: 10px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -101,15 +101,15 @@ body {
 }
 
 .status-label {
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--color-text);
 }
 
 .status-host {
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   color: var(--color-text-tertiary);
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 /* ── Sections ── */
@@ -122,12 +122,12 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 800;
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 /* ── Protection Level (Segmented Control) ── */
@@ -141,13 +141,13 @@ body {
 
 .level-btn {
   flex: 1;
-  padding: 7px 4px;
+  padding: 10px 4px;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
   cursor: pointer;
   transition: all var(--transition-fast);
-  font-size: 0.7rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-text-tertiary);
   text-transform: uppercase;
@@ -176,13 +176,13 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 4px;
+  padding: 9px 6px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-bg);
   cursor: pointer;
   transition: all var(--transition-fast);
-  font-size: 0.7rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-text-tertiary);
 }
@@ -448,7 +448,7 @@ body {
 
 /* ── Footer ── */
 .popup-footer {
-  padding: 10px 16px;
+  padding: 12px 18px;
   border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
@@ -459,11 +459,11 @@ body {
 .footer-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
+  gap: 8px;
+  font-size: 0.92rem;
   color: var(--color-primary);
   font-weight: 700;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
   flex: 1;
@@ -492,7 +492,7 @@ body {
 }
 
 .oa-title {
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -508,8 +508,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-sm);
   color: var(--color-text-tertiary);
   cursor: pointer;
@@ -526,8 +526,8 @@ body {
 .oa-body {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 4px 16px 12px;
+  gap: 16px;
+  padding: 8px 18px 14px;
 }
 
 .oa-body.hidden {
@@ -537,14 +537,14 @@ body {
 /* ── Donut SVG wrapper ── */
 .oa-donut-wrap {
   position: relative;
-  width: 88px;
-  height: 88px;
+  width: 100px;
+  height: 100px;
   flex-shrink: 0;
 }
 
 .oa-donut {
-  width: 88px;
-  height: 88px;
+  width: 100px;
+  height: 100px;
   transform: rotate(-90deg);
   overflow: visible;
 }
@@ -568,14 +568,14 @@ body {
 }
 
 .donut-total {
-  font-size: 1.35rem;
+  font-size: 1.6rem;
   font-weight: 900;
   letter-spacing: -0.04em;
   color: var(--color-text);
 }
 
 .donut-label {
-  font-size: 0.52rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -595,13 +595,13 @@ body {
 .oa-cat-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 0.75rem;
+  gap: 8px;
+  font-size: 0.88rem;
 }
 
 .oa-cat-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -618,7 +618,7 @@ body {
 .oa-cat-count {
   font-weight: 800;
   color: var(--color-text);
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   flex-shrink: 0;
 }
 
@@ -628,10 +628,10 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 10px 0 4px;
+  gap: 6px;
+  padding: 12px 0 6px;
   color: var(--color-text-tertiary);
-  font-size: 0.7rem;
+  font-size: 0.82rem;
   font-weight: 600;
   width: 100%;
   text-align: center;
@@ -646,16 +646,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 7px 16px 9px;
-  font-size: 0.72rem;
+  gap: 6px;
+  padding: 10px 18px 12px;
+  font-size: 0.85rem;
   color: var(--color-text-tertiary);
 }
 
 .oa-blocked-count {
   font-weight: 900;
   color: var(--color-danger);
-  font-size: 0.82rem;
+  font-size: 0.95rem;
 }
 
 .oa-blocked-label {
@@ -681,9 +681,9 @@ body {
 .flat-entry {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 0.72rem;
-  padding: 4px 0;
+  gap: 8px;
+  font-size: 0.85rem;
+  padding: 6px 0;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -708,7 +708,7 @@ body {
 }
 
 .flat-entry-cat {
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--color-text-tertiary);
   text-transform: uppercase;
@@ -720,24 +720,24 @@ body {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .module-cards {
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .mc-row {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .module-card {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 10px;
+  gap: 9px;
+  padding: 11px 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
@@ -770,7 +770,7 @@ body {
 }
 
 .mc-name {
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--color-text);
   white-space: nowrap;
@@ -779,7 +779,7 @@ body {
 }
 
 .mc-state {
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -792,19 +792,19 @@ body {
 
 /* smaller toggle inside cards */
 .toggle.toggle-xs .toggle-slider {
-  width: 28px;
-  height: 16px;
+  width: 34px;
+  height: 20px;
 }
 
 .toggle.toggle-xs .toggle-slider::before {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   top: 2px;
   left: 2px;
 }
 
 .toggle.toggle-xs input:checked + .toggle-slider::before {
-  transform: translateX(12px);
+  transform: translateX(14px);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -814,7 +814,7 @@ body {
 .cstats-bar {
   display: flex;
   align-items: center;
-  padding: 10px 8px;
+  padding: 12px 10px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg);
 }
@@ -828,7 +828,7 @@ body {
 }
 
 .cstat-val {
-  font-size: 1.35rem;
+  font-size: 1.55rem;
   font-weight: 900;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -836,7 +836,7 @@ body {
 }
 
 .cstat-lbl {
-  font-size: 0.58rem;
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -845,7 +845,7 @@ body {
 
 .cstat-sep {
   width: 1px;
-  height: 28px;
+  height: 32px;
   background: var(--color-border);
   flex-shrink: 0;
 }
