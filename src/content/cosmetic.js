@@ -477,6 +477,9 @@ iframe[name*="google_ads"],
   function scanAndCollapse(root, fullScan) {
     if (!root || !root.querySelectorAll) return;
 
+    // Optimization 8.2: Early exit if root is too large (likely content, not ads)
+    if (root.children && root.children.length > 1000) return;
+
     // Fast path: query known ad selectors (always runs)
     const fastSelectors = [
       '[id^="div-gpt-ad"]', '[id^="google_ads"]', 'ins.adsbygoogle',
@@ -488,18 +491,22 @@ iframe[name*="google_ads"],
     for (const sel of fastSelectors) {
       try {
         const els = root.querySelectorAll(sel);
+        // Optimization 8.2: Early exit if too many matches (likely false positives)
+        if (els.length > 100) break;
         for (let i = 0; i < els.length; i++) {
           collapseElement(els[i]);
         }
       } catch {}
     }
 
-    // Slow path: heuristic check (only on initial/full scans)
-    if (fullScan) {
+    // Slow path: heuristic check (only on initial/full scans AND for small roots)
+    if (fullScan && root.children && root.children.length < 200) {
       try {
         // Target only likely ad containers — skip already-collapsed
         const candidates = root.querySelectorAll('div:not([data-midori-c]), aside:not([data-midori-c]), ins:not([data-midori-c]), iframe:not([data-midori-c])');
-        for (let i = 0; i < candidates.length; i++) {
+        // Optimization 8.2: Limit heuristic checks
+        const limit = Math.min(candidates.length, 50);
+        for (let i = 0; i < limit; i++) {
           if (isAdElement(candidates[i])) {
             collapseElement(candidates[i]);
           }
@@ -512,16 +519,30 @@ iframe[name*="google_ads"],
    * Lightweight scan for just the added nodes from a mutation.
    */
   function scanMutations(mutations) {
+    // Optimization 8.2: Early exit if no mutations to process
+    if (!mutations || mutations.length === 0) return;
+    
     for (const mutation of mutations) {
+      // Optimization 8.2: Skip mutations without added nodes
+      if (!mutation.addedNodes || mutation.addedNodes.length === 0) continue;
+      
       for (let i = 0; i < mutation.addedNodes.length; i++) {
         const node = mutation.addedNodes[i];
         if (node.nodeType !== 1) continue; // Element nodes only
+
+        // Early exit: Skip if node is script/style/noscript (performance optimization)
+        const tagName = node.tagName;
+        if (tagName === 'SCRIPT' || tagName === 'STYLE' || tagName === 'NOSCRIPT' || 
+            tagName === 'META' || tagName === 'LINK') continue;
 
         // Check the node itself
         if (isAdElement(node)) {
           collapseElement(node);
           continue; // No need to scan children if parent is collapsed
         }
+
+        // Optimization 8.2: Skip large subtrees (likely content, not ads)
+        if (node.children && node.children.length > 500) continue;
 
         // Check children (only if it has child elements)
         if (node.children && node.children.length > 0) {
@@ -740,10 +761,26 @@ iframe[name*="google_ads"],
 
   // ── Step 5: Universal MutationObserver — watches for dynamically inserted ads ──
   // Skip on excluded sites to avoid false positives and performance overhead.
+  // Optimization 8.2: Early exit for sites that don't need dynamic monitoring
+  const OBSERVER_SKIP_HOSTNAMES = [
+    'youtube.com', 'youtu.be', 'youtube-nocookie.com', // YouTube has native ads, skip observer
+    'reddit.com', 'twitch.tv', // High-traffic sites: use less aggressive monitoring
+  ];
+  
+  function shouldSkipObserver() {
+    if (skipHeuristicScan) return true;
+    for (const domain of OBSERVER_SKIP_HOSTNAMES) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) return true;
+    }
+    return false;
+  }
+  
   let observerTimer = null;
+  let observerFrameThrottle = 0;
+  const OBSERVER_THROTTLE_MS = 500; // Max frame rate for observer callbacks
 
   function startUniversalObserver() {
-    if (skipHeuristicScan) return;
+    if (shouldSkipObserver()) return;
     const target = document.body || document.documentElement;
     if (!target) {
       document.addEventListener('DOMContentLoaded', startUniversalObserver, { once: true });
@@ -751,19 +788,41 @@ iframe[name*="google_ads"],
     }
 
     let pendingMutations = [];
+    let mutationCount = 0;
+    const MAX_MUTATIONS_PER_BATCH = 100; // Process max 100 mutations per batch (8.2 optimization: aggressive batching)
+    
     const observer = new MutationObserver((mutations) => {
+      // Optimization 8.2: Early exit if too many mutations (likely noise)
+      if (mutations.length > 200) {
+        return; // Skip batch to avoid performance degradation
+      }
+      
       // Batch mutations via rAF for lower overhead than setTimeout
-      pendingMutations.push(...mutations);
+      pendingMutations.push(...mutations.slice(0, MAX_MUTATIONS_PER_BATCH));
+      mutationCount += mutations.length;
+      
       if (observerTimer) return;
       observerTimer = requestAnimationFrame(() => {
         observerTimer = null;
         const batch = pendingMutations;
+        const count = mutationCount;
         pendingMutations = [];
+        mutationCount = 0;
         scanMutations(batch);
+        
+        // Report performance KPI if too many mutations
+        if (count > 50) {
+          reportContentCost(0); // Signal high mutation activity
+        }
       });
     });
 
-    observer.observe(target, { childList: true, subtree: true });
+    // Optimization 8.2: Limit observer scope to main content areas only (not entire subtree)
+    observer.observe(target, { 
+      childList: true, 
+      subtree: true 
+      // Don't observe attributes to reduce callback frequency
+    });
   }
 
   startUniversalObserver();

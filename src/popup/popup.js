@@ -25,7 +25,55 @@ let pauseInterval = null;
 
 // ── Live stream state ────────────────────────────────────────────────────────
 let lastLiveCount = 0;
-let liveStreamEnabled = true;
+let liveStreamEnabled = false; // Disabled by default for performance
+
+// ── Smart refresh debounce ──────────────────────────────────────────────────
+let lastRenderedData = null;
+let refreshDebounceTimer = null;
+const SMART_REFRESH_DEBOUNCE_MS = 300; // Debounce rapid updates
+let pollbackTimer = null;
+const POLLBACK_INTERVAL_MS = 5000; // Fallback polling every 5s if no events
+
+// ── Check if data changed ───────────────────────────────────────────────────
+function hasDataChanged(newData) {
+  if (!lastRenderedData) return true;
+  
+  // Compare key fields for efficient diffing
+  return (
+    newData.blocked !== lastRenderedData.blocked ||
+    newData.dataSaved !== lastRenderedData.dataSaved ||
+    newData.energySaved !== lastRenderedData.energySaved ||
+    newData.co2Saved !== lastRenderedData.co2Saved ||
+    JSON.stringify(newData.groups || {}) !== JSON.stringify(lastRenderedData.groups || {})
+  );
+}
+
+// ── Smart refresh with debounce ─────────────────────────────────────────────
+function scheduleSmartRefresh(data) {
+  if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
+  
+  refreshDebounceTimer = setTimeout(async () => {
+    refreshDebounceTimer = null;
+    if (currentTabId && hasDataChanged(data)) {
+      renderTabStats(data);
+    }
+  }, SMART_REFRESH_DEBOUNCE_MS);
+}
+
+// ── Setup message listener for background updates ─────────────────────────────
+function setupMessageListener() {
+  api.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'popup-stats-update') {
+      const tabId = request.tabId;
+      if (tabId === currentTabId && request.data) {
+        // Debounced smart refresh
+        scheduleSmartRefresh(request.data);
+      }
+      sendResponse({ ok: true });
+      return true;
+    }
+  });
+}
 
 // ── Initialize ──────────────────────────────────────────────────────────────
 
@@ -79,14 +127,17 @@ async function init() {
   // Render module cards from options
   updateModuleCards(options);
 
-  // Load tab stats
+  // Setup message listener for background updates (event-driven)
+  setupMessageListener();
+
+  // Load tab stats once on init
   await loadTabStats();
 
   // Set up event listeners
   setupListeners();
 
-  // Poll for updates every 2 seconds (live stream + stats)
-  setInterval(loadTabStats, 2000);
+  // Fallback polling every 5 seconds (only if background stops sending updates)
+  pollbackTimer = setInterval(loadTabStats, POLLBACK_INTERVAL_MS);
 }
 
 // ── Load tab stats ──────────────────────────────────────────────────────────
@@ -96,8 +147,17 @@ async function loadTabStats() {
 
   const data = await sendMessage({ action: 'get-tab-stats', tabId: currentTabId });
   if (!data) return;
+  // Smart refresh: only render if data changed
+  if (hasDataChanged(data)) {
+    renderTabStats(data);
+  }
+}
 
-  // Update counter
+// ── Render tab stats (extracted from loadTabStats for reusability) ─────────────
+
+function renderTabStats(data) {
+  lastRenderedData = { ...data }; // Save for next diff
+    // Update counter
   const blocked = data.blocked || 0;
   $('#blocked-count').textContent = blocked;
 
@@ -133,8 +193,10 @@ async function loadTabStats() {
   // OA Panel — dona + categorías
   updateOAPanel(groups, blocked);
 
-  // Update live stream
-  updateLiveStream(data.recentRequests || [], blocked);
+  // Update live stream (skip if disabled by default)
+  if (liveStreamEnabled) {
+    updateLiveStream(data.recentRequests || [], blocked);
+  }
 }
 
 function renderGroup(name, domains) {

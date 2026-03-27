@@ -79,6 +79,13 @@ class LRUCache {
   }
 }
 
+// Optimization 8.5: Global categorization cache to avoid repeated parsing
+const categorizationCache = new LRUCache(2000);
+
+// Optimization 8.5: Compiled regex patterns for faster matching
+const adUrlPatternsRegex = /(\/ads\/|\/ad\/|\/adserver|\/advert|\/banner|\/sponsor|\/pagead\/|\/adsense|\/adx\/|\/admanager|doubleclick|googlesyndication|googleads|\/prebid|\/gpt.js|\/gpt\/|\/dfp\/)/i;
+const trackerUrlPatternsRegex = /(\/analytics|\/tracking|\/tracker|\/pixel|\/beacon|\/collect|\/telemetry|\/metrics|\/event\?|\/pageview|\/impression|google-analytics|googletagmanager|\/gtm.js|\/gtag\/|\/ga.js|\/analytics.js)/i;
+
 // ── Tracker / Ad categorization ─────────────────────────────────────────────
 // Comprehensive domain→category mapping for accurate classification
 
@@ -247,6 +254,11 @@ function inferTaxonomy(hostname, urlLower) {
 }
 
 export function classifyRequestDetails(url, pageHostname = '', resourceType = 'other') {
+  // Optimization 8.5: Check cache first (hot path optimization)
+  const cacheKey = `${url}|${pageHostname}`;
+  const cached = categorizationCache.get(cacheKey);
+  if (cached) return cached;
+
   const urlLower = url.toLowerCase();
   let hostname = '';
   try {
@@ -256,11 +268,16 @@ export function classifyRequestDetails(url, pageHostname = '', resourceType = 'o
   let category = 'other';
 
   if (hostname) {
-    if (AD_DOMAINS.has(hostname)) category = 'ads';
-    else if (TRACKER_DOMAINS.has(hostname)) category = 'trackers';
-    else {
+    // Optimization 8.5: Fast path — direct domain lookup (Map.has is O(1))
+    if (AD_DOMAINS.has(hostname)) {
+      category = 'ads';
+    } else if (TRACKER_DOMAINS.has(hostname)) {
+      category = 'trackers';
+    } else {
+      // Optimization 8.5: Parent domain check — limit iterations
       const parts = hostname.split('.');
-      for (let i = 1; i < parts.length - 1; i++) {
+      const maxParentChecks = Math.min(parts.length - 1, 4); // Check max 4 parent levels
+      for (let i = 1; i < maxParentChecks; i++) {
         const parent = parts.slice(i).join('.');
         if (AD_DOMAINS.has(parent)) {
           category = 'ads';
@@ -273,28 +290,20 @@ export function classifyRequestDetails(url, pageHostname = '', resourceType = 'o
       }
     }
 
+    // Also check TrackerDB
     if (category === 'other') {
       const tdbCat = getTrackerCategory(hostname);
       if (tdbCat && tdbCat !== 'other') category = tdbCat;
     }
   }
 
-  if (category === 'other') {
-    for (const p of AD_URL_PATTERNS) {
-      if (urlLower.includes(p)) {
-        category = 'ads';
-        break;
-      }
-    }
+  // Optimization 8.5: Use compiled regex patterns instead of array loops
+  if (category === 'other' && adUrlPatternsRegex.test(urlLower)) {
+    category = 'ads';
   }
 
-  if (category === 'other') {
-    for (const p of TRACKER_URL_PATTERNS) {
-      if (urlLower.includes(p)) {
-        category = 'trackers';
-        break;
-      }
-    }
+  if (category === 'other' && trackerUrlPatternsRegex.test(urlLower)) {
+    category = 'trackers';
   }
 
   const vertical = inferVerticalFromHostname(pageHostname || hostname);
@@ -311,13 +320,17 @@ export function classifyRequestDetails(url, pageHostname = '', resourceType = 'o
     category = 'trackers';
   }
 
-  return {
+  const result = {
     category,
     taxonomy,
     vertical,
     hostname,
     resourceType,
   };
+
+  // Cache the result
+  categorizationCache.set(cacheKey, result);
+  return result;
 }
 
 export function categorizeRequest(url) {

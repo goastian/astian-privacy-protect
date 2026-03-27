@@ -57,8 +57,62 @@ const ADULT_POPUNDER_DOMAINS = [
   'popcash.net', 'onclickads.net', 'hilltopads.net', 'adcash.com',
 ];
 
+// ── Popup update notification debounce (8.1 optimization) ───────────────────
+const popupUpdateTimers = new Map();
+const POPUP_UPDATE_DEBOUNCE_MS = 200; // Batch updates every 200ms
+
 function hostnameMatches(hostname, pattern) {
   return hostname === pattern || hostname.endsWith(`.${pattern}`);
+}
+
+// ── Notify popup of stats changes (8.1 optimization: event-driven) ──────────
+async function notifyPopupStatsChange(tabId) {
+  if (!tabId) return;
+
+  // Clear existing timer for this tab
+  if (popupUpdateTimers.has(tabId)) {
+    clearTimeout(popupUpdateTimers.get(tabId));
+  }
+
+  // Schedule debounced notification
+  const timer = setTimeout(async () => {
+    popupUpdateTimers.delete(tabId);
+    
+    try {
+      let statsData;
+      
+      if (IS_CHROMIUM) {
+        const stats = await getChromiumTabStats(tabId);
+        const eco = getEcoStats(tabId);
+        statsData = { ...stats, ...eco };
+      } else {
+        const tab = getTab(tabId);
+        const groups = getGroupedRequests(tabId);
+        const eco = getEcoStats(tabId);
+        statsData = {
+          hostname: tab?.hostname || '',
+          blocked: tab?.blocked || 0,
+          dataSaved: getDataSaved(tabId),
+          groups,
+          recentRequests: getRecentRequests(tabId, 5),
+          ...eco
+        };
+      }
+      
+      // Send to popup if it's listening
+      chrome.tabs.sendMessage(tabId, {
+        action: 'popup-stats-update',
+        tabId,
+        data: statsData,
+      }).catch(() => {
+        // Popup not listening or tab closed, ignore silently
+      });
+    } catch (e) {
+      // Silently ignore errors (popup not open, etc.)
+    }
+  }, POPUP_UPDATE_DEBOUNCE_MS);
+
+  popupUpdateTimers.set(tabId, timer);
 }
 
 function bufferHourlyBlock(count) {
@@ -548,11 +602,12 @@ async function initialize() {
 
   // ── Step 1: Try to restore Ghostery engine from IndexedDB (instant startup) ──
   let ghosteryRestored = false;
+  const t1 = Date.now();
   try {
     ghosteryRestored = await ghosteryEngine.restoreFromCache();
     if (ghosteryRestored) {
       engine = ghosteryEngine;
-      console.log(`[midori] Ghostery engine restored from cache in ${Date.now() - t0}ms (${engine.rulesCount} rules)`);
+      console.log(`[midori] Ghostery engine restored from cache in ${Date.now() - t1}ms (${engine.rulesCount} rules)`);
     }
   } catch (e) {
     console.warn('[midori] Ghostery cache restore failed:', e);
@@ -567,16 +622,15 @@ async function initialize() {
     }
   }
 
-  // ── Step 3: Download fresh lists in background ──
-  try {
-    const lists = await downloadAllLists();
-    if (Object.keys(lists).length > 0) {
-      await loadEngine(lists);
-      console.log('[midori] Loaded fresh lists');
-    }
-  } catch (e) {
-    console.error('[midori] Failed to download lists:', e);
-  }
+  // ── Step 3: Queue fresh list download for later (8.4 optimization: incremental warmup) ──
+  // Don't block startup on download — schedule for after 3 seconds
+  setTimeout(() => {
+    downloadAllLists().then(lists => {
+      if (Object.keys(lists).length > 0) {
+        loadEngine(lists).catch(e => console.error('[midori] Warmup load failed:', e));
+      }
+    }).catch(e => console.warn('[midori] Warmup download failed:', e));
+  }, 3000);
 
   // Schedule periodic updates
   scheduleUpdates();
@@ -603,8 +657,9 @@ async function initialize() {
   }
 
   const engineName = engine === ghosteryEngine ? 'Ghostery' : 'Legacy';
-  console.log(`[midori] Ready in ${Date.now() - t0}ms. Engine: ${engineName}, ${engine.rulesCount} rules.`);
-  recordStartupLatency(Date.now() - t0);
+  const bootMs = Date.now() - t0;
+  console.log(`[midori] Ready in ${bootMs}ms. Engine: ${engineName}, ${engine.rulesCount} rules.`);
+  recordStartupLatency(bootMs);
 
 }
 
@@ -711,6 +766,9 @@ function setupWebRequestBlocking() {
         recordBlockedCategory(policy.category || categorizeRequest(url));
         recordBlock(details.tabId, url);
         updateBadge(details.tabId);
+        
+        // Notify popup of stats changes (8.1 optimization: event-driven)
+        notifyPopupStatsChange(details.tabId);
 
         // Record hourly stats for heatmap (debounced)
         bufferHourlyBlock(1);
@@ -788,6 +846,9 @@ if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
         // Also record in stats-collector for proper categorization
         recordBlock(tabId, url);
         updateBadge(tabId);
+        
+        // Notify popup of stats changes (8.1 optimization: event-driven)
+        notifyPopupStatsChange(tabId);
       }
     }
 
@@ -1643,6 +1704,9 @@ if (IS_CHROMIUM && webRequestAPI?.onErrorOccurred) {
       if (tab) {
         recordBlockedCategory(categorizeRequest(details.url));
         recordBlock(details.tabId, details.url);
+        
+        // Notify popup of stats changes (8.1 optimization: event-driven)
+        notifyPopupStatsChange(details.tabId);
       }
     },
     { urls: ['<all_urls>'] }

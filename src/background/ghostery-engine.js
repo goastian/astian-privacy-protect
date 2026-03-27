@@ -21,6 +21,37 @@ const IDB_NAME = 'midori-privacy';
 const IDB_STORE = 'engine-cache';
 const IDB_KEY = 'ghostery-engine-v1';
 
+// Optimization 8.5: LRU cache for matching results
+class LRUCache {
+  constructor(capacity = 10000) {
+    this.capacity = capacity;
+    this.cache = new Map();
+  }
+
+  get(key) {
+    if (!this.cache.has(key)) return undefined;
+    const val = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, val);
+    return val;
+  }
+
+  set(key, value) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.capacity) {
+      this.cache.delete(this.cache.keys().next().value);
+    }
+    this.cache.set(key, value);
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+const matchResultCache = new LRUCache(10000);
+
 function openIDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, 1);
@@ -216,13 +247,20 @@ export class GhosteryEngine {
   matchRequest(url, pageHostname, resourceType) {
     if (!this._engine) return { match: false, redirect: undefined, exception: undefined, filter: undefined };
 
+    // Optimization 8.5: Cache matching results
+    const cacheKey = `${url}|${pageHostname}|${resourceType || 'other'}`;
+    const cached = matchResultCache.get(cacheKey);
+    if (cached) return cached;
+
     const request = Request.fromRawDetails({
       url,
       sourceUrl: pageHostname ? `https://${pageHostname}/` : '',
       type: resourceType || 'other',
     });
 
-    return this._engine.match(request);
+    const result = this._engine.match(request);
+    matchResultCache.set(cacheKey, result);
+    return result;
   }
 
   // ── Cosmetic selectors ───────────────────────────────────────────────────
