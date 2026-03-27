@@ -582,6 +582,9 @@
 
   SCRIPTLETS['yt-ad-pruner'] = function () {
     return `(function() {
+      if (window.__midoriYtAdPrunerInstalled) return;
+      window.__midoriYtAdPrunerInstalled = true;
+
       // ── CONFIG ──
       var SKIP_BTN = [
         '.ytp-ad-skip-button',
@@ -598,8 +601,21 @@
       var OVERLAY_CLOSE = '.ytp-ad-overlay-close-button, .ytp-ad-overlay-close-container button, .ytp-ad-overlay-close-button svg';
       var ENFORCEMENT_KEYWORDS = ['ad blocker','bloqueador','werbeblocker','bloqueur','adblocker','bloqueador de anuncios','adblock','premium'];
       var userWasMuted = false;
-      var userPlaybackRate = 1;
       var savedState = false;
+      var lastAdSeenAt = 0;
+      var lastTickAt = 0;
+      var heartbeatTimer = 0;
+      var playerObserver = null;
+      var enforcementObserver = null;
+      var videoEventsBound = false;
+
+      function shouldRunTick(minGapMs) {
+        var now = Date.now();
+        var gap = typeof minGapMs === 'number' ? minGapMs : 100;
+        if ((now - lastTickAt) < gap) return false;
+        lastTickAt = now;
+        return true;
+      }
 
       // ── INJECT CSS to hide feed-level ad elements instantly ──
       // NOTE: Do NOT hide .ytp-ad-module, .ytp-ad-overlay-container,
@@ -664,13 +680,12 @@
           // Save user state once when ad starts
           if (!savedState) {
             userWasMuted = v.muted;
-            userPlaybackRate = v.playbackRate;
             savedState = true;
           }
 
-          // Mute and fast-forward through the ad
+          // Only mute + jump near the end of the ad segment. Avoid touching
+          // playbackRate to keep user play/pause/seek interactions intact.
           v.muted = true;
-          v.playbackRate = 16;
           v.currentTime = Math.max(v.duration - 0.1, 0);
         } catch(e) {}
       }
@@ -681,7 +696,6 @@
           var v = document.querySelector('video.html5-main-video');
           if (!v) return;
           v.muted = userWasMuted;
-          v.playbackRate = userPlaybackRate;
           savedState = false;
         } catch(e) {}
       }
@@ -731,6 +745,7 @@
       // ── MAIN TICK ──
       function tick() {
         if (isAdShowing()) {
+          lastAdSeenAt = Date.now();
           closeOverlays();
           dismissSurveys();
           // Try skip methods in order of preference
@@ -742,24 +757,60 @@
         }
       }
 
+      function startHeartbeat() {
+        if (heartbeatTimer) return;
+        heartbeatTimer = setInterval(function() {
+          // Keep a low-frequency safety tick only when ads were seen recently.
+          if ((Date.now() - lastAdSeenAt) <= 12000) {
+            if (shouldRunTick(200)) tick();
+          }
+        }, 1200);
+      }
+
+      function bindVideoEvents() {
+        if (videoEventsBound) return;
+        var video = document.querySelector('video.html5-main-video');
+        if (!video) return;
+        videoEventsBound = true;
+        var onVideoEvent = function() {
+          if (shouldRunTick(250)) tick();
+        };
+        video.addEventListener('loadedmetadata', onVideoEvent, true);
+        video.addEventListener('playing', onVideoEvent, true);
+        video.addEventListener('waiting', onVideoEvent, true);
+        video.addEventListener('durationchange', onVideoEvent, true);
+      }
+
       // ── OBSERVERS ──
-      // Poll at 200ms for fast reaction
-      setInterval(tick, 200);
+      // Event-driven first, with low-frequency heartbeat fallback.
+      startHeartbeat();
 
       // MutationObserver for instant reaction to ad-showing class change
       function startObserver() {
         var player = document.getElementById('movie_player');
         if (!player) { setTimeout(startObserver, 500); return; }
 
-        new MutationObserver(function(muts) {
+        if (playerObserver) playerObserver.disconnect();
+        playerObserver = new MutationObserver(function(muts) {
           for (var i = 0; i < muts.length; i++) {
-            if (muts[i].attributeName === 'class') { tick(); return; }
-            if (muts[i].addedNodes.length > 0) { tick(); return; }
+            if (muts[i].attributeName === 'class') {
+              if (shouldRunTick(120)) tick();
+              return;
+            }
+            if (muts[i].addedNodes.length > 0) {
+              bindVideoEvents();
+              if (shouldRunTick(120)) tick();
+              return;
+            }
           }
-        }).observe(player, {
+        });
+
+        playerObserver.observe(player, {
           attributes: true, attributeFilter: ['class'],
           childList: true, subtree: true
         });
+
+        bindVideoEvents();
       }
       startObserver();
 
@@ -768,16 +819,39 @@
         var body = document.body;
         if (!body) { setTimeout(startEnforcementObserver, 500); return; }
 
-        new MutationObserver(function(muts) {
+        if (enforcementObserver) enforcementObserver.disconnect();
+        enforcementObserver = new MutationObserver(function(muts) {
           for (var i = 0; i < muts.length; i++) {
             if (muts[i].addedNodes.length > 0) {
               removeEnforcement();
+              if (shouldRunTick(250)) tick();
               return;
             }
           }
-        }).observe(body, { childList: true, subtree: true });
+        });
+
+        enforcementObserver.observe(body, { childList: true, subtree: true });
       }
       startEnforcementObserver();
+
+      // YouTube SPA events (watch pages, shorts, playlist transitions)
+      document.addEventListener('yt-navigate-finish', function() {
+        bindVideoEvents();
+        removeEnforcement();
+        if (shouldRunTick(150)) tick();
+      }, true);
+      document.addEventListener('yt-page-data-updated', function() {
+        if (shouldRunTick(180)) tick();
+      }, true);
+      window.addEventListener('popstate', function() {
+        if (shouldRunTick(180)) tick();
+      }, true);
+
+      // Initial tick after handlers are installed.
+      setTimeout(function() {
+        removeEnforcement();
+        tick();
+      }, 0);
     })();`;
   };
 

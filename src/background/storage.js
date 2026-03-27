@@ -124,8 +124,8 @@ const DEFAULTS = {
       },
       adult: {
         popupDefense: 'strict',
-        trackerSensitivity: 0.1,
-        adSensitivity: 0.15,
+        trackerSensitivity: 0.12,
+        adSensitivity: 0.2,
       },
       ai: {
         popupDefense: 'balanced',
@@ -139,6 +139,7 @@ const DEFAULTS = {
   dailyStats: [],
   hourlyStats: {},
   totalBlocked: 0,
+  siteAdReports: [],
   localTelemetry: {
     enabled: true,
     version: 1,
@@ -159,14 +160,98 @@ const DEFAULTS = {
   },
 };
 
+function mergeOptionsWithDefaults(options = {}) {
+  return {
+    ...DEFAULTS,
+    ...options,
+    experiments: {
+      ...DEFAULTS.experiments,
+      ...(options.experiments || {}),
+    },
+    sitePolicy: {
+      ...DEFAULTS.sitePolicy,
+      ...(options.sitePolicy || {}),
+      verticalProfiles: {
+        ...DEFAULTS.sitePolicy.verticalProfiles,
+        ...(options.sitePolicy?.verticalProfiles || {}),
+      },
+      domainOverrides: {
+        ...DEFAULTS.sitePolicy.domainOverrides,
+        ...(options.sitePolicy?.domainOverrides || {}),
+      },
+    },
+    localTelemetry: {
+      ...DEFAULTS.localTelemetry,
+      ...(options.localTelemetry || {}),
+      contentScriptCostMs: {
+        ...DEFAULTS.localTelemetry.contentScriptCostMs,
+        ...(options.localTelemetry?.contentScriptCostMs || {}),
+      },
+      blockedByCategory: {
+        ...DEFAULTS.localTelemetry.blockedByCategory,
+        ...(options.localTelemetry?.blockedByCategory || {}),
+      },
+      falsePositiveReports: {
+        ...DEFAULTS.localTelemetry.falsePositiveReports,
+        ...(options.localTelemetry?.falsePositiveReports || {}),
+        byCategory: {
+          ...DEFAULTS.localTelemetry.falsePositiveReports.byCategory,
+          ...(options.localTelemetry?.falsePositiveReports?.byCategory || {}),
+        },
+      },
+    },
+  };
+}
+
 export async function getOptions() {
   const data = await storageLocal.get('options');
-  return { ...DEFAULTS, ...(data?.options || {}) };
+  return mergeOptionsWithDefaults(data?.options || {});
 }
 
 export async function setOptions(partial) {
   const current = await getOptions();
-  const merged = { ...current, ...partial };
+  const merged = mergeOptionsWithDefaults({
+    ...current,
+    ...partial,
+    experiments: {
+      ...(current.experiments || {}),
+      ...(partial.experiments || {}),
+    },
+    sitePolicy: {
+      ...(current.sitePolicy || {}),
+      ...(partial.sitePolicy || {}),
+      verticalProfiles: {
+        ...(current.sitePolicy?.verticalProfiles || {}),
+        ...(partial.sitePolicy?.verticalProfiles || {}),
+      },
+      domainOverrides: {
+        ...(current.sitePolicy?.domainOverrides || {}),
+        ...(partial.sitePolicy?.domainOverrides || {}),
+      },
+    },
+    localTelemetry: partial.localTelemetry
+      ? {
+          ...(current.localTelemetry || {}),
+          ...partial.localTelemetry,
+          contentScriptCostMs: {
+            ...(current.localTelemetry?.contentScriptCostMs || {}),
+            ...(partial.localTelemetry?.contentScriptCostMs || {}),
+          },
+          blockedByCategory: {
+            ...(current.localTelemetry?.blockedByCategory || {}),
+            ...(partial.localTelemetry?.blockedByCategory || {}),
+          },
+          falsePositiveReports: {
+            ...(current.localTelemetry?.falsePositiveReports || {}),
+            ...(partial.localTelemetry?.falsePositiveReports || {}),
+            byCategory: {
+              ...(current.localTelemetry?.falsePositiveReports?.byCategory || {}),
+              ...(partial.localTelemetry?.falsePositiveReports?.byCategory || {}),
+            },
+          },
+        }
+      : current.localTelemetry,
+  });
   await storageLocal.set({ options: merged });
   return merged;
 }

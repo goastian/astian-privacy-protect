@@ -1501,6 +1501,109 @@ function renderDifficultSites() {
   ds('ds-anti-adblock', lists['ublock-annoyances-others']?.enabled !== false);
   ds('ds-serp-bar', experiments.serpBar);
   ds('ds-trackerdb-assisted', experiments.trackerDbAssisted);
+
+  renderFunctionalExceptions();
+  loadSiteAdReports();
+}
+
+function normalizeDomainInput(input) {
+  let value = String(input || '').trim().toLowerCase();
+  if (!value) return '';
+  value = value.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '').replace(/:\d+$/, '');
+  if (!/^[a-z0-9.-]+$/.test(value)) return '';
+  if (!value.includes('.')) return '';
+  return value;
+}
+
+function getDomainOverrides() {
+  return {
+    ...(currentOptions?.sitePolicy?.domainOverrides || {}),
+  };
+}
+
+function buildFunctionalException(mode) {
+  if (mode === 'adult-balanced') {
+    return {
+      functionalException: true,
+      exceptionMode: 'adult-balanced',
+      vertical: 'adult',
+      popupDefense: 'balanced',
+      trackerSensitivity: 0.05,
+      adSensitivity: 0.08,
+      popupBurstLimit: 1,
+      redirectHopThreshold: 3,
+    };
+  }
+  return {
+    functionalException: true,
+    exceptionMode: 'video-balanced',
+    vertical: 'video',
+    popupDefense: 'relaxed',
+    trackerSensitivity: 0.01,
+    adSensitivity: 0.03,
+    popupBurstLimit: 2,
+    redirectHopThreshold: 4,
+  };
+}
+
+function renderFunctionalExceptions() {
+  const container = $('#ds-exception-list');
+  if (!container) return;
+
+  const overrides = getDomainOverrides();
+  const rows = Object.entries(overrides)
+    .filter(([, cfg]) => cfg && cfg.functionalException === true)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+
+  if (rows.length === 0) {
+    container.innerHTML = '<div class="text-xs text-tertiary">No functional exceptions configured.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  for (const [domain, cfg] of rows) {
+    const row = document.createElement('div');
+    row.className = 'ds-pill-row';
+    row.innerHTML =
+      `<div class="ds-pill-main">` +
+        `<span class="ds-pill-domain">${escapeHtml(domain)}</span>` +
+        `<span class="ds-pill-meta">${escapeHtml(cfg.exceptionMode || 'custom')}</span>` +
+      `</div>` +
+      `<button class="btn btn-secondary btn-sm" data-ds-remove-ex="${escapeHtml(domain)}">Remove</button>`;
+    container.appendChild(row);
+  }
+}
+
+async function loadSiteAdReports() {
+  const container = $('#ds-report-list');
+  if (!container) return;
+  const reports = await sendMessage({ action: 'get-site-ad-reports', limit: 12 }) || [];
+  renderSiteAdReports(reports);
+}
+
+function renderSiteAdReports(reports) {
+  const container = $('#ds-report-list');
+  if (!container) return;
+  if (!Array.isArray(reports) || reports.length === 0) {
+    container.innerHTML = '<div class="text-xs text-tertiary">No local reports yet.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  for (const report of reports) {
+    const ts = new Date(report.createdAt || Date.now());
+    const dateText = Number.isNaN(ts.getTime()) ? 'now' : ts.toLocaleString();
+    const ev = report.evidence || {};
+    const row = document.createElement('div');
+    row.className = 'ds-pill-row';
+    row.innerHTML =
+      `<div class="ds-pill-main" style="display:block">` +
+        `<div><span class="ds-pill-domain">${escapeHtml(report.hostname || '')}</span> · <span class="ds-pill-meta">${escapeHtml(report.issue || 'ad-visible')}</span></div>` +
+        `<div class="ds-report-evidence">${escapeHtml(dateText)} · blocked ${Number(ev.blocked) || 0} · trackers ${Number(ev.trackerCount) || 0} · score ${Number(ev.score) || 0}</div>` +
+        `${report.note ? `<div class="ds-report-evidence">${escapeHtml(report.note)}</div>` : ''}` +
+      `</div>`;
+    container.appendChild(row);
+  }
 }
 
 // ── About ───────────────────────────────────────────────────────────────────
@@ -1839,11 +1942,60 @@ function setupListeners() {
     $(`#${id}`)?.addEventListener('change', syncDifficultSites);
   }
 
+  $('#ds-exception-add')?.addEventListener('click', async () => {
+    const domainInput = $('#ds-exception-domain');
+    const modeSel = $('#ds-exception-mode');
+    const domain = normalizeDomainInput(domainInput?.value || '');
+    if (!domain) return;
+
+    const domainOverrides = getDomainOverrides();
+    domainOverrides[domain] = {
+      ...(domainOverrides[domain] || {}),
+      ...buildFunctionalException(modeSel?.value || 'video-balanced'),
+      updatedAt: Date.now(),
+    };
+
+    const sitePolicy = {
+      ...(currentOptions.sitePolicy || {}),
+      domainOverrides,
+    };
+
+    currentOptions = await saveOptions({ sitePolicy });
+    if (domainInput) domainInput.value = '';
+    renderFunctionalExceptions();
+  });
+
+  $('#ds-exception-domain')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('#ds-exception-add')?.click();
+  });
+
+  $('#ds-exception-list')?.addEventListener('click', async (e) => {
+    const target = e.target.closest('[data-ds-remove-ex]');
+    if (!target) return;
+    const domain = target.getAttribute('data-ds-remove-ex') || '';
+    if (!domain) return;
+
+    const domainOverrides = getDomainOverrides();
+    const existing = domainOverrides[domain];
+    if (!existing || existing.functionalException !== true) return;
+    delete domainOverrides[domain];
+
+    const sitePolicy = {
+      ...(currentOptions.sitePolicy || {}),
+      domainOverrides,
+    };
+
+    currentOptions = await saveOptions({ sitePolicy });
+    renderFunctionalExceptions();
+  });
+
   // Difficult Sites — site diagnostic
   $('#ds-diag-check')?.addEventListener('click', async () => {
-    const domain = $('#ds-diag-domain')?.value.trim().toLowerCase();
+    const domain = normalizeDomainInput($('#ds-diag-domain')?.value || '');
     const result = $('#ds-diag-result');
     if (!domain || !result) return;
+    const reportDomainInput = $('#ds-report-domain');
+    if (reportDomainInput) reportDomainInput.value = domain;
     result.innerHTML = '<span class="text-sm text-tertiary">Checking…</span>';
     const info = lookupTracker(domain);
     const topSites = await sendMessage({ action: 'get-report-top-sites', days: 30, limit: 50 });
@@ -1860,6 +2012,50 @@ function setupListeners() {
     }
   });
   $('#ds-diag-domain')?.addEventListener('keydown', e => { if (e.key === 'Enter') $('#ds-diag-check')?.click(); });
+
+  $('#ds-report-submit')?.addEventListener('click', async () => {
+    const domainInput = $('#ds-report-domain');
+    const typeSel = $('#ds-report-type');
+    const noteInput = $('#ds-report-note');
+    const status = $('#ds-report-status');
+
+    const hostname = normalizeDomainInput(domainInput?.value || '');
+    if (!hostname) {
+      if (status) status.textContent = 'Invalid domain';
+      return;
+    }
+
+    if (status) status.textContent = 'Saving...';
+    const topSites = await sendMessage({ action: 'get-report-top-sites', days: 30, limit: 80 }) || [];
+    const siteData = topSites.find(s => s.hostname === hostname) || {};
+    const payload = {
+      action: 'report-site-ad-issue',
+      hostname,
+      issue: typeSel?.value || 'ad-visible',
+      note: String(noteInput?.value || '').trim().slice(0, 240),
+      evidence: {
+        blocked: siteData.blocked || 0,
+        trackerCount: siteData.trackerCount || 0,
+        score: siteData.score || 0,
+        protectionLevel: currentOptions.protectionLevel || 'standard',
+        aggressiveVerticalRules: currentOptions.experiments?.aggressiveVerticalRules === true,
+        quickFixesEnabled: currentOptions.lists?.['ublock-quick-fixes']?.enabled !== false,
+        antiAdblockEnabled: currentOptions.lists?.['ublock-annoyances-others']?.enabled !== false,
+      },
+    };
+
+    const result = await sendMessage(payload);
+    if (result?.success) {
+      if (status) status.textContent = 'Saved locally';
+      if (noteInput) noteInput.value = '';
+      await loadSiteAdReports();
+      setTimeout(() => {
+        if (status && status.textContent === 'Saved locally') status.textContent = '';
+      }, 2200);
+      return;
+    }
+    if (status) status.textContent = 'Could not save report';
+  });
 
   // Export report (JSON)
   $('#btn-export-report').addEventListener('click', async () => {

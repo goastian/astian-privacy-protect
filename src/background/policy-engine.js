@@ -30,6 +30,8 @@ const ADULT_HOST_PATTERNS = [
   'pornhub.com', 'redtube.com', 'youporn.com', 'xnxx.com', 'xvideos.com',
   'xhamster.com', 'tube8.com', 'spankbang.com', 'hqporner.com', 'eporner.com',
   'brazzers.com', 'digitalplayground.com', 'realitykings.com',
+  'porntrex.com', 'thumbzilla.com', 'beeg.com', 'sunporno.com', 'drtuber.com',
+  'sexvid.xxx',
 ];
 
 const PROTECTION_CONFIG = {
@@ -80,10 +82,10 @@ export const DEFAULT_SITE_POLICY = {
     },
     adult: {
       popupDefense: 'strict',
-      trackerSensitivity: 0.1,
-      adSensitivity: 0.15,
+      trackerSensitivity: 0.12,
+      adSensitivity: 0.2,
       popupBurstLimit: 0,
-      redirectHopThreshold: 2,
+      redirectHopThreshold: 1,
     },
     ai: {
       popupDefense: 'balanced',
@@ -172,7 +174,10 @@ function computeTrackerSignalScore({
   if (isThirdParty) score += 0.08;
   if (resourceType === 'script' || resourceType === 'xmlhttprequest') score += 0.06;
   if (classification.taxonomy === 'fingerprinting' || classification.taxonomy === 'session-replay') score += 0.1;
+  if (classification.taxonomy === 'adult-ad-network') score += 0.16;
   if (classification.taxonomy === 'popup' || classification.taxonomy === 'redirect-tracker') score += 0.12;
+  if (classification.vertical === 'adult' && classification.taxonomy === 'popup') score += 0.1;
+  if (classification.vertical === 'adult' && classification.taxonomy === 'redirect-tracker') score += 0.08;
   if (classification.vertical === 'adult') score += 0.08;
   if (classification.vertical === 'video') score += 0.04;
   if (classification.vertical === 'ai') score += 0.03;

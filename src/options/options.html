@@ -838,7 +838,24 @@ example.com##+js(abort-on-property-read, adBlockDetected)
           </div>
         </div>
 
-        <!-- Per-domain diagnostic placeholder -->
+        <!-- Functional exceptions -->
+        <div class="option-card mb-3">
+          <div class="p-3">
+            <h3 class="font-semibold mb-1">Functional Exceptions</h3>
+            <div class="text-xs text-tertiary mb-3">Create playback-safe exceptions for sites where strict blocking breaks core video playback.</div>
+            <div class="ds-grid-3">
+              <input type="text" id="ds-exception-domain" class="text-input" placeholder="example.com">
+              <select id="ds-exception-mode" class="text-input">
+                <option value="video-balanced">Video safe mode</option>
+                <option value="adult-balanced">Adult safe mode</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" id="ds-exception-add">Add exception</button>
+            </div>
+            <div id="ds-exception-list" class="ds-exception-list mt-3"></div>
+          </div>
+        </div>
+
+        <!-- Per-domain diagnostic -->
         <div class="option-card">
           <div class="p-3">
             <h3 class="font-semibold mb-1">Site Diagnostic</h3>
@@ -848,6 +865,30 @@ example.com##+js(abort-on-property-read, adBlockDetected)
               <button class="btn btn-primary btn-sm" id="ds-diag-check">Check</button>
             </div>
             <div id="ds-diag-result" class="mt-3"></div>
+          </div>
+        </div>
+
+        <!-- Ad issue report + local evidence -->
+        <div class="option-card mt-3">
+          <div class="p-3">
+            <h3 class="font-semibold mb-1">Report: “Ads Still Visible”</h3>
+            <div class="text-xs text-tertiary mb-3">Stores a local-only report with minimal technical evidence for this site to help tune filters and scriptlets.</div>
+            <div class="ds-grid-2 mb-2">
+              <input type="text" id="ds-report-domain" class="text-input" placeholder="example.com">
+              <select id="ds-report-type" class="text-input">
+                <option value="video-ad">Video ad still visible</option>
+                <option value="anti-adblock-wall">Anti-adblock wall appears</option>
+                <option value="popunder">Popunder/new tab</option>
+                <option value="redirect-loop">Redirect loop</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <textarea id="ds-report-note" class="text-input ds-report-note mb-2" placeholder="Optional note (steps to reproduce)"></textarea>
+            <div class="flex gap-2">
+              <button class="btn btn-primary btn-sm" id="ds-report-submit">Save local report</button>
+              <span id="ds-report-status" class="text-xs text-tertiary"></span>
+            </div>
+            <div id="ds-report-list" class="ds-report-list mt-3"></div>
           </div>
         </div>
       </section>

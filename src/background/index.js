@@ -45,6 +45,15 @@ let runtimeOptionsCache = null;
 const popupGestureState = new Map();
 const popupCandidates = new Map();
 const popupBurstState = new Map();
+const ADULT_POPUNDER_DOMAINS = [
+  'trafficjunky.net', 'trafficjunky.com', 'juicyads.com', 'exoclick.com',
+  'ero-advertising.com', 'plugrush.com', 'exdynsrv.com', 'popads.net',
+  'popcash.net', 'onclickads.net', 'hilltopads.net', 'adcash.com',
+];
+
+function hostnameMatches(hostname, pattern) {
+  return hostname === pattern || hostname.endsWith(`.${pattern}`);
+}
 
 function bufferHourlyBlock(count) {
   _hourlyBlockBuffer += count;
@@ -308,6 +317,16 @@ function trackPopupRedirect(tabId, url) {
 
   if (!candidate.allowedByGesture && candidate.hostHistory.length > candidate.config.redirectHopThreshold) {
     maybeClosePopupTab(tabId, 'popup-redirect-burst');
+    return;
+  }
+
+  if (candidate.config.vertical === 'adult') {
+    for (const pattern of ADULT_POPUNDER_DOMAINS) {
+      if (hostnameMatches(host, pattern)) {
+        maybeClosePopupTab(tabId, 'adult-popunder-network');
+        return;
+      }
+    }
   }
 }
 
@@ -1338,6 +1357,50 @@ async function handleMessage(msg, sender) {
     case 'report-false-positive': {
       recordFalsePositive(msg.hostname, msg.category);
       return { success: true, total: telemetryState?.falsePositiveReports?.total || 0 };
+    }
+
+    case 'report-site-ad-issue': {
+      const hostname = String(msg.hostname || '').trim().toLowerCase();
+      if (!hostname) return { success: false, error: 'hostname-required' };
+
+      const issue = String(msg.issue || 'ad-visible').trim().toLowerCase();
+      const note = String(msg.note || '').trim().slice(0, 240);
+      const evidence = msg.evidence && typeof msg.evidence === 'object' ? msg.evidence : {};
+
+      const opts = await getOptions();
+      const reports = Array.isArray(opts.siteAdReports) ? [...opts.siteAdReports] : [];
+      reports.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        createdAt: Date.now(),
+        hostname,
+        issue,
+        note,
+        evidence: {
+          blocked: Number(evidence.blocked) || 0,
+          trackerCount: Number(evidence.trackerCount) || 0,
+          score: Number(evidence.score) || 0,
+          protectionLevel: String(evidence.protectionLevel || opts.protectionLevel || 'standard'),
+          aggressiveVerticalRules: evidence.aggressiveVerticalRules === true,
+          quickFixesEnabled: evidence.quickFixesEnabled !== false,
+          antiAdblockEnabled: evidence.antiAdblockEnabled !== false,
+        },
+      });
+
+      const capped = reports.slice(-100);
+      await setOptions({ siteAdReports: capped });
+      refreshRuntimeOptions({ ...opts, siteAdReports: capped });
+      return { success: true, total: capped.length };
+    }
+
+    case 'get-site-ad-reports': {
+      const opts = await getOptions();
+      const limit = Math.max(1, Math.min(50, Number(msg.limit) || 10));
+      const hostname = String(msg.hostname || '').trim().toLowerCase();
+      let reports = Array.isArray(opts.siteAdReports) ? opts.siteAdReports : [];
+      if (hostname) {
+        reports = reports.filter(r => r.hostname === hostname);
+      }
+      return reports.slice(-limit).reverse();
     }
 
     case 'set-telemetry-enabled': {

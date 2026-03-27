@@ -153,6 +153,15 @@ const AD_DOMAINS = new Map([
   // Ad verification / viewability
   ['moat.com', 'ads'], ['doubleverify.com', 'ads'],
   ['adsafeprotected.com', 'ads'], ['iasds01.com', 'ads'],
+  // Adult ad / popunder networks
+  ['trafficjunky.net', 'ads'], ['trafficjunky.com', 'ads'],
+  ['juicyads.com', 'ads'], ['ads.juicyads.com', 'ads'],
+  ['exoclick.com', 'ads'], ['a.exoclick.com', 'ads'],
+  ['ero-advertising.com', 'ads'], ['plugrush.com', 'ads'],
+  ['exdynsrv.com', 'ads'], ['trafficfactory.biz', 'ads'],
+  ['popads.net', 'ads'], ['popcash.net', 'ads'],
+  ['onclickads.net', 'ads'], ['hilltopads.net', 'ads'],
+  ['adcash.com', 'ads'], ['adxpansion.com', 'ads'],
 ]);
 
 // Keyword patterns for URL-based classification
@@ -189,12 +198,13 @@ const TAXONOMY_URL_PATTERNS = {
   'social-pixel': ['facebook.com/tr', '/pixel', 'linkedin.com/px', 'analytics.twitter.com'],
   'video-ads': ['/pagead/', 'videoad', 'googlevideo.com/videoplayback?adformat=', 'youtubei/v1/player/ad_break'],
   'adult-ad-network': ['juicyads', 'trafficjunky', 'exoclick', 'ero-advertising', 'plugrush'],
-  'popup': ['popunder', 'popup', 'onclick', 'understitial', 'tabunder'],
-  'redirect-tracker': ['branch.', 'app.link', 'redirect=', 'redir=', 'out?', 'r?u='],
+  'popup': ['popunder', 'popup', 'onclick', 'understitial', 'tabunder', 'window.open(', 'newtab'],
+  'redirect-tracker': ['branch.', 'app.link', 'redirect=', 'redir=', 'out?', 'r?u=', '/away.php?', '/out.php?', '/go.php?', 'url='],
 };
 
 const VIDEO_CONTEXT_PATTERNS = ['youtube.com', 'youtu.be', 'googlevideo.com', 'ytimg.com', 'vimeo.com', 'dailymotion.com', 'twitch.tv'];
 const ADULT_CONTEXT_PATTERNS = ['pornhub.com', 'redtube.com', 'youporn.com', 'xnxx.com', 'xvideos.com', 'xhamster.com', 'spankbang.com'];
+const ADULT_CONTEXT_CLONES = ['porntrex.com', 'thumbzilla.com', 'beeg.com', 'sunporno.com', 'drtuber.com', 'sexvid.xxx'];
 const AI_CONTEXT_PATTERNS = ['openai.com', 'chatgpt.com', 'claude.ai', 'anthropic.com', 'perplexity.ai', 'copilot.microsoft.com', 'gemini.google.com'];
 
 function hostnameMatches(hostname, pattern) {
@@ -206,6 +216,9 @@ function inferVerticalFromHostname(hostname) {
   if (!host) return 'general';
 
   for (const pattern of ADULT_CONTEXT_PATTERNS) {
+    if (hostnameMatches(host, pattern)) return 'adult';
+  }
+  for (const pattern of ADULT_CONTEXT_CLONES) {
     if (hostnameMatches(host, pattern)) return 'adult';
   }
   for (const pattern of AI_CONTEXT_PATTERNS) {
