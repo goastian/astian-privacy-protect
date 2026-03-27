@@ -461,6 +461,27 @@ export function getTrackerConfidence(domain) {
   return entry ? entry.confidence : 0;
 }
 
+// Domains that must never be blocked by TrackerDB, regardless of classification.
+// These deliver essential web content (CDN, video, first-party infra).
+const NEVER_BLOCK_DOMAINS = new Set([
+  'youtube.com', 'youtu.be', 'ytimg.com', 'googlevideo.com', 'yt3.ggpht.com',
+  'ggpht.com', 'gstatic.com', 'googleapis.com', 'google.com', 'googleusercontent.com',
+  'cloudflare.com', 'fastly.net', 'akamai.net', 'akamaized.net', 'akamaihd.net',
+  'cloudfront.net', 'amazonaws.com', 'github.com', 'github.io',
+  'twitter.com', 'x.com', 'twimg.com',
+  'facebook.com', 'fbcdn.net', 'instagram.com', 'cdninstagram.com',
+  'reddit.com', 'redditmedia.com', 'redd.it',
+  'wikipedia.org', 'wikimedia.org',
+]);
+
+function isNeverBlockDomain(domain) {
+  const d = (domain || '').toLowerCase();
+  for (const safe of NEVER_BLOCK_DOMAINS) {
+    if (d === safe || d.endsWith('.' + safe)) return true;
+  }
+  return false;
+}
+
 /**
  * Returns true if the domain is a high-confidence ad/tracker
  * and eligible for assisted blocking.
@@ -472,6 +493,7 @@ export function getTrackerConfidence(domain) {
  * @returns {boolean}
  */
 export function isHighConfidenceTracker(domain) {
+  if (!domain || isNeverBlockDomain(domain)) return false;
   const entry = lookupDomain(domain);
   if (!entry) return false;
   return (
@@ -792,7 +814,7 @@ const DEFAULT_INTERVAL_HOURS = 24;
 export function scheduleTrackerDbUpdates(intervalHours) {
   const hours = (intervalHours > 0) ? intervalHours : DEFAULT_INTERVAL_HOURS;
   chrome.alarms.create(TRACKERDB_ALARM_NAME, {
-    delayInMinutes: 5,
+    delayInMinutes: 120,  // first check 2h after startup — avoids crashing SW on large feeds
     periodInMinutes: hours * 60,
   });
   console.log(`[trackerdb] Scheduled updates every ${hours}h`);

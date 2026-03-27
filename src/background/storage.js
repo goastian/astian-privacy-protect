@@ -110,6 +110,31 @@ const DEFAULTS = {
   trackerDbEnabled: true,
   trackerDbUpdateIntervalHours: 24,
   trackerDbUrl: '', // empty = use built-in default URL
+  sitePolicy: {
+    verticalProfiles: {
+      general: {
+        popupDefense: 'balanced',
+        trackerSensitivity: 0,
+        adSensitivity: 0,
+      },
+      video: {
+        popupDefense: 'balanced',
+        trackerSensitivity: 0.03,
+        adSensitivity: 0.08,
+      },
+      adult: {
+        popupDefense: 'strict',
+        trackerSensitivity: 0.1,
+        adSensitivity: 0.15,
+      },
+      ai: {
+        popupDefense: 'balanced',
+        trackerSensitivity: 0.08,
+        adSensitivity: 0.03,
+      },
+    },
+    domainOverrides: {},
+  },
   stats: {},
   dailyStats: [],
   hourlyStats: {},

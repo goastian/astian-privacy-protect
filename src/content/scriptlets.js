@@ -27,6 +27,21 @@
     } catch (e) {}
   }
 
+  function sendRuntimeMessage(payload) {
+    return new Promise(function(resolve) {
+      try {
+        const maybePromise = chrome.runtime.sendMessage(payload, function(response) {
+          resolve(response || null);
+        });
+        if (maybePromise && typeof maybePromise.then === 'function') {
+          maybePromise.then(resolve).catch(function() { resolve(null); });
+        }
+      } catch (e) {
+        resolve(null);
+      }
+    });
+  }
+
   // ── Scriptlet Registry ─────────────────────────────────────────────────────
   // Each scriptlet is a function that receives (...args) and returns a string
   // of JS code to be injected into the page context via a <script> element.
@@ -1103,6 +1118,102 @@
     }
   }
 
+  function installPopupGestureBridge() {
+    var lastSentAt = 0;
+    var handler = function(event) {
+      if (!event || event.isTrusted !== true) return;
+      var now = Date.now();
+      if (now - lastSentAt < 80) return;
+      lastSentAt = now;
+
+      var href = '';
+      var tagName = '';
+      try {
+        var node = event.target && event.target.closest ? event.target.closest('a,button,form,[role="button"]') : null;
+        href = node && node.href ? String(node.href) : '';
+        tagName = node && node.tagName ? String(node.tagName).toLowerCase() : '';
+      } catch (e) {}
+
+      sendRuntimeMessage({
+        action: 'popup-guard-user-gesture',
+        type: event.type,
+        href: href,
+        targetTag: tagName,
+      });
+    };
+
+    window.addEventListener('pointerdown', handler, true);
+    window.addEventListener('keydown', handler, true);
+    window.addEventListener('touchstart', handler, true);
+  }
+
+  function buildPopupDefenseCode(config) {
+    var cfg = JSON.stringify(config || {});
+    return `(function() {
+      var cfg = ${cfg};
+      if (!cfg || cfg.enabled === false) return;
+      if (window.__midoriPopupDefenseInstalled) return;
+      window.__midoriPopupDefenseInstalled = true;
+
+      var lastGestureAt = 0;
+      var openTimestamps = [];
+
+      function postBlocked(reason, url) {
+        try {
+          window.postMessage({ type: 'midori-popup-blocked', reason: reason, url: String(url || '') }, location.origin);
+        } catch (e) {}
+      }
+
+      function markGesture(event) {
+        if (!event || event.isTrusted !== true) return;
+        lastGestureAt = Date.now();
+      }
+
+      function withinGestureWindow() {
+        return (Date.now() - lastGestureAt) <= (cfg.gestureWindowMs || 1400);
+      }
+
+      function pruneOpens() {
+        var now = Date.now();
+        var win = cfg.burstWindowMs || 5000;
+        openTimestamps = openTimestamps.filter(function(ts) {
+          return (now - ts) <= win;
+        });
+      }
+
+      document.addEventListener('pointerdown', markGesture, true);
+      document.addEventListener('keydown', markGesture, true);
+      document.addEventListener('touchstart', markGesture, true);
+
+      var origOpen = window.open;
+      if (typeof origOpen === 'function') {
+        window.open = function(url) {
+          pruneOpens();
+          var hasGesture = withinGestureWindow();
+          var maxBurst = Number.isFinite(cfg.maxBurstWithoutGesture) ? cfg.maxBurstWithoutGesture : 1;
+          if ((!hasGesture && cfg.closeTabsWithoutGesture !== false) || (!hasGesture && openTimestamps.length > maxBurst)) {
+            postBlocked(!hasGesture ? 'no-gesture' : 'burst', url);
+            return null;
+          }
+          openTimestamps.push(Date.now());
+          return origOpen.apply(this, arguments);
+        };
+      }
+
+      var origAnchorClick = HTMLAnchorElement.prototype.click;
+      if (typeof origAnchorClick === 'function') {
+        HTMLAnchorElement.prototype.click = function() {
+          var target = String(this.target || '').toLowerCase();
+          if (target === '_blank' && !withinGestureWindow() && cfg.closeTabsWithoutGesture !== false) {
+            postBlocked('synthetic-blank-click', this.href || '');
+            return;
+          }
+          return origAnchorClick.apply(this, arguments);
+        };
+      }
+    })();`;
+  }
+
   // ── Immediate YouTube scriptlet injection ─────────────────────────────────
   // Inject YouTube ad-skip scriptlet immediately at document_start (MAIN world)
   // without waiting for postMessage from cosmetic.js. This ensures the
@@ -1110,6 +1221,12 @@
 
   var hn = '';
   try { hn = window.location.hostname; } catch(e) {}
+  installPopupGestureBridge();
+  sendRuntimeMessage({ action: 'get-popup-defense-config', hostname: hn }).then(function(response) {
+    if (response && response.config) {
+      injectCode(buildPopupDefenseCode(response.config));
+    }
+  });
   if (hn === 'www.youtube.com' || hn === 'youtube.com' || hn === 'm.youtube.com') {
     applyScriptlets([{ name: 'yt-ad-pruner', args: [] }]);
   }
@@ -1143,6 +1260,14 @@
     // Ghostery engine: pre-compiled scriptlet code (inject directly)
     if (event.data.type === 'midori-compiled-scriptlet' && event.data.code) {
       injectCode(event.data.code);
+    }
+
+    if (event.data.type === 'midori-popup-blocked') {
+      sendRuntimeMessage({
+        action: 'popup-guard-blocked',
+        reason: event.data.reason,
+        url: event.data.url,
+      });
     }
   });
 

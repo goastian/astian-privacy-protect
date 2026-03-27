@@ -171,36 +171,144 @@ const TRACKER_URL_PATTERNS = [
   '/gtm.js', '/gtag/', '/ga.js', '/analytics.js',
 ];
 
-export function categorizeRequest(url) {
-  const urlLower = url.toLowerCase();
+const TAXONOMY_DOMAIN_HINTS = {
+  'fingerprinting': ['fingerprintjs.com', 'fpjs.io', 'device.maxmind.com', 'threatmetrix.com', 'iovation.com'],
+  'session-replay': ['hotjar.com', 'fullstory.com', 'mouseflow.com', 'luckyorange.com', 'clarity.ms'],
+  'tag-manager': ['googletagmanager.com', 'tagmanager.google.com', 'segment.com', 'segment.io'],
+  'social-pixel': ['connect.facebook.net', 'facebook.com', 'facebook.net', 'snap.licdn.com', 'analytics.twitter.com', 'tiktok.com'],
+  'video-ads': ['doubleclick.net', 'googlesyndication.com', 'googlevideo.com', 'imasdk.googleapis.com', 'securepubads.g.doubleclick.net'],
+  'adult-ad-network': ['trafficjunky.net', 'trafficjunky.com', 'juicyads.com', 'exoclick.com', 'ero-advertising.com', 'plugrush.com', 'exdynsrv.com'],
+  'popup': ['popads.net', 'popcash.net', 'onclickads.net', 'hilltopads.net', 'adcash.com'],
+  'redirect-tracker': ['branch.io', 'app.link', 'adjust.com', 'appsflyer.com', 'kochava.com', 'singular.net'],
+};
 
-  // Check domain maps first (fast)
-  try {
-    const hostname = new URL(url).hostname;
-    // Exact match
-    if (AD_DOMAINS.has(hostname)) return 'ads';
-    if (TRACKER_DOMAINS.has(hostname)) return 'trackers';
-    // Parent domain match
-    const parts = hostname.split('.');
-    for (let i = 1; i < parts.length - 1; i++) {
-      const parent = parts.slice(i).join('.');
-      if (AD_DOMAINS.has(parent)) return 'ads';
-      if (TRACKER_DOMAINS.has(parent)) return 'trackers';
+const TAXONOMY_URL_PATTERNS = {
+  'fingerprinting': ['fingerprint', '/fp/', 'device-id', 'canvas'],
+  'session-replay': ['session-replay', 'heatmap', 'mouseflow', 'fullstory', 'clarity'],
+  'tag-manager': ['/gtm.js', '/gtag/', 'tagmanager'],
+  'social-pixel': ['facebook.com/tr', '/pixel', 'linkedin.com/px', 'analytics.twitter.com'],
+  'video-ads': ['/pagead/', 'videoad', 'googlevideo.com/videoplayback?adformat=', 'youtubei/v1/player/ad_break'],
+  'adult-ad-network': ['juicyads', 'trafficjunky', 'exoclick', 'ero-advertising', 'plugrush'],
+  'popup': ['popunder', 'popup', 'onclick', 'understitial', 'tabunder'],
+  'redirect-tracker': ['branch.', 'app.link', 'redirect=', 'redir=', 'out?', 'r?u='],
+};
+
+const VIDEO_CONTEXT_PATTERNS = ['youtube.com', 'youtu.be', 'googlevideo.com', 'ytimg.com', 'vimeo.com', 'dailymotion.com', 'twitch.tv'];
+const ADULT_CONTEXT_PATTERNS = ['pornhub.com', 'redtube.com', 'youporn.com', 'xnxx.com', 'xvideos.com', 'xhamster.com', 'spankbang.com'];
+const AI_CONTEXT_PATTERNS = ['openai.com', 'chatgpt.com', 'claude.ai', 'anthropic.com', 'perplexity.ai', 'copilot.microsoft.com', 'gemini.google.com'];
+
+function hostnameMatches(hostname, pattern) {
+  return hostname === pattern || hostname.endsWith('.' + pattern);
+}
+
+function inferVerticalFromHostname(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host) return 'general';
+
+  for (const pattern of ADULT_CONTEXT_PATTERNS) {
+    if (hostnameMatches(host, pattern)) return 'adult';
+  }
+  for (const pattern of AI_CONTEXT_PATTERNS) {
+    if (hostnameMatches(host, pattern)) return 'ai';
+  }
+  for (const pattern of VIDEO_CONTEXT_PATTERNS) {
+    if (hostnameMatches(host, pattern)) return 'video';
+  }
+  return 'general';
+}
+
+function inferTaxonomy(hostname, urlLower) {
+  for (const [taxonomy, domains] of Object.entries(TAXONOMY_DOMAIN_HINTS)) {
+    for (const domain of domains) {
+      if (hostnameMatches(hostname, domain)) return taxonomy;
     }
-    // TrackerDB lookup — data-driven, broader coverage; used when hardcoded tables miss
-    const tdbCat = getTrackerCategory(hostname);
-    if (tdbCat && tdbCat !== 'other') return tdbCat;
+  }
+
+  for (const [taxonomy, patterns] of Object.entries(TAXONOMY_URL_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (urlLower.includes(pattern)) return taxonomy;
+    }
+  }
+
+  return 'generic';
+}
+
+export function classifyRequestDetails(url, pageHostname = '', resourceType = 'other') {
+  const urlLower = url.toLowerCase();
+  let hostname = '';
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
   } catch {}
 
-  // URL pattern matching
-  for (const p of AD_URL_PATTERNS) {
-    if (urlLower.includes(p)) return 'ads';
-  }
-  for (const p of TRACKER_URL_PATTERNS) {
-    if (urlLower.includes(p)) return 'trackers';
+  let category = 'other';
+
+  if (hostname) {
+    if (AD_DOMAINS.has(hostname)) category = 'ads';
+    else if (TRACKER_DOMAINS.has(hostname)) category = 'trackers';
+    else {
+      const parts = hostname.split('.');
+      for (let i = 1; i < parts.length - 1; i++) {
+        const parent = parts.slice(i).join('.');
+        if (AD_DOMAINS.has(parent)) {
+          category = 'ads';
+          break;
+        }
+        if (TRACKER_DOMAINS.has(parent)) {
+          category = 'trackers';
+          break;
+        }
+      }
+    }
+
+    if (category === 'other') {
+      const tdbCat = getTrackerCategory(hostname);
+      if (tdbCat && tdbCat !== 'other') category = tdbCat;
+    }
   }
 
-  return 'other';
+  if (category === 'other') {
+    for (const p of AD_URL_PATTERNS) {
+      if (urlLower.includes(p)) {
+        category = 'ads';
+        break;
+      }
+    }
+  }
+
+  if (category === 'other') {
+    for (const p of TRACKER_URL_PATTERNS) {
+      if (urlLower.includes(p)) {
+        category = 'trackers';
+        break;
+      }
+    }
+  }
+
+  const vertical = inferVerticalFromHostname(pageHostname || hostname);
+  const taxonomy = inferTaxonomy(hostname, urlLower);
+
+  if (category === 'other' && (taxonomy === 'video-ads' || taxonomy === 'adult-ad-network' || taxonomy === 'popup')) {
+    category = 'ads';
+  }
+  if (category === 'other' && (taxonomy === 'fingerprinting' || taxonomy === 'session-replay' || taxonomy === 'tag-manager' || taxonomy === 'social-pixel' || taxonomy === 'redirect-tracker')) {
+    category = 'trackers';
+  }
+
+  if (resourceType === 'ping' && category === 'other') {
+    category = 'trackers';
+  }
+
+  return {
+    category,
+    taxonomy,
+    vertical,
+    hostname,
+    resourceType,
+  };
+}
+
+export function categorizeRequest(url) {
+  return classifyRequestDetails(url).category;
 }
 
 export function extractDomain(url) {

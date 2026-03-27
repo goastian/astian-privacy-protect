@@ -11,6 +11,7 @@ import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
 import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getRecentRequests, getBlockedCount, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, exportReport } from './report-generator.js';
+import { evaluateRequestPolicy, getPopupDefenseConfig } from './policy-engine.js';
 import {
   loadTrackerDbFromCache,
   fetchAndUpdateTrackerDb,
@@ -18,7 +19,6 @@ import {
   handleTrackerDbAlarm,
   rollbackTrackerDb,
   getTrackerDbMeta,
-  isHighConfidenceTracker,
   collectHighConfidenceDomains,
   TRACKERDB_ALARM_NAME,
 } from './trackerdb.js';
@@ -40,6 +40,11 @@ const TELEMETRY_FLUSH_INTERVAL = 15000; // 15s
 let telemetryState = null;
 let telemetryFlushTimer = null;
 let telemetryDirty = false;
+let runtimeOptionsCache = null;
+
+const popupGestureState = new Map();
+const popupCandidates = new Map();
+const popupBurstState = new Map();
 
 function bufferHourlyBlock(count) {
   _hourlyBlockBuffer += count;
@@ -203,11 +208,115 @@ function recordFalsePositive(hostname, category) {
   markTelemetryDirty();
 }
 
+function refreshRuntimeOptions(options) {
+  runtimeOptionsCache = options || runtimeOptionsCache;
+  if (!runtimeOptionsCache) return;
+  isEnabled = runtimeOptionsCache.enabled !== false;
+  whitelistCache = runtimeOptionsCache.whitelist || {};
+  whitelistCacheTime = Date.now();
+  isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted(runtimeOptionsCache);
+}
+
+function getRuntimeOptions() {
+  return runtimeOptionsCache || { protectionLevel: 'standard', experiments: {}, whitelist: {} };
+}
+
+function recordUserGesture(tabId, payload = {}) {
+  if (!Number.isInteger(tabId) || tabId < 0) return;
+  popupGestureState.set(tabId, {
+    at: Date.now(),
+    type: payload.type || 'unknown',
+    targetTag: payload.targetTag || '',
+    href: payload.href || '',
+  });
+}
+
+function hasRecentUserGesture(tabId, windowMs) {
+  const gesture = popupGestureState.get(tabId);
+  return !!(gesture && (Date.now() - gesture.at) <= windowMs);
+}
+
+function clearPopupTracking(tabId) {
+  popupCandidates.delete(tabId);
+  popupGestureState.delete(tabId);
+}
+
+function trackPopupBurst(openerTabId, config) {
+  const now = Date.now();
+  const entry = popupBurstState.get(openerTabId) || { timestamps: [] };
+  entry.timestamps = entry.timestamps.filter(ts => now - ts <= config.burstWindowMs);
+  entry.timestamps.push(now);
+  popupBurstState.set(openerTabId, entry);
+  return entry.timestamps.length > config.maxBurstWithoutGesture;
+}
+
+function maybeClosePopupTab(tabId, reason) {
+  if (!popupCandidates.has(tabId)) return;
+  popupCandidates.delete(tabId);
+  try {
+    const result = chrome.tabs.remove(tabId);
+    if (result && typeof result.then === 'function') result.catch(() => {});
+  } catch (e) {
+    try { chrome.tabs.remove(tabId, () => {}); } catch (_) {}
+  }
+  console.log(`[midori] Closed popup candidate ${tabId}: ${reason}`);
+}
+
+function registerPopupCandidate(tab) {
+  if (!tab?.id || tab.openerTabId === undefined || tab.openerTabId === null) return;
+
+  const openerTab = getTab(tab.openerTabId);
+  const openerHostname = openerTab?.hostname || '';
+  const config = getPopupDefenseConfig(openerHostname, getRuntimeOptions());
+  if (!config.enabled) return;
+
+  const allowedByGesture = hasRecentUserGesture(tab.openerTabId, config.gestureWindowMs);
+  const burstExceeded = trackPopupBurst(tab.openerTabId, config) && !allowedByGesture;
+
+  popupCandidates.set(tab.id, {
+    openerTabId: tab.openerTabId,
+    createdAt: Date.now(),
+    allowedByGesture,
+    config,
+    hostHistory: [],
+  });
+
+  if (burstExceeded) {
+    maybeClosePopupTab(tab.id, 'popup-burst');
+    return;
+  }
+
+  if (!allowedByGesture && config.closeTabsWithoutGesture) {
+    setTimeout(() => {
+      if (popupCandidates.has(tab.id)) {
+        maybeClosePopupTab(tab.id, 'popup-no-gesture');
+      }
+    }, config.evaluationDelayMs);
+  }
+}
+
+function trackPopupRedirect(tabId, url) {
+  const candidate = popupCandidates.get(tabId);
+  if (!candidate || !url || !url.startsWith('http')) return;
+
+  const host = extractDomain(url);
+  if (!host) return;
+  const lastHost = candidate.hostHistory[candidate.hostHistory.length - 1];
+  if (lastHost !== host) {
+    candidate.hostHistory.push(host);
+  }
+
+  if (!candidate.allowedByGesture && candidate.hostHistory.length > candidate.config.redirectHopThreshold) {
+    maybeClosePopupTab(tabId, 'popup-redirect-burst');
+  }
+}
+
 // ── Protection level presets ─────────────────────────────────────────────────
 const PROTECTION_LEVELS = {
   basic: {
     label: 'Basic',
     antiFingerprint: false,
+      trackerDbAssisted: false,
     lists: {
       'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
       'ublock-privacy': true, 'peter-lowe': true, 'ublock-quick-fixes': true,
@@ -223,6 +332,7 @@ const PROTECTION_LEVELS = {
   standard: {
     label: 'Standard',
     antiFingerprint: true,
+      trackerDbAssisted: false,
     lists: {
       'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
       'ublock-privacy': true, 'peter-lowe': true, 'ublock-quick-fixes': true,
@@ -236,6 +346,7 @@ const PROTECTION_LEVELS = {
   },
   strict: {
     label: 'Strict',
+      trackerDbAssisted: true,
     antiFingerprint: true,
     lists: {
       'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
@@ -260,10 +371,13 @@ const TRACKERDB_RULE_ID_MAX = 800500;
 const TRACKERDB_MAX_RULES = TRACKERDB_RULE_ID_MAX - TRACKERDB_RULE_ID_MIN + 1;
 
 function shouldEnableTrackerDbAssisted(options) {
+  // TrackerDB assisted blocking follows the protection level — no separate experiment flag.
+  // strict → block high-confidence trackers not caught by filter lists.
+  // standard / basic → classification only, no extra blocking.
+  const level = options?.protectionLevel || 'standard';
   return (
     options?.trackerDbEnabled !== false &&
-    options?.experiments?.trackerDbAssisted === true &&
-    options?.protectionLevel === 'strict'
+    PROTECTION_LEVELS[level]?.trackerDbAssisted === true
   );
 }
 
@@ -350,8 +464,7 @@ async function initialize() {
 
   const options = await getOptions();
   initTelemetryFromOptions(options);
-  isEnabled = options.enabled !== false;
-  isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted(options);
+  refreshRuntimeOptions(options);
 
   // Chromium: enable native badge counter (zero overhead)
   if (IS_CHROMIUM) {
@@ -404,19 +517,11 @@ async function initialize() {
   // ── Step 4: Load TrackerDB from cache (instant) then schedule background refresh ──
   try {
     const trackerDbCached = await loadTrackerDbFromCache();
-    if (!trackerDbCached) {
-      // No cache: attempt a first download in the background (non-blocking)
-      fetchAndUpdateTrackerDb().then(result => {
-        console.log(`[midori] Initial TrackerDB fetch: ${result}`);
-        if (result === 'updated' && shouldEnableTrackerDbAssisted(options) && IS_CHROMIUM) {
-          applyTrackerDbDynamicRules(true).catch(e =>
-            console.warn('[midori] TrackerDB dynamic rules (initial):', e)
-          );
-        }
-      }).catch(e => console.warn('[midori] TrackerDB initial fetch failed:', e));
-    }
-    if (IS_CHROMIUM) {
-      applyTrackerDbDynamicRules(trackerDbCached && isTrackerDbAssistedEnabled).catch(e =>
+    // Apply DNR rules only when cache is loaded AND level demands it.
+    // No auto-fetch here — large remote feeds can crash the service worker.
+    // The alarm (first fire: 2 h after startup) handles background updates.
+    if (trackerDbCached && IS_CHROMIUM && isTrackerDbAssistedEnabled) {
+      applyTrackerDbDynamicRules(true).catch(e =>
         console.warn('[midori] TrackerDB dynamic rules (startup):', e)
       );
     }
@@ -522,23 +627,21 @@ function setupWebRequestBlocking() {
       if (pageHostname && isWhitelistedSync(pageHostname)) return { cancel: false };
 
       const tMatchStart = performance.now();
-      const blocked = engine.shouldBlock(url, pageHostname, details.type);
+      const matchResult = engine.matchRequest
+        ? engine.matchRequest(url, pageHostname, details.type)
+        : null;
+      const policy = evaluateRequestPolicy({
+        url,
+        pageHostname,
+        resourceType: details.type,
+        options: getRuntimeOptions(),
+        engine,
+        matchResult,
+      });
       recordMatchingLatency(performance.now() - tMatchStart);
 
-      // ── TrackerDB assisted blocking (Firefox, balanced mode) ──────────────
-      // Elevate block for high-confidence trackers not yet matched by the engine.
-      // Only active when experiment flag trackerDbAssisted is on.
-      // Respects the same whitelist check already done above.
-      let assistedBlock = false;
-      if (!blocked && isTrackerDbAssistedEnabled) {
-        const domain = extractDomain(url);
-        if (domain && isHighConfidenceTracker(domain)) {
-          assistedBlock = true;
-        }
-      }
-
-      if (blocked || assistedBlock) {
-        recordBlockedCategory(categorizeRequest(url));
+      if (policy.shouldBlock) {
+        recordBlockedCategory(policy.category || categorizeRequest(url));
         recordBlock(details.tabId, url);
         updateBadge(details.tabId);
 
@@ -751,6 +854,10 @@ async function getChromiumTabStats(tabId) {
 // ── Tab lifecycle ───────────────────────────────────────────────────────────
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url) {
+    trackPopupRedirect(tabId, changeInfo.url);
+  }
+
   if (changeInfo.status === 'loading' && tab.url) {
     const hostname = extractDomain(tab.url);
 
@@ -765,6 +872,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       updateBadge(tabId);
     }
   }
+});
+
+chrome.tabs.onCreated.addListener((tab) => {
+  registerPopupCandidate(tab);
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
@@ -789,6 +900,8 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   // Chromium: clean up tracking
   chromiumTabTrackers.delete(tabId);
   lastCollectTime.delete(tabId);
+  clearPopupTracking(tabId);
+  popupBurstState.delete(tabId);
 });
 
 // ── Alarm handler ────────────────────────────────────────────────────────────
@@ -844,7 +957,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // ── Message handler (popup & options communication) ─────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  handleMessage(msg).then(sendResponse).catch(e => {
+  handleMessage(msg, sender).then(sendResponse).catch(e => {
     console.error('[midori] Message error:', e);
     sendResponse({ error: e.message });
   });
@@ -864,15 +977,29 @@ if (chrome.runtime.onMessageExternal) {
       sendResponse({ error: 'Action not allowed' });
       return false;
     }
-    handleMessage(msg).then(sendResponse).catch(e => {
+    handleMessage(msg, sender).then(sendResponse).catch(e => {
       sendResponse({ error: e.message });
     });
     return true;
   });
 }
 
-async function handleMessage(msg) {
+async function handleMessage(msg, sender) {
   switch (msg.action) {
+    case 'get-popup-defense-config':
+      return { config: getPopupDefenseConfig(msg.hostname || '', getRuntimeOptions()) };
+
+    case 'popup-guard-user-gesture': {
+      const tabId = sender?.tab?.id ?? msg.tabId;
+      if (Number.isInteger(tabId) && tabId >= 0) {
+        recordUserGesture(tabId, msg);
+      }
+      return { success: true };
+    }
+
+    case 'popup-guard-blocked':
+      return { success: true };
+
     case 'get-tab-stats': {
       // Chromium: use getMatchedRules for real-time data
       if (IS_CHROMIUM) {
@@ -899,6 +1026,7 @@ async function handleMessage(msg) {
 
     case 'toggle-site': {
       const nowWhitelisted = await toggleWhitelist(msg.hostname);
+      refreshRuntimeOptions(await getOptions());
       if (IS_CHROMIUM) {
         await updateDnrWhitelist();
       }
@@ -909,6 +1037,7 @@ async function handleMessage(msg) {
       const options = await getOptions();
       isEnabled = !options.enabled;
       await setOptions({ enabled: isEnabled });
+      refreshRuntimeOptions({ ...options, enabled: isEnabled });
 
       if (IS_CHROMIUM) {
         const rulesetIds = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
@@ -1008,6 +1137,12 @@ async function handleMessage(msg) {
         antiFingerprint: preset.antiFingerprint,
         lists,
       });
+      refreshRuntimeOptions({
+        ...opts,
+        protectionLevel: level,
+        antiFingerprint: preset.antiFingerprint,
+        lists,
+      });
 
       isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted({
         ...opts,
@@ -1055,6 +1190,7 @@ async function handleMessage(msg) {
     case 'save-setup': {
       const config = msg.config || {};
       const nextOptions = await setOptions(config);
+      refreshRuntimeOptions(nextOptions);
       isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted(nextOptions);
 
       // Update global enabled state
@@ -1105,6 +1241,7 @@ async function handleMessage(msg) {
       const opts = await getOptions();
       const whitelist = { ...(opts.whitelist || {}), [msg.hostname]: true };
       await setOptions({ whitelist, pauseUntil: msg.pauseUntil, pausedHostname: msg.hostname });
+      refreshRuntimeOptions({ ...opts, whitelist, pauseUntil: msg.pauseUntil, pausedHostname: msg.hostname });
       if (IS_CHROMIUM) await updateDnrWhitelist();
       // Schedule auto-resume alarm
       const mins = msg.minutes || 5;
@@ -1120,6 +1257,7 @@ async function handleMessage(msg) {
       const pausedHost = opts.pausedHostname;
       if (pausedHost && !msg.hostname) delete whitelist[pausedHost];
       await setOptions({ whitelist, pauseUntil: 0, pausedHostname: '' });
+      refreshRuntimeOptions({ ...opts, whitelist, pauseUntil: 0, pausedHostname: '' });
       if (IS_CHROMIUM) await updateDnrWhitelist();
       chrome.alarms.clear('resume-protection');
       return { success: true };
@@ -1136,6 +1274,7 @@ async function handleMessage(msg) {
         }
       }
       await setOptions({ lists, categoryState: msg.categoryState || {} });
+      refreshRuntimeOptions({ ...opts, lists, categoryState: msg.categoryState || {} });
 
       // Chromium: update DNR rulesets
       if (IS_CHROMIUM) {
@@ -1171,6 +1310,7 @@ async function handleMessage(msg) {
     case 'save-options-partial': {
       if (msg.options) {
         const updatedOptions = await setOptions(msg.options);
+        refreshRuntimeOptions(updatedOptions);
         if (Object.prototype.hasOwnProperty.call(msg.options, 'localTelemetry')) {
           telemetryState = normalizeTelemetry(msg.options.localTelemetry);
         }
@@ -1245,6 +1385,7 @@ async function handleMessage(msg) {
       const opts = await getOptions();
       const experiments = { ...(opts.experiments || {}), trackerDbAssisted: enable };
       const updatedOptions = await setOptions({ experiments });
+      refreshRuntimeOptions(updatedOptions);
       isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted(updatedOptions);
       if (IS_CHROMIUM) {
         await applyTrackerDbDynamicRules(isTrackerDbAssistedEnabled).catch(e =>
