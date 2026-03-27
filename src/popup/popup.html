@@ -68,39 +68,81 @@
       </div>
     </div>
 
-    <!-- Stats -->
-    <div class="popup-stats">
-      <div class="stat-block">
-        <div class="stat-value stat-blocked" id="blocked-count">0</div>
-        <div class="stat-label">Blocked</div>
+    <!-- ── Observed Activities Panel (Ghostery-style) ── -->
+    <div class="oa-panel">
+      <!-- header row: title + view toggles -->
+      <div class="oa-header">
+        <span class="oa-title">Observed activities</span>
+        <div class="oa-view-btns">
+          <button class="oa-view-btn active" id="view-chart" title="Chart view">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/></svg>
+          </button>
+          <button class="oa-view-btn" id="view-list" title="List view">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+        </div>
       </div>
-      <div class="stat-divider"></div>
-      <div class="stat-block">
-        <div class="stat-value stat-saved" id="saved-size">0</div>
-        <div class="stat-label" id="saved-unit">KB Saved</div>
+
+      <!-- chart + category list -->
+      <div class="oa-body" id="oa-chart-view">
+        <!-- Donut -->
+        <div class="oa-donut-wrap">
+          <svg id="donut-svg" class="oa-donut" viewBox="0 0 100 100">
+            <circle class="donut-track" cx="50" cy="50" r="36" />
+            <!-- segments injected by JS -->
+            <g id="donut-segs"></g>
+          </svg>
+          <div class="donut-center" id="donut-center">
+            <span class="donut-total" id="donut-total">0</span>
+            <span class="donut-label">blocked</span>
+          </div>
+        </div>
+
+        <!-- Category rows -->
+        <div class="oa-cats" id="oa-cats">
+          <!-- filled by JS -->
+          <div class="oa-empty" id="oa-empty">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Browsing clean</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- flat domain list (view-list mode) -->
+      <div class="oa-body oa-listview hidden" id="oa-list-view">
+        <div id="flat-list" class="flat-list"></div>
+      </div>
+
+      <!-- Blocked badge -->
+      <div class="oa-blocked-row" id="oa-blocked-row">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        <span id="oa-blocked-count">0</span>
+        <span class="oa-blocked-label">Trackers blocked</span>
       </div>
     </div>
 
-    <!-- Eco Dashboard -->
-    <div id="eco-section" class="popup-section" style="background: var(--color-primary-bg); border-bottom: 1px solid var(--color-primary);">
-      <div class="section-label" style="color: var(--color-primary-dark);">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-        Eco Impact
-      </div>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="text-align: center; flex: 1;">
-          <div id="eco-energy" style="font-size: 0.9rem; font-weight: 800; color: var(--color-primary);">0 Wh</div>
-          <div style="font-size: 0.6rem; color: var(--color-text-tertiary); text-transform: uppercase;">Energy</div>
-        </div>
-        <div style="width: 1px; height: 20px; background: var(--color-border);"></div>
-        <div style="text-align: center; flex: 1;">
-          <div id="eco-co2" style="font-size: 0.9rem; font-weight: 800; color: var(--color-primary);">0 g</div>
-          <div style="font-size: 0.6rem; color: var(--color-text-tertiary); text-transform: uppercase;">CO2 Saved</div>
-        </div>
       </div>
     </div>
 
-    <!-- Protection Level Selector -->
+    <!-- ── Compact stats bar ── -->
+    <div class="cstats-bar">
+      <div class="cstat">
+        <span class="cstat-val stat-blocked" id="blocked-count">0</span>
+        <span class="cstat-lbl">Blocked</span>
+      </div>
+      <div class="cstat-sep"></div>
+      <div class="cstat">
+        <span class="cstat-val stat-saved" id="saved-size">0</span>
+        <span class="cstat-lbl" id="saved-unit">KB Saved</span>
+      </div>
+      <div class="cstat-sep"></div>
+      <div class="cstat">
+        <span class="cstat-val" id="eco-energy" style="color:var(--color-primary)">0 Wh</span>
+        <span class="cstat-lbl">Energy</span>
+      </div>
+    </div>
+
+    <!-- ── Shield Level ── -->
     <div id="protection-level-section" class="popup-section">
       <div class="section-label">Shield Level</div>
       <div class="level-selector">
@@ -111,23 +153,7 @@
       <div id="level-status" class="level-status"></div>
     </div>
 
-    <!-- Quick Category Toggles -->
-    <div class="popup-section popup-categories">
-      <button class="cat-chip active" data-cat="ads">
-        <span class="cat-dot" style="background:var(--color-danger)"></span>
-        Ads
-      </button>
-      <button class="cat-chip active" data-cat="trackers">
-        <span class="cat-dot" style="background:var(--color-warning)"></span>
-        Trackers
-      </button>
-      <button class="cat-chip active" data-cat="fingerprinting">
-        <span class="cat-dot" style="background:var(--color-info)"></span>
-        Privacy
-      </button>
-    </div>
-
-    <!-- Pause Timer (visible only when paused) -->
+    <!-- ── Pause Timer (visible only when paused) ── -->
     <div id="pause-section" class="popup-pause">
       <div class="pause-bar">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -137,7 +163,7 @@
       </div>
     </div>
 
-    <!-- Pause quick options -->
+    <!-- ── Pause quick options ── -->
     <div class="popup-section popup-pause-bar" style="display:flex; align-items:center; gap:6px;">
       <span class="section-label" style="margin-bottom:0; margin-right:auto;">Pause for:</span>
       <button class="pause-opt" data-minutes="5">5m</button>
@@ -146,54 +172,16 @@
       <button class="pause-opt" data-minutes="60">1h</button>
     </div>
 
-    <!-- Live Request Stream -->
-    <div id="live-stream" class="popup-live hidden">
-      <div class="live-header">
-        <span class="live-dot"></span>
-        <span>Activity Stream</span>
-      </div>
-      <div id="live-items"></div>
-    </div>
-
-    <!-- Blocked requests list -->
-    <div id="requests-list" class="popup-requests">
-      <div id="empty-state" class="empty-state">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
-        <span>Clean browsing session</span>
-      </div>
-
-      <!-- Trackers group -->
+    <!-- ── Hidden data groups (kept for compat / list view) ── -->
+    <div id="requests-list" class="popup-requests hidden">
+      <div id="empty-state" class="empty-state hidden"></div>
       <div id="group-trackers" class="req-group hidden">
-        <button class="group-header" data-group="trackers">
-          <span class="group-dot" style="background:var(--color-warning)"></span>
-          <span class="group-name">Trackers</span>
-          <span id="count-trackers" class="badge badge-warning">0</span>
-          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
         <div id="list-trackers" class="group-items"></div>
       </div>
-
-      <!-- Ads group -->
       <div id="group-ads" class="req-group hidden">
-        <button class="group-header" data-group="ads">
-          <span class="group-dot" style="background:var(--color-danger)"></span>
-          <span class="group-name">Ads</span>
-          <span id="count-ads" class="badge badge-danger">0</span>
-          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
         <div id="list-ads" class="group-items"></div>
       </div>
-
-      <!-- Other group -->
       <div id="group-other" class="req-group hidden">
-        <button class="group-header" data-group="other">
-          <span class="group-dot" style="background:var(--color-text-tertiary)"></span>
-          <span class="group-name">Other</span>
-          <span id="count-other" class="badge badge-primary">0</span>
-          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
         <div id="list-other" class="group-items"></div>
       </div>
     </div>

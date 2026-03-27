@@ -111,7 +111,8 @@ async function loadTabStats() {
   // Update Eco Stats
   const energyWh = (data.energySaved || 0) * 1000;
   $('#eco-energy').textContent = energyWh >= 1000 ? (energyWh / 1000).toFixed(2) + ' kWh' : Math.round(energyWh) + ' Wh';
-  $('#eco-co2').textContent = (data.co2Saved || 0).toFixed(1) + ' g';
+  const ecoC02El = $('#eco-co2');
+  if (ecoC02El) ecoC02El.textContent = (data.co2Saved || 0).toFixed(1) + ' g';
 
   // Update groups
   const groups = data.groups || { trackers: [], ads: [], other: [] };
@@ -121,9 +122,13 @@ async function loadTabStats() {
   renderGroup('ads', groups.ads);
   renderGroup('other', groups.other);
 
-  // Show/hide empty state
+  // Show/hide empty state (hidden compat list)
   const hasItems = groups.trackers.length + groups.ads.length + groups.other.length > 0;
-  $('#empty-state').classList.toggle('hidden', hasItems);
+  const emptyStateEl = $('#empty-state');
+  if (emptyStateEl) emptyStateEl.classList.toggle('hidden', hasItems);
+
+  // OA Panel — dona + categorías
+  updateOAPanel(groups, blocked);
 
   // Update live stream
   updateLiveStream(data.recentRequests || [], blocked);
@@ -140,7 +145,7 @@ function renderGroup(name, domains) {
   }
 
   groupEl.classList.remove('hidden');
-  countEl.textContent = domains.length;
+  if (countEl) countEl.textContent = domains.length;
 
   // Only re-render if content changed
   const currentContent = listEl.dataset.domains || '';
@@ -157,6 +162,122 @@ function renderGroup(name, domains) {
       <span class="request-blocked-icon">✕</span>
     `;
     listEl.appendChild(item);
+  }
+}
+
+// ── OA Panel — dona de categorías ──────────────────────────────────────────
+
+const OA_COLORS = {
+  ads:      '#e74c3c',
+  trackers: '#f39c12',
+  other:    '#3498db',
+};
+
+const OA_LABELS = {
+  ads:      'Advertising',
+  trackers: 'Site Analytics',
+  other:    'Other',
+};
+
+const OA_R = 36;
+const OA_C = 2 * Math.PI * OA_R; // ≈ 226.195
+
+function updateOAPanel(groups, blocked) {
+  const counts = {
+    ads:      (groups.ads      || []).length,
+    trackers: (groups.trackers || []).length,
+    other:    (groups.other    || []).length,
+  };
+  const total = counts.ads + counts.trackers + counts.other;
+
+  // Contador de blockeados en la fila inferior
+  const blockedBadge = $('#oa-blocked-count');
+  if (blockedBadge) blockedBadge.textContent = blocked;
+
+  // Número central de la dona
+  const totalEl = $('#donut-total');
+  if (totalEl) totalEl.textContent = total;
+
+  // Segmentos SVG
+  const segsEl = $('#donut-segs');
+  if (segsEl) renderDonut(segsEl, counts, total);
+
+  // Filas de categorías
+  renderOACats(counts, total);
+
+  // Lista plana (vista lista)
+  const flatList = $('#flat-list');
+  if (flatList) {
+    const all = [
+      ...(groups.ads      || []).map(d => ({ d, cat: 'ads' })),
+      ...(groups.trackers || []).map(d => ({ d, cat: 'trackers' })),
+      ...(groups.other    || []).map(d => ({ d, cat: 'other' })),
+    ];
+    const newKey = all.map(e => e.d).join(',');
+    if (flatList.dataset.key !== newKey) {
+      flatList.dataset.key = newKey;
+      flatList.innerHTML = '';
+      for (const { d, cat } of all.slice(0, 50)) {
+        const el = document.createElement('div');
+        el.className = 'flat-entry';
+        el.innerHTML =
+          `<span class="flat-entry-dot" style="background:${OA_COLORS[cat]}"></span>` +
+          `<span class="flat-entry-domain">${escapeHtml(d)}</span>` +
+          `<span class="flat-entry-cat">${escapeHtml(OA_LABELS[cat] || cat)}</span>`;
+        flatList.appendChild(el);
+      }
+    }
+  }
+}
+
+function renderDonut(container, counts, total) {
+  container.innerHTML = '';
+  if (total === 0) return;
+
+  let cumLen = 0;
+  for (const cat of ['ads', 'trackers', 'other']) {
+    const count = counts[cat] || 0;
+    if (count === 0) continue;
+    const segLen = (count / total) * OA_C;
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '50');
+    circle.setAttribute('cy', '50');
+    circle.setAttribute('r', String(OA_R));
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', OA_COLORS[cat]);
+    circle.setAttribute('stroke-width', '10');
+    circle.setAttribute('stroke-linecap', 'butt');
+    circle.setAttribute('stroke-dasharray', `${segLen} ${OA_C}`);
+    circle.setAttribute('stroke-dashoffset', String(-cumLen));
+    container.appendChild(circle);
+    cumLen += segLen;
+  }
+}
+
+function renderOACats(counts, total) {
+  const catsEl = $('#oa-cats');
+  if (!catsEl) return;
+  const emptyEl = $('#oa-empty');
+
+  // Elimina filas anteriores
+  for (const el of [...catsEl.querySelectorAll('.oa-cat-row')]) el.remove();
+
+  if (total === 0) {
+    if (emptyEl) emptyEl.classList.remove('hidden');
+    return;
+  }
+  if (emptyEl) emptyEl.classList.add('hidden');
+
+  for (const cat of ['ads', 'trackers', 'other']) {
+    const count = counts[cat] || 0;
+    if (count === 0) continue;
+    const row = document.createElement('div');
+    row.className = 'oa-cat-row';
+    row.innerHTML =
+      `<span class="oa-cat-dot" style="background:${OA_COLORS[cat]}"></span>` +
+      `<span class="oa-cat-name">${escapeHtml(OA_LABELS[cat])}</span>` +
+      `<span class="oa-cat-count">${count}</span>`;
+    if (emptyEl) { catsEl.insertBefore(row, emptyEl); } else { catsEl.appendChild(row); }
   }
 }
 
@@ -454,6 +575,20 @@ function setupListeners() {
     // Start open
     header.classList.add('open');
   }
+
+  // OA view toggles (chart / list)
+  $('#view-chart')?.addEventListener('click', () => {
+    $('#oa-chart-view')?.classList.remove('hidden');
+    $('#oa-list-view')?.classList.add('hidden');
+    $('#view-chart')?.classList.add('active');
+    $('#view-list')?.classList.remove('active');
+  });
+  $('#view-list')?.addEventListener('click', () => {
+    $('#oa-chart-view')?.classList.add('hidden');
+    $('#oa-list-view')?.classList.remove('hidden');
+    $('#view-chart')?.classList.remove('active');
+    $('#view-list')?.classList.add('active');
+  });
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

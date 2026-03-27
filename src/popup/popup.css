@@ -473,3 +473,335 @@ body {
 .footer-link:hover {
   background: var(--color-primary-bg);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OA PANEL — Observed Activities (donut chart + category rows)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.oa-panel {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0;
+}
+
+/* ── Header ── */
+.oa-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 6px;
+}
+
+.oa-title {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+}
+
+.oa-view-btns {
+  display: flex;
+  gap: 2px;
+}
+
+.oa-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.oa-view-btn:hover,
+.oa-view-btn.active {
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+}
+
+/* ── Chart view body ── */
+.oa-body {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 16px 12px;
+}
+
+.oa-body.hidden {
+  display: none;
+}
+
+/* ── Donut SVG wrapper ── */
+.oa-donut-wrap {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+}
+
+.oa-donut {
+  width: 88px;
+  height: 88px;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.donut-track {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 10;
+}
+
+.donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.donut-total {
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: var(--color-text);
+}
+
+.donut-label {
+  font-size: 0.52rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+/* ── Category rows ── */
+.oa-cats {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.oa-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.75rem;
+}
+
+.oa-cat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.oa-cat-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oa-cat-count {
+  font-weight: 800;
+  color: var(--color-text);
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+/* ── Empty state (Browsing clean) ── */
+.oa-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 0 4px;
+  color: var(--color-text-tertiary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  width: 100%;
+  text-align: center;
+}
+
+.oa-empty.hidden {
+  display: none;
+}
+
+/* ── Blocked count badge row ── */
+.oa-blocked-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 16px 9px;
+  font-size: 0.72rem;
+  color: var(--color-text-tertiary);
+}
+
+.oa-blocked-count {
+  font-weight: 900;
+  color: var(--color-danger);
+  font-size: 0.82rem;
+}
+
+.oa-blocked-label {
+  font-weight: 700;
+}
+
+/* ── List view body ── */
+.oa-listview {
+  padding: 4px 16px 10px;
+  max-height: 148px;
+  overflow-y: auto;
+}
+
+.oa-listview.hidden {
+  display: none;
+}
+
+.flat-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.flat-entry {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.flat-entry:last-child {
+  border-bottom: none;
+}
+
+.flat-entry-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.flat-entry-domain {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.flat-entry-cat {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODULE PILLS — Ad-Blocking / Anti-Tracking / Never-Consent
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.module-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.module-pill {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.module-pill:last-child {
+  border-bottom: none;
+}
+
+.module-icon {
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.module-pill .module-state {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.module-pill.active .module-icon {
+  color: var(--color-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPACT STATS BAR — Blocked / KB Saved / Energy
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cstats-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.cstat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.cstat-val {
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.cstat-lbl {
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-tertiary);
+}
+
+.cstat-sep {
+  width: 1px;
+  height: 28px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
