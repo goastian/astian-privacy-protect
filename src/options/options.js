@@ -161,6 +161,9 @@ async function init() {
   if (reportsSection && reportsSection.classList.contains('active')) {
     await loadReports();
   }
+  if ($('#section-tracker-browser')?.classList.contains('active')) renderTrackerBrowser();
+  if ($('#section-trends')?.classList.contains('active')) requestAnimationFrame(() => loadTrendsAlerts());
+  if ($('#section-difficult-sites')?.classList.contains('active')) renderDifficultSites();
 }
 
 // ── Navigation ──────────────────────────────────────────────────────────────
@@ -187,6 +190,15 @@ function switchSection(name) {
   // Re-render charts when Reports section becomes visible (canvas needs offsetWidth > 0)
   if (name === 'reports') {
     requestAnimationFrame(() => loadReports());
+  }
+  if (name === 'tracker-browser') {
+    renderTrackerBrowser();
+  }
+  if (name === 'trends') {
+    requestAnimationFrame(() => loadTrendsAlerts());
+  }
+  if (name === 'difficult-sites') {
+    renderDifficultSites();
   }
 }
 
@@ -1011,6 +1023,486 @@ async function exportHtmlReport() {
   URL.revokeObjectURL(url);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TRACKER DATABASE BROWSER (5.3)
+// ═══════════════════════════════════════════════════════════════════════════
+
+let tdbAllEntries = [];
+let tdbFiltered = [];
+let tdbPage = 0;
+const TDB_PAGE_SIZE = 50;
+let tdbSearchTimeout = null;
+let trendsDays = 7;
+
+async function renderTrackerBrowser() {
+  // Pull data from TrackerDB background module + local top-site data
+  const [tdbMeta, topSites] = await Promise.all([
+    sendMessage({ action: 'get-trackerdb-meta' }),
+    sendMessage({ action: 'get-report-top-sites', days: 30, limit: 50 }),
+  ]);
+
+  // Build entries from TRACKER_DB static map merged with TrackerDB live data
+  const seen = new Map();
+  // Sites data to compute how many local sites each domain appeared on
+  const sitePerDomain = new Map();
+  for (const site of topSites || []) {
+    for (const d of site.trackers || []) {
+      sitePerDomain.set(d, (sitePerDomain.get(d) || 0) + 1);
+    }
+  }
+
+  // Merge static TRACKER_DB + any seen domains
+  for (const [domain, info] of Object.entries(TRACKER_DB)) {
+    seen.set(domain, {
+      domain,
+      company: info.company,
+      category: info.type,
+      country: info.country,
+      confidence: sitePerDomain.has(domain) ? Math.min(1, sitePerDomain.get(domain) / 5) : 0.1,
+      sites: sitePerDomain.get(domain) || 0,
+      source: 'static',
+    });
+  }
+  // Add any additional domains from local history not in static map
+  for (const [domain, count] of sitePerDomain.entries()) {
+    if (!seen.has(domain)) {
+      const info = lookupTracker(domain);
+      seen.set(domain, {
+        domain,
+        company: info?.company || 'Unknown',
+        category: info?.type || 'Tracker',
+        country: info?.country || '??',
+        confidence: Math.min(1, count / 5),
+        sites: count,
+        source: 'local',
+      });
+    } else {
+      seen.get(domain).sites = count;
+      seen.get(domain).confidence = Math.min(1, count / 5);
+    }
+  }
+
+  tdbAllEntries = [...seen.values()].sort((a, b) => b.sites - a.sites || b.confidence - a.confidence);
+
+  // Populate company filter
+  const companies = [...new Set(tdbAllEntries.map(e => e.company))].sort();
+  const companySelect = $('#tdb-filter-company');
+  if (companySelect) {
+    const prev = companySelect.value;
+    const opts = ['<option value="">All Companies</option>',
+      ...companies.map(c => `<option value="${escapeHtml(c)}"${c === prev ? ' selected' : ''}>${escapeHtml(c)}</option>`)];
+    companySelect.innerHTML = opts.join('');
+  }
+
+  // Summary chips
+  const sumEl = $('#tdb-summary');
+  if (sumEl) {
+    const catCounts = {};
+    for (const e of tdbAllEntries) catCounts[e.category] = (catCounts[e.category] || 0) + 1;
+    const top5 = Object.entries(catCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    sumEl.innerHTML = top5.map(([cat, n]) =>
+      `<span class="tdb-chip" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)} <strong>${n}</strong></span>`
+    ).join('') + `<span class="tdb-chip tdb-chip--total">${tdbAllEntries.length} trackers total</span>`;
+    for (const chip of sumEl.querySelectorAll('.tdb-chip[data-cat]')) {
+      chip.addEventListener('click', () => {
+        const catSel = $('#tdb-filter-cat');
+        if (catSel) { catSel.value = chip.dataset.cat; applyTdbFilters(); }
+      });
+    }
+  }
+
+  applyTdbFilters();
+
+  // Wire up search + filters (once)
+  if (!$('#tdb-search')?._wired) {
+    $('#tdb-search')._wired = true;
+    $('#tdb-search')?.addEventListener('input', () => {
+      clearTimeout(tdbSearchTimeout);
+      tdbSearchTimeout = setTimeout(applyTdbFilters, 180);
+    });
+    $('#tdb-filter-cat')?.addEventListener('change', applyTdbFilters);
+    $('#tdb-filter-company')?.addEventListener('change', applyTdbFilters);
+    $('#tdb-sort')?.addEventListener('change', applyTdbFilters);
+  }
+}
+
+function applyTdbFilters() {
+  const q = ($('#tdb-search')?.value || '').trim().toLowerCase();
+  const cat = $('#tdb-filter-cat')?.value || '';
+  const company = $('#tdb-filter-company')?.value || '';
+  const sort = $('#tdb-sort')?.value || 'prevalence';
+
+  tdbFiltered = tdbAllEntries.filter(e => {
+    if (cat && !e.category.includes(cat)) return false;
+    if (company && e.company !== company) return false;
+    if (q) {
+      return e.domain.includes(q) || e.company.toLowerCase().includes(q) || e.category.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  if (sort === 'company') tdbFiltered.sort((a, b) => a.company.localeCompare(b.company) || b.sites - a.sites);
+  else if (sort === 'category') tdbFiltered.sort((a, b) => a.category.localeCompare(b.category) || b.sites - a.sites);
+  else if (sort === 'domain') tdbFiltered.sort((a, b) => a.domain.localeCompare(b.domain));
+  // else: prevalence (default, already sorted above)
+
+  tdbPage = 0;
+  renderTdbPage();
+}
+
+function renderTdbPage() {
+  const rowsEl = $('#tdb-rows');
+  const pagEl = $('#tdb-pagination');
+  if (!rowsEl) return;
+
+  if (tdbFiltered.length === 0) {
+    rowsEl.innerHTML = '<div class="tdb-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>No trackers match the current filters.</span></div>';
+    if (pagEl) pagEl.innerHTML = '';
+    return;
+  }
+
+  const start = tdbPage * TDB_PAGE_SIZE;
+  const page = tdbFiltered.slice(start, start + TDB_PAGE_SIZE);
+
+  rowsEl.innerHTML = '';
+  for (const e of page) {
+    const conf = Math.round(e.confidence * 100);
+    const row = document.createElement('div');
+    row.className = 'tdb-row';
+    row.innerHTML =
+      `<span class="tracker-db-domain tdb-cell">${escapeHtml(e.domain)}</span>` +
+      `<span class="tdb-cell font-semibold">${escapeHtml(e.company)}</span>` +
+      `<span class="tdb-cell"><span class="tdb-cat-badge">${escapeHtml(e.category)}</span></span>` +
+      `<span class="tdb-cell tdb-country">${e.country}</span>` +
+      `<span class="tdb-cell tdb-col-conf"><span class="tdb-conf-bar"><span class="tdb-conf-fill" style="width:${conf}%"></span></span><span class="tdb-conf-val">${conf}%</span></span>` +
+      `<span class="tdb-cell tdb-col-sites">${e.sites > 0 ? `<span class="badge badge-primary">${e.sites}</span>` : '<span class="text-tertiary">—</span>'}</span>`;
+    rowsEl.appendChild(row);
+  }
+
+  // Pagination
+  if (pagEl) {
+    const pages = Math.ceil(tdbFiltered.length / TDB_PAGE_SIZE);
+    if (pages <= 1) { pagEl.innerHTML = `<span class="tdb-pag-info">${tdbFiltered.length} results</span>`; return; }
+    const btns = [];
+    btns.push(`<span class="tdb-pag-info">${tdbFiltered.length} results</span>`);
+    if (tdbPage > 0) btns.push(`<button class="btn btn-outline btn-sm" data-page="${tdbPage - 1}">← Prev</button>`);
+    btns.push(`<span class="tdb-pag-page">Page ${tdbPage + 1} / ${pages}</span>`);
+    if (tdbPage < pages - 1) btns.push(`<button class="btn btn-outline btn-sm" data-page="${tdbPage + 1}">Next →</button>`);
+    pagEl.innerHTML = btns.join('');
+    for (const btn of pagEl.querySelectorAll('[data-page]')) {
+      btn.addEventListener('click', () => { tdbPage = parseInt(btn.dataset.page); renderTdbPage(); });
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRENDS & ALERTS (5.4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadTrendsAlerts() {
+  const [stats, topSites, categories, trend] = await Promise.all([
+    sendMessage({ action: 'get-report-stats', days: trendsDays }),
+    sendMessage({ action: 'get-report-top-sites', days: trendsDays, limit: 15 }),
+    sendMessage({ action: 'get-report-categories', days: trendsDays }),
+    sendMessage({ action: 'get-weekly-trend' }),
+  ]);
+
+  renderActionableAlerts(topSites || [], categories);
+  renderSiteRecommendations(topSites || []);
+  renderCategoryTrends(categories, trend);
+  renderTrendChart(stats || []);
+  renderTopThreatDomains(topSites || []);
+}
+
+function renderActionableAlerts(topSites, categories) {
+  const container = $('#ta-alerts-list');
+  const countEl = $('#ta-alerts-count');
+  if (!container) return;
+
+  const alerts = [];
+
+  for (const site of topSites) {
+    if (site.trackerCount >= 15) {
+      alerts.push({
+        level: 'high',
+        action: 'block',
+        site: site.hostname,
+        message: `<strong>${escapeHtml(site.hostname)}</strong> loads <strong>${site.trackerCount} trackers</strong> — consider blocking or adding to strict list`,
+        cta: 'Add to strict',
+        ctaAction: () => addSiteToStrictMode(site.hostname),
+      });
+    } else if (site.trackerCount >= 8) {
+      alerts.push({
+        level: 'medium',
+        action: 'review',
+        site: site.hostname,
+        message: `<strong>${escapeHtml(site.hostname)}</strong> has ${site.trackerCount} trackers — review tracker categories`,
+        cta: 'Review',
+        ctaAction: () => switchSection('tracker-browser'),
+      });
+    }
+  }
+
+  if ((categories?.fingerprinters || 0) > 30) {
+    alerts.push({
+      level: 'high',
+      action: 'setting',
+      message: `<strong>${formatNumber(categories.fingerprinters)}</strong> fingerprinting attempts — ensure anti-fingerprint is enabled`,
+      cta: 'Check settings',
+      ctaAction: () => switchSection('general'),
+    });
+  }
+
+  if ((categories?.ads || 0) > 1000) {
+    alerts.push({
+      level: 'medium',
+      action: 'info',
+      message: `<strong>${formatNumber(categories.ads)}</strong> ads blocked this period — heavy ad exposure`,
+    });
+  }
+
+  const experiments = currentOptions?.experiments || {};
+  if (!experiments.serpBar) {
+    alerts.push({
+      level: 'info',
+      action: 'feature',
+      message: 'SERP risk badges are disabled — enable them to see pre-visit risk scores on search results',
+      cta: 'Enable',
+      ctaAction: async () => {
+        const exps = { ...(currentOptions.experiments || {}), serpBar: true };
+        currentOptions = await saveOptions({ experiments: exps });
+        renderDifficultSites();
+      },
+    });
+  }
+
+  if (countEl) countEl.textContent = alerts.filter(a => a.level !== 'info').length;
+
+  if (alerts.length === 0) {
+    container.innerHTML = '<p class="text-sm text-tertiary">No alerts — your browsing looks clean.</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+  for (const alert of alerts.slice(0, 12)) {
+    const div = document.createElement('div');
+    div.className = `ta-alert ta-alert-${alert.level}`;
+    div.innerHTML =
+      `<div class="ta-alert-dot ta-alert-dot-${alert.level}"></div>` +
+      `<div class="ta-alert-body"><span class="text-sm">${alert.message}</span></div>` +
+      (alert.cta ? `<button class="btn btn-outline btn-sm ta-alert-cta">${escapeHtml(alert.cta)}</button>` : '');
+    if (alert.ctaAction) {
+      div.querySelector('.ta-alert-cta')?.addEventListener('click', alert.ctaAction);
+    }
+    container.appendChild(div);
+  }
+}
+
+async function addSiteToStrictMode(hostname) {
+  const current = currentOptions?.siteVerticalOverrides || {};
+  const updated = { ...current, [hostname]: 'strict' };
+  currentOptions = await saveOptions({ siteVerticalOverrides: updated });
+}
+
+function renderSiteRecommendations(topSites) {
+  const container = $('#ta-site-recs');
+  if (!container) return;
+
+  const recs = topSites
+    .filter(s => s.trackerCount > 3 || s.score < 70)
+    .slice(0, 8)
+    .map(s => {
+      const g = scoreToGrade(s.score ?? 50);
+      const tips = [];
+      if (s.trackerCount > 10) tips.push('Many trackers — consider blocking or limiting visits');
+      else if (s.trackerCount > 5) tips.push('Moderate tracking — check tracker categories');
+      if ((s.score ?? 50) < 50) tips.push('Low privacy score — review allowed-sites list');
+      return { site: s, grade: g, tip: tips[0] || 'Review tracker activities' };
+    });
+
+  if (recs.length === 0) {
+    container.innerHTML = '<p class="text-sm text-tertiary">No recommendations — your browsing looks clean.</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+  for (const { site, grade, tip } of recs) {
+    const div = document.createElement('div');
+    div.className = 'ta-site-rec';
+    div.innerHTML =
+      `<div class="ta-rec-grade ${grade.css}">${grade.grade}</div>` +
+      `<div class="ta-rec-info"><div class="ta-rec-host">${escapeHtml(site.hostname)}</div><div class="ta-rec-tip text-xs text-tertiary">${escapeHtml(tip)}</div></div>` +
+      `<div class="ta-rec-count text-xs">${site.blocked} blocked · ${site.trackerCount} trackers</div>`;
+    container.appendChild(div);
+  }
+}
+
+function renderCategoryTrends(categories, trend) {
+  const container = $('#ta-cat-trends');
+  if (!container) return;
+
+  const cats = [
+    { key: 'trackers', label: 'Trackers', color: CAT_COLORS.trackers },
+    { key: 'ads', label: 'Ads', color: CAT_COLORS.ads },
+    { key: 'fingerprinters', label: 'Fingerprinters', color: CAT_COLORS.fingerprinters },
+    { key: 'other', label: 'Other', color: CAT_COLORS.other },
+  ];
+  const total = cats.reduce((s, c) => s + (categories?.[c.key] || 0), 0) || 1;
+
+  container.innerHTML = '';
+  for (const cat of cats) {
+    const val = categories?.[cat.key] || 0;
+    const pct = Math.round((val / total) * 100);
+    const div = document.createElement('div');
+    div.className = 'ta-cat-trend-row';
+    div.innerHTML =
+      `<span class="ta-cat-dot" style="background:${cat.color}"></span>` +
+      `<span class="ta-cat-label">${cat.label}</span>` +
+      `<div class="ta-cat-bar-wrap"><div class="ta-cat-bar" style="width:${pct}%;background:${cat.color}"></div></div>` +
+      `<span class="ta-cat-val">${formatNumber(val)}</span>` +
+      `<span class="ta-cat-pct text-tertiary">${pct}%</span>`;
+    container.appendChild(div);
+  }
+
+  // Week-over-week direction hint
+  if (trend) {
+    const dir = document.createElement('div');
+    dir.className = 'ta-trend-hint';
+    const change = trend.change || 0;
+    const arrow = change > 0 ? '↑' : change < 0 ? '↓' : '→';
+    const cls = change > 0 ? 'trend-up' : change < 0 ? 'trend-down' : 'trend-neutral';
+    dir.innerHTML = `<span class="${cls} text-sm">${arrow} ${Math.abs(change)}% vs last week</span>`;
+    container.appendChild(dir);
+  }
+}
+
+function renderTrendChart(stats) {
+  const canvas = $('#ta-trend-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr || 600 * dpr;
+  canvas.height = 180 * dpr;
+  ctx.scale(dpr, dpr);
+  const w = (canvas.width / dpr) || 600;
+  const h = 180;
+  const pad = { top: 16, right: 12, bottom: 28, left: 40 };
+  const cw = w - pad.left - pad.right;
+  const ch = h - pad.top - pad.bottom;
+  ctx.clearRect(0, 0, w, h);
+
+  if (!stats.length) {
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-text-tertiary');
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data yet', w / 2, h / 2);
+    return;
+  }
+
+  const maxVal = Math.max(...stats.map(d => d.blocked), 1);
+  const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary');
+  const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--color-border-light');
+  const tertiary = getComputedStyle(document.documentElement).getPropertyValue('--color-text-tertiary');
+
+  // Grid lines
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (ch / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+    ctx.fillStyle = tertiary; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(formatNumber(Math.round(maxVal * (1 - i / 4))), pad.left - 5, y + 3);
+  }
+
+  // Area fill
+  ctx.beginPath();
+  stats.forEach((d, i) => {
+    const x = pad.left + (cw / (stats.length - 1 || 1)) * i;
+    const y = pad.top + ch - (d.blocked / maxVal) * ch;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  const lastX = pad.left + cw;
+  ctx.lineTo(lastX, pad.top + ch);
+  ctx.lineTo(pad.left, pad.top + ch);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+  grad.addColorStop(0, primaryColor + '44');
+  grad.addColorStop(1, primaryColor + '00');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = primaryColor;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  stats.forEach((d, i) => {
+    const x = pad.left + (cw / (stats.length - 1 || 1)) * i;
+    const y = pad.top + ch - (d.blocked / maxVal) * ch;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Labels
+  stats.forEach((d, i) => {
+    if (stats.length <= 10 || i % Math.ceil(stats.length / 10) === 0) {
+      const x = pad.left + (cw / (stats.length - 1 || 1)) * i;
+      ctx.fillStyle = tertiary; ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(d.date.slice(5), x, h - 6);
+    }
+  });
+}
+
+function renderTopThreatDomains(topSites) {
+  const container = $('#ta-top-domains');
+  if (!container) return;
+
+  const domainCounts = new Map();
+  for (const site of topSites) {
+    for (const d of site.trackers || []) {
+      domainCounts.set(d, (domainCounts.get(d) || 0) + 1);
+    }
+  }
+
+  if (domainCounts.size === 0) {
+    container.innerHTML = '<p class="text-sm text-tertiary">No data yet.</p>';
+    return;
+  }
+
+  const sorted = [...domainCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+  container.innerHTML = '';
+  sorted.forEach(([domain, count], i) => {
+    const info = lookupTracker(domain);
+    const div = document.createElement('div');
+    div.className = 'ta-domain-row';
+    div.innerHTML =
+      `<span class="ta-domain-rank">${i + 1}</span>` +
+      `<div class="ta-domain-info"><div class="ta-domain-name">${escapeHtml(domain)}</div>` +
+      `<div class="text-xs text-tertiary">${escapeHtml(info?.company || 'Unknown')} · ${escapeHtml(info?.type || 'Tracker')}</div></div>` +
+      `<span class="badge badge-primary">${count} site${count !== 1 ? 's' : ''}</span>`;
+    container.appendChild(div);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DIFFICULT SITES (5.5 advanced section)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderDifficultSites() {
+  if (!currentOptions) return;
+  const lists = currentOptions.lists || {};
+  const experiments = currentOptions.experiments || {};
+
+  const ds = (id, val) => { const el = $(`#${id}`); if (el) el.checked = !!val; };
+  ds('ds-ia-shield', experiments.iaShield);
+  ds('ds-ia-strict', currentOptions.iaShieldStrict);
+  ds('ds-youtube', lists['ublock-quick-fixes']?.enabled !== false);
+  ds('ds-aggressive-vertical', experiments.aggressiveVerticalRules);
+  ds('ds-anti-adblock', lists['ublock-annoyances-others']?.enabled !== false);
+  ds('ds-serp-bar', experiments.serpBar);
+  ds('ds-trackerdb-assisted', experiments.trackerDbAssisted);
+}
+
 // ── About ───────────────────────────────────────────────────────────────────
 
 function renderAbout() {
@@ -1306,6 +1798,68 @@ function setupListeners() {
       await loadReports();
     });
   }
+
+  // Trends period buttons
+  for (const btn of $$('.trends-period-btn')) {
+    btn.addEventListener('click', async () => {
+      for (const b of $$('.trends-period-btn')) b.classList.remove('active');
+      btn.classList.add('active');
+      trendsDays = parseInt(btn.dataset.days);
+      await loadTrendsAlerts();
+    });
+  }
+
+  // Difficult Sites toggles
+  const syncDifficultSites = async () => {
+    const lists = { ...currentOptions.lists };
+    const experiments = { ...(currentOptions.experiments || {}) };
+
+    const iaOn = $('#ds-ia-shield')?.checked;
+    const iaStrictOn = $('#ds-ia-strict')?.checked;
+    const ytOn = $('#ds-youtube')?.checked ?? true;
+    const aggrOn = $('#ds-aggressive-vertical')?.checked;
+    const antiAbOn = $('#ds-anti-adblock')?.checked ?? true;
+    const serpBarOn = $('#ds-serp-bar')?.checked;
+    const tdbAsstOn = $('#ds-trackerdb-assisted')?.checked;
+
+    experiments.iaShield = !!iaOn;
+    experiments.aggressiveVerticalRules = !!aggrOn;
+    experiments.serpBar = !!serpBarOn;
+    experiments.trackerDbAssisted = !!tdbAsstOn;
+
+    if (lists['ublock-quick-fixes']) lists['ublock-quick-fixes'] = { ...lists['ublock-quick-fixes'], enabled: !!ytOn };
+    if (lists['ublock-annoyances-others']) lists['ublock-annoyances-others'] = { ...lists['ublock-annoyances-others'], enabled: !!antiAbOn };
+
+    currentOptions = await saveOptions({ experiments, lists, iaShieldStrict: !!iaStrictOn });
+    // Notify background for experiment flag changes
+    await sendMessage({ action: 'set-trackerdb-assisted', enabled: !!tdbAsstOn });
+  };
+
+  for (const id of ['ds-ia-shield', 'ds-ia-strict', 'ds-youtube', 'ds-aggressive-vertical', 'ds-anti-adblock', 'ds-serp-bar', 'ds-trackerdb-assisted']) {
+    $(`#${id}`)?.addEventListener('change', syncDifficultSites);
+  }
+
+  // Difficult Sites — site diagnostic
+  $('#ds-diag-check')?.addEventListener('click', async () => {
+    const domain = $('#ds-diag-domain')?.value.trim().toLowerCase();
+    const result = $('#ds-diag-result');
+    if (!domain || !result) return;
+    result.innerHTML = '<span class="text-sm text-tertiary">Checking…</span>';
+    const info = lookupTracker(domain);
+    const topSites = await sendMessage({ action: 'get-report-top-sites', days: 30, limit: 50 });
+    const siteData = (topSites || []).find(s => s.hostname === domain);
+    if (info || siteData) {
+      const g = siteData ? scoreToGrade(siteData.score ?? 50) : null;
+      result.innerHTML =
+        `<div class="option-card p-3 mt-2">` +
+        (info ? `<div class="text-sm mb-2"><strong>${escapeHtml(domain)}</strong> — ${escapeHtml(info.company)} · ${escapeHtml(info.type)} · ${info.country}</div>` : '') +
+        (siteData ? `<div class="text-sm text-secondary">${siteData.blocked} requests blocked · ${siteData.trackerCount} unique trackers · Score: <strong>${g?.grade}</strong></div>` : '') +
+        `</div>`;
+    } else {
+      result.innerHTML = '<div class="text-sm text-tertiary mt-2">No local data found for this domain yet.</div>';
+    }
+  });
+  $('#ds-diag-domain')?.addEventListener('keydown', e => { if (e.key === 'Enter') $('#ds-diag-check')?.click(); });
 
   // Export report (JSON)
   $('#btn-export-report').addEventListener('click', async () => {

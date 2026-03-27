@@ -76,6 +76,9 @@ async function init() {
   // Apply theme
   applyTheme(options?.theme || 'system');
 
+  // Render module cards from options
+  updateModuleCards(options);
+
   // Load tab stats
   await loadTabStats();
 
@@ -589,6 +592,89 @@ function setupListeners() {
     $('#view-chart')?.classList.remove('active');
     $('#view-list')?.classList.add('active');
   });
+
+  // Module card toggles
+  $('#mc-toggle-adblock')?.addEventListener('change', async (e) => {
+    const opts = await sendMessage({ action: 'get-options' });
+    const lists = { ...opts.lists };
+    lists['easylist'] = { ...lists['easylist'], enabled: e.target.checked };
+    lists['ublock-filters'] = { ...lists['ublock-filters'], enabled: e.target.checked };
+    lists['peter-lowe'] = { ...lists['peter-lowe'], enabled: e.target.checked };
+    const updated = { ...opts, lists };
+    const storage = (typeof browser !== 'undefined' && browser.storage?.local) ? browser.storage.local : chrome.storage.local;
+    await new Promise(r => {
+      const p = storage.set({ options: updated });
+      if (p && typeof p.then === 'function') p.then(r, r); else r();
+    });
+    updateModuleCards(updated);
+  });
+
+  $('#mc-toggle-antitrack')?.addEventListener('change', async (e) => {
+    const opts = await sendMessage({ action: 'get-options' });
+    const lists = { ...opts.lists };
+    lists['easyprivacy'] = { ...lists['easyprivacy'], enabled: e.target.checked };
+    lists['ublock-privacy'] = { ...lists['ublock-privacy'], enabled: e.target.checked };
+    const updated = { ...opts, lists };
+    const storage = (typeof browser !== 'undefined' && browser.storage?.local) ? browser.storage.local : chrome.storage.local;
+    await new Promise(r => {
+      const p = storage.set({ options: updated });
+      if (p && typeof p.then === 'function') p.then(r, r); else r();
+    });
+    updateModuleCards(updated);
+  });
+
+  $('#mc-toggle-consent')?.addEventListener('change', async (e) => {
+    const opts = await sendMessage({ action: 'get-options' });
+    const lists = { ...opts.lists };
+    lists['ublock-annoyances-cookies'] = { ...lists['ublock-annoyances-cookies'], enabled: e.target.checked };
+    lists['ublock-annoyances-others'] = { ...lists['ublock-annoyances-others'], enabled: e.target.checked };
+    const updated = { ...opts, lists };
+    const storage = (typeof browser !== 'undefined' && browser.storage?.local) ? browser.storage.local : chrome.storage.local;
+    await new Promise(r => {
+      const p = storage.set({ options: updated });
+      if (p && typeof p.then === 'function') p.then(r, r); else r();
+    });
+    updateModuleCards(updated);
+  });
+
+  $('#mc-toggle-ia-shield')?.addEventListener('change', async (e) => {
+    const opts = await sendMessage({ action: 'get-options' });
+    const experiments = { ...(opts.experiments || {}), iaShield: e.target.checked };
+    const updated = { ...opts, experiments };
+    const storage = (typeof browser !== 'undefined' && browser.storage?.local) ? browser.storage.local : chrome.storage.local;
+    await new Promise(r => {
+      const p = storage.set({ options: updated });
+      if (p && typeof p.then === 'function') p.then(r, r); else r();
+    });
+    updateModuleCards(updated);
+  });
+}
+
+// ── Module Cards ─────────────────────────────────────────────────────────────
+
+function updateModuleCards(options) {
+  const lists = options?.lists || {};
+  const experiments = options?.experiments || {};
+
+  const adblockOn = lists['easylist']?.enabled !== false;
+  const antitrackOn = lists['easyprivacy']?.enabled !== false;
+  const consentOn = lists['ublock-annoyances-cookies']?.enabled === true;
+  const iaShieldOn = experiments.iaShield === true;
+
+  function applyCard(id, toggleId, stateId, on) {
+    const card = $(`#${id}`);
+    const toggle = $(`#${toggleId}`);
+    const state = $(`#${stateId}`);
+    if (!card) return;
+    card.classList.toggle('active', on);
+    if (toggle) toggle.checked = on;
+    if (state) state.textContent = on ? 'On' : 'Off';
+  }
+
+  applyCard('mc-adblock', 'mc-toggle-adblock', 'mc-adblock-state', adblockOn);
+  applyCard('mc-antitrack', 'mc-toggle-antitrack', 'mc-antitrack-state', antitrackOn);
+  applyCard('mc-consent', 'mc-toggle-consent', 'mc-consent-state', consentOn);
+  applyCard('mc-ia-shield', 'mc-toggle-ia-shield', 'mc-ia-shield-state', iaShieldOn);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
