@@ -6,6 +6,8 @@
  * License: MPL-2.0
  */
 
+import { getTrackerCategory } from './trackerdb.js';
+
 // ── Bloom Filter & LRU Cache for performance ────────────────────────────────
 
 /**
@@ -185,6 +187,9 @@ export function categorizeRequest(url) {
       if (AD_DOMAINS.has(parent)) return 'ads';
       if (TRACKER_DOMAINS.has(parent)) return 'trackers';
     }
+    // TrackerDB lookup — data-driven, broader coverage; used when hardcoded tables miss
+    const tdbCat = getTrackerCategory(hostname);
+    if (tdbCat && tdbCat !== 'other') return tdbCat;
   } catch {}
 
   // URL pattern matching

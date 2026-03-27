@@ -8,6 +8,7 @@
 
 import { getOptions } from './storage.js';
 import { categorizeRequest } from './filter-engine.js';
+import { isTrackerFingerprinter } from './trackerdb.js';
 
 // ── Known fingerprinting domains ─────────────────────────────────────────────
 const FP_DOMAINS = new Set([
@@ -22,6 +23,8 @@ function isFingerprinter(domain) {
   if (!domain) return false;
   const d = domain.toLowerCase();
   if (FP_DOMAINS.has(d)) return true;
+  // TrackerDB data-driven check (gradually replaces hardcoded list)
+  if (isTrackerFingerprinter(d)) return true;
   const parts = d.split('.');
   for (let i = 1; i < parts.length - 1; i++) {
     if (FP_DOMAINS.has(parts.slice(i).join('.'))) return true;

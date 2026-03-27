@@ -11,6 +11,17 @@ import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
 import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getRecentRequests, getBlockedCount, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, exportReport } from './report-generator.js';
+import {
+  loadTrackerDbFromCache,
+  fetchAndUpdateTrackerDb,
+  scheduleTrackerDbUpdates,
+  handleTrackerDbAlarm,
+  rollbackTrackerDb,
+  getTrackerDbMeta,
+  isHighConfidenceTracker,
+  collectHighConfidenceDomains,
+  TRACKERDB_ALARM_NAME,
+} from './trackerdb.js';
 
 // ── Dual engine: Ghostery (primary, high-perf) + legacy FilterEngine (fallback) ──
 let ghosteryEngine = new GhosteryEngine();
@@ -242,6 +253,84 @@ const PROTECTION_LEVELS = {
 // Cross-browser helpers
 const webRequestAPI = (typeof browser !== 'undefined' && browser.webRequest) ? browser.webRequest : chrome.webRequest;
 
+// ── TrackerDB assisted blocking — Chromium dynamic rules ────────────────────
+// Rule IDs 800001–800500 are reserved for TrackerDB-assisted dynamic rules.
+const TRACKERDB_RULE_ID_MIN = 800001;
+const TRACKERDB_RULE_ID_MAX = 800500;
+const TRACKERDB_MAX_RULES = TRACKERDB_RULE_ID_MAX - TRACKERDB_RULE_ID_MIN + 1;
+
+function shouldEnableTrackerDbAssisted(options) {
+  return (
+    options?.trackerDbEnabled !== false &&
+    options?.experiments?.trackerDbAssisted === true &&
+    options?.protectionLevel === 'strict'
+  );
+}
+
+/**
+ * Apply or remove dynamic DNR rules generated from high-confidence TrackerDB entries.
+ * Only has effect on Chromium (MV3) where declarativeNetRequest is available.
+ *
+ * @param {boolean} enabled - true to add rules, false to clear them
+ */
+async function applyTrackerDbDynamicRules(enabled) {
+  if (!IS_CHROMIUM) return;
+
+  // Remove existing TrackerDB dynamic rules first
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeIds = existing
+    .filter(r => r.id >= TRACKERDB_RULE_ID_MIN && r.id <= TRACKERDB_RULE_ID_MAX)
+    .map(r => r.id);
+
+  if (!enabled) {
+    if (removeIds.length > 0) {
+      await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: removeIds });
+      console.log(`[trackerdb] Cleared ${removeIds.length} TrackerDB dynamic rules`);
+    }
+    return;
+  }
+
+  const meta = getTrackerDbMeta();
+  if (!meta.ready) {
+    if (removeIds.length > 0) {
+      await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: removeIds });
+      console.log(`[trackerdb] Cleared ${removeIds.length} TrackerDB dynamic rules (index not ready)`);
+    }
+    console.log('[trackerdb] Index not ready — skipping dynamic rule generation');
+    return;
+  }
+
+  const options = await getOptions();
+  const whitelist = options.whitelist || {};
+
+  const candidates = collectHighConfidenceDomains(TRACKERDB_MAX_RULES);
+
+  let ruleId = TRACKERDB_RULE_ID_MIN;
+  const addRules = [];
+  for (const domain of candidates) {
+    if (whitelist[domain]) continue; // Never block whitelisted sites
+    if (ruleId > TRACKERDB_RULE_ID_MAX) break;
+    addRules.push({
+      id: ruleId++,
+      priority: 1,
+      action: { type: 'block' },
+      condition: {
+        requestDomains: [domain],
+        resourceTypes: [
+          'script', 'xmlhttprequest', 'image', 'sub_frame',
+          'font', 'object', 'ping', 'media', 'websocket', 'other',
+        ],
+      },
+    });
+  }
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: removeIds,
+    addRules,
+  });
+  console.log(`[trackerdb] Applied ${addRules.length} dynamic rules (assisted blocking)`);
+}
+
 function safeSendMessage(tabId, msg) {
   try {
     if (typeof browser !== 'undefined' && browser.tabs?.sendMessage) {
@@ -262,6 +351,7 @@ async function initialize() {
   const options = await getOptions();
   initTelemetryFromOptions(options);
   isEnabled = options.enabled !== false;
+  isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted(options);
 
   // Chromium: enable native badge counter (zero overhead)
   if (IS_CHROMIUM) {
@@ -310,6 +400,30 @@ async function initialize() {
 
   // Schedule periodic updates
   scheduleUpdates();
+
+  // ── Step 4: Load TrackerDB from cache (instant) then schedule background refresh ──
+  try {
+    const trackerDbCached = await loadTrackerDbFromCache();
+    if (!trackerDbCached) {
+      // No cache: attempt a first download in the background (non-blocking)
+      fetchAndUpdateTrackerDb().then(result => {
+        console.log(`[midori] Initial TrackerDB fetch: ${result}`);
+        if (result === 'updated' && shouldEnableTrackerDbAssisted(options) && IS_CHROMIUM) {
+          applyTrackerDbDynamicRules(true).catch(e =>
+            console.warn('[midori] TrackerDB dynamic rules (initial):', e)
+          );
+        }
+      }).catch(e => console.warn('[midori] TrackerDB initial fetch failed:', e));
+    }
+    if (IS_CHROMIUM) {
+      applyTrackerDbDynamicRules(trackerDbCached && isTrackerDbAssistedEnabled).catch(e =>
+        console.warn('[midori] TrackerDB dynamic rules (startup):', e)
+      );
+    }
+    scheduleTrackerDbUpdates(options.trackerDbUpdateIntervalHours || 24);
+  } catch (e) {
+    console.warn('[midori] TrackerDB startup failed (non-fatal):', e);
+  }
 
   // Chromium: schedule periodic stats collection via alarm
   if (IS_CHROMIUM) {
@@ -375,6 +489,9 @@ async function loadEngine(lists) {
 let whitelistCache = {};
 let whitelistCacheTime = 0;
 
+// Cached experiment flag for TrackerDB assisted blocking (sync access in webRequest)
+let isTrackerDbAssistedEnabled = false;
+
 function isWhitelistedSync(hostname) {
   if (Date.now() - whitelistCacheTime > 30000) {
     getOptions().then(opts => {
@@ -408,7 +525,19 @@ function setupWebRequestBlocking() {
       const blocked = engine.shouldBlock(url, pageHostname, details.type);
       recordMatchingLatency(performance.now() - tMatchStart);
 
-      if (blocked) {
+      // ── TrackerDB assisted blocking (Firefox, balanced mode) ──────────────
+      // Elevate block for high-confidence trackers not yet matched by the engine.
+      // Only active when experiment flag trackerDbAssisted is on.
+      // Respects the same whitelist check already done above.
+      let assistedBlock = false;
+      if (!blocked && isTrackerDbAssistedEnabled) {
+        const domain = extractDomain(url);
+        if (domain && isHighConfidenceTracker(domain)) {
+          assistedBlock = true;
+        }
+      }
+
+      if (blocked || assistedBlock) {
         recordBlockedCategory(categorizeRequest(url));
         recordBlock(details.tabId, url);
         updateBadge(details.tabId);
@@ -682,6 +811,20 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await collectChromiumStats();
   }
 
+  // TrackerDB update alarm
+  if (alarm.name === TRACKERDB_ALARM_NAME) {
+    const options = await getOptions();
+    const result = await handleTrackerDbAlarm(alarm.name, {
+      primaryUrl: options.trackerDbUrl || undefined,
+    });
+    // Re-apply dynamic rules if assisted blocking is on and we got new data
+    if (result === 'updated' && shouldEnableTrackerDbAssisted(options) && IS_CHROMIUM) {
+      applyTrackerDbDynamicRules(true).catch(e =>
+        console.warn('[midori] TrackerDB dynamic rules update:', e)
+      );
+    }
+  }
+
   if (alarm.name === 'resume-protection') {
     console.log('[midori] Auto-resuming protection after pause');
     const opts = await getOptions();
@@ -866,6 +1009,11 @@ async function handleMessage(msg) {
         lists,
       });
 
+      isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted({
+        ...opts,
+        protectionLevel: level,
+      });
+
       // Chromium: update DNR rulesets
       if (IS_CHROMIUM) {
         try {
@@ -883,6 +1031,7 @@ async function handleMessage(msg) {
             enableRulesetIds: enableIds,
             disableRulesetIds: disableIds,
           });
+          await applyTrackerDbDynamicRules(isTrackerDbAssistedEnabled);
         } catch (e) {
           console.warn('[midori] Failed to update DNR rulesets:', e);
         }
@@ -905,7 +1054,8 @@ async function handleMessage(msg) {
 
     case 'save-setup': {
       const config = msg.config || {};
-      await setOptions(config);
+      const nextOptions = await setOptions(config);
+      isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted(nextOptions);
 
       // Update global enabled state
       if (config.enabled !== undefined) {
@@ -929,6 +1079,7 @@ async function handleMessage(msg) {
             enableRulesetIds: enableIds,
             disableRulesetIds: disableIds,
           });
+          await applyTrackerDbDynamicRules(isTrackerDbAssistedEnabled);
         } catch (e) {
           console.warn('[midori] Failed to update DNR rulesets from setup:', e);
         }
@@ -1019,9 +1170,21 @@ async function handleMessage(msg) {
     // ── Partial options save (from popup quick actions) ──
     case 'save-options-partial': {
       if (msg.options) {
-        await setOptions(msg.options);
+        const updatedOptions = await setOptions(msg.options);
         if (Object.prototype.hasOwnProperty.call(msg.options, 'localTelemetry')) {
           telemetryState = normalizeTelemetry(msg.options.localTelemetry);
+        }
+        if (
+          msg.options.experiments?.trackerDbAssisted !== undefined ||
+          msg.options.protectionLevel !== undefined ||
+          msg.options.trackerDbEnabled !== undefined
+        ) {
+          isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted(updatedOptions);
+          if (IS_CHROMIUM) {
+            await applyTrackerDbDynamicRules(isTrackerDbAssistedEnabled).catch(e =>
+              console.warn('[midori] applyTrackerDbDynamicRules:', e)
+            );
+          }
         }
       }
       return { success: true };
@@ -1052,6 +1215,43 @@ async function handleMessage(msg) {
       await setOptions({ localTelemetry: telemetryState });
       telemetryDirty = false;
       return { success: true };
+    }
+
+    // ── TrackerDB data layer ─────────────────────────────────────────────────
+
+    case 'get-trackerdb-meta': {
+      return getTrackerDbMeta();
+    }
+
+    case 'update-trackerdb': {
+      const opts = await getOptions();
+      const result = await fetchAndUpdateTrackerDb({
+        primaryUrl: opts.trackerDbUrl || undefined,
+      });
+      if (result === 'updated' && shouldEnableTrackerDbAssisted(opts) && IS_CHROMIUM) {
+        applyTrackerDbDynamicRules(true).catch(() => {});
+      }
+      return { result, meta: getTrackerDbMeta() };
+    }
+
+    case 'rollback-trackerdb': {
+      const ok = await rollbackTrackerDb();
+      return { success: ok, meta: getTrackerDbMeta() };
+    }
+
+    case 'set-trackerdb-assisted': {
+      // Enable / disable TrackerDB assisted blocking at runtime
+      const enable = msg.enabled !== false;
+      const opts = await getOptions();
+      const experiments = { ...(opts.experiments || {}), trackerDbAssisted: enable };
+      const updatedOptions = await setOptions({ experiments });
+      isTrackerDbAssistedEnabled = shouldEnableTrackerDbAssisted(updatedOptions);
+      if (IS_CHROMIUM) {
+        await applyTrackerDbDynamicRules(isTrackerDbAssistedEnabled).catch(e =>
+          console.warn('[midori] applyTrackerDbDynamicRules:', e)
+        );
+      }
+      return { success: true, enabled: isTrackerDbAssistedEnabled };
     }
 
     // ── API: Stats summary for external consumers (New Tab extension) ──

@@ -106,6 +106,10 @@ const DEFAULTS = {
   antiFingerprint: true,
   updateInterval: 4,
   lastUpdated: 0,
+  // TrackerDB data-layer settings (Phase 1)
+  trackerDbEnabled: true,
+  trackerDbUpdateIntervalHours: 24,
+  trackerDbUrl: '', // empty = use built-in default URL
   stats: {},
   dailyStats: [],
   hourlyStats: {},
