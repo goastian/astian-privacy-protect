@@ -22,6 +22,12 @@ import {
   collectHighConfidenceDomains,
   TRACKERDB_ALARM_NAME,
 } from './trackerdb.js';
+import {
+  buildIaShieldConfig,
+  normalizeIaRiskEvent,
+  appendIaRiskEvent,
+  summarizeIaRiskEvents,
+} from './ia-shield.js';
 
 // ── Dual engine: Ghostery (primary, high-perf) + legacy FilterEngine (fallback) ──
 let ghosteryEngine = new GhosteryEngine();
@@ -83,6 +89,7 @@ function normalizeTelemetry(raw) {
   const t = raw || {};
   const contentScriptCostMs = t.contentScriptCostMs || {};
   const falsePositiveReports = t.falsePositiveReports || {};
+  const iaShield = t.iaShield || {};
   return {
     enabled: t.enabled !== false,
     version: 1,
@@ -106,6 +113,13 @@ function normalizeTelemetry(raw) {
       total: 0,
       byCategory: { ads: 0, trackers: 0, other: 0, unknown: 0, ...(falsePositiveReports.byCategory || {}) },
       byHostname: { ...(falsePositiveReports.byHostname || {}) },
+    },
+    iaShield: {
+      totalEvents: 0,
+      bySeverity: { low: 0, medium: 0, high: 0, critical: 0, ...(iaShield.bySeverity || {}) },
+      byType: { ...(iaShield.byType || {}) },
+      byHostname: { ...(iaShield.byHostname || {}) },
+      lastEventAt: iaShield.lastEventAt || 0,
     },
   };
 }
@@ -214,6 +228,40 @@ function recordFalsePositive(hostname, category) {
     }
   }
 
+  markTelemetryDirty();
+}
+
+function recordIaShieldRiskEvent(event) {
+  if (!telemetryState?.enabled || !event) return;
+
+  const bucket = telemetryState.iaShield || {
+    totalEvents: 0,
+    bySeverity: { low: 0, medium: 0, high: 0, critical: 0 },
+    byType: {},
+    byHostname: {},
+    lastEventAt: 0,
+  };
+
+  const severity = String(event.severity || 'medium');
+  const type = String(event.type || 'unknown').slice(0, 64);
+  const hostname = String(event.hostname || '').toLowerCase();
+
+  bucket.totalEvents = (bucket.totalEvents || 0) + 1;
+  bucket.bySeverity[severity] = (bucket.bySeverity[severity] || 0) + 1;
+  bucket.byType[type] = (bucket.byType[type] || 0) + 1;
+  if (hostname) {
+    bucket.byHostname[hostname] = (bucket.byHostname[hostname] || 0) + 1;
+    const keys = Object.keys(bucket.byHostname);
+    if (keys.length > 250) {
+      const oldest = keys.slice(0, keys.length - 250);
+      for (const k of oldest) {
+        delete bucket.byHostname[k];
+      }
+    }
+  }
+
+  bucket.lastEventAt = Number(event.timestamp) || Date.now();
+  telemetryState.iaShield = bucket;
   markTelemetryDirty();
 }
 
@@ -1042,6 +1090,35 @@ async function handleMessage(msg, sender) {
 
     case 'get-options':
       return await getOptions();
+
+    case 'get-ia-shield-config': {
+      const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
+      const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
+      const opts = await getOptions();
+      return { config: buildIaShieldConfig(opts, hostname) };
+    }
+
+    case 'ia-shield-risk-event': {
+      const opts = await getOptions();
+      const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
+      const event = normalizeIaRiskEvent(msg.event || null, msg.hostname || tabHostname || '');
+      if (!event) {
+        return { success: false, error: 'invalid-event' };
+      }
+
+      const iaRiskEvents = appendIaRiskEvent(opts.iaRiskEvents, event, 300);
+      await setOptions({ iaRiskEvents });
+      refreshRuntimeOptions({ ...opts, iaRiskEvents });
+      recordIaShieldRiskEvent(event);
+      return { success: true };
+    }
+
+    case 'get-ia-risk-events': {
+      const opts = await getOptions();
+      const days = Math.max(1, Math.min(365, Number(msg.days) || 30));
+      const limit = Math.max(1, Math.min(500, Number(msg.limit) || 100));
+      return summarizeIaRiskEvents(opts.iaRiskEvents || [], days, limit);
+    }
 
     case 'toggle-site': {
       const nowWhitelisted = await toggleWhitelist(msg.hostname);

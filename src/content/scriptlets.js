@@ -42,6 +42,472 @@
     });
   }
 
+  function reportIaRisk(event) {
+    if (!event || typeof event !== 'object') return;
+    sendRuntimeMessage({ action: 'ia-shield-risk-event', event: event });
+  }
+
+  function isPromptField(target) {
+    if (!target) return false;
+    var tag = String(target.tagName || '').toLowerCase();
+    if (tag === 'textarea') return true;
+    if (tag === 'input') {
+      var type = String(target.type || 'text').toLowerCase();
+      return type === 'text' || type === 'search' || type === 'url';
+    }
+    return !!target.isContentEditable;
+  }
+
+  function normalizePromptText(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function analyzePromptPayload(text) {
+    var raw = String(text || '');
+    var lower = raw.toLowerCase();
+    var findings = [];
+    var score = 0;
+
+    var dangerousPatterns = [
+      /ignore\s+(all\s+)?previous\s+instructions?/i,
+      /disregard\s+(all\s+)?(prior|previous)\s+instructions?/i,
+      /developer\s+mode/i,
+      /reveal\s+(the\s+)?system\s+prompt/i,
+      /print\s+(the\s+)?system\s+prompt/i,
+      /show\s+(me\s+)?(your\s+)?hidden\s+instructions?/i,
+      /do\s+not\s+follow\s+the\s+rules/i,
+      /bypass\s+(all\s+)?safety/i,
+      /exfiltrat(e|ion)/i,
+      /send\s+all\s+(data|history|context)\s+to/i,
+      /base64/i,
+      /prompt\s+chain(ing)?/i,
+    ];
+
+    for (var i = 0; i < dangerousPatterns.length; i++) {
+      if (dangerousPatterns[i].test(raw)) {
+        score += 2;
+        findings.push('pattern:' + dangerousPatterns[i].source.slice(0, 42));
+      }
+    }
+
+    if (/[\u200B-\u200F\u2060\uFEFF]/.test(raw)) {
+      score += 2;
+      findings.push('invisible-unicode');
+    }
+
+    if (/\$\\color\{\s*white\s*\}\{[^}]{3,}\}/i.test(raw)) {
+      score += 2;
+      findings.push('hidden-latex');
+    }
+
+    if (/\b[A-Za-z0-9+/]{40,}={0,2}\b/.test(raw)) {
+      score += 2;
+      findings.push('base64-like');
+    }
+
+    if (/\b(?:[A-Fa-f0-9]{2}){20,}\b/.test(raw)) {
+      score += 2;
+      findings.push('hex-like');
+    }
+
+    if (/ignroe|bpyass|revael|syts?em\s+prompt/i.test(lower)) {
+      score += 1;
+      findings.push('typoglycemia');
+    }
+
+    if (/\b(step\s*\d+|first\s*[:,]|then\s*[:,]|after\s+that\s*[:,])\b/i.test(raw)) {
+      score += 1;
+      findings.push('prompt-chaining');
+    }
+
+    var severity = 'low';
+    if (score >= 7) severity = 'high';
+    else if (score >= 4) severity = 'medium';
+
+    return { score: score, severity: severity, findings: findings };
+  }
+
+  function sanitizePromptPayload(text) {
+    var value = String(text || '');
+    var changed = false;
+    var findings = [];
+
+    var before = value;
+    value = value.replace(/[\u200B-\u200F\u2060\uFEFF]/g, '');
+    if (value !== before) {
+      changed = true;
+      findings.push('removed-invisible-unicode');
+    }
+
+    before = value;
+    value = value.replace(/\b[A-Za-z0-9+/]{60,}={0,2}\b/g, '[encoded-payload-removed]');
+    if (value !== before) {
+      changed = true;
+      findings.push('masked-base64');
+    }
+
+    before = value;
+    value = value.replace(/\b(?:[A-Fa-f0-9]{2}){24,}\b/g, '[hex-payload-removed]');
+    if (value !== before) {
+      changed = true;
+      findings.push('masked-hex');
+    }
+
+    var dangerous = [
+      /ignore\s+(all\s+)?previous\s+instructions?/gi,
+      /disregard\s+(all\s+)?(prior|previous)\s+instructions?/gi,
+      /reveal\s+(the\s+)?system\s+prompt/gi,
+      /show\s+(me\s+)?(your\s+)?hidden\s+instructions?/gi,
+      /bypass\s+(all\s+)?safety/gi,
+      /you\s+are\s+now\s+in\s+developer\s+mode/gi,
+    ];
+
+    for (var i = 0; i < dangerous.length; i++) {
+      before = value;
+      value = value.replace(dangerous[i], '[filtered-instruction]');
+      if (value !== before) {
+        changed = true;
+        findings.push('filtered-dangerous-instruction');
+      }
+    }
+
+    var trimmed = value.slice(0, 12000);
+    if (trimmed.length !== value.length) {
+      changed = true;
+      findings.push('trimmed-length');
+      value = trimmed;
+    }
+
+    return {
+      text: value,
+      changed: changed,
+      findings: findings,
+    };
+  }
+
+  function insertTextIntoTarget(target, text) {
+    if (!target) return;
+    var val = String(text || '');
+
+    if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+      var start = Number.isFinite(target.selectionStart) ? target.selectionStart : target.value.length;
+      var end = Number.isFinite(target.selectionEnd) ? target.selectionEnd : start;
+      if (typeof target.setRangeText === 'function') {
+        target.setRangeText(val, start, end, 'end');
+      } else {
+        var before = target.value.slice(0, start);
+        var after = target.value.slice(end);
+        target.value = before + val + after;
+      }
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
+
+    if (target.isContentEditable) {
+      try {
+        document.execCommand('insertText', false, val);
+      } catch (e) {
+        target.textContent = (target.textContent || '') + val;
+      }
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  function createIaBanner() {
+    var banner = document.createElement('div');
+    banner.className = 'midori-ia-banner';
+    banner.style.display = 'none';
+    banner.innerHTML = '<strong>IA Shield:</strong> <span class="midori-ia-banner-msg"></span>';
+    (document.documentElement || document.body).appendChild(banner);
+    return banner;
+  }
+
+  function installIaShieldRuntime(config) {
+    if (!config || config.enabled !== true) return;
+    if (window.__midoriIaShieldInstalled) return;
+    window.__midoriIaShieldInstalled = true;
+
+    var strict = config.strict === true;
+    var sanitizeOnPaste = config.sanitizeOnPaste !== false;
+    var lastBannerAt = 0;
+    var reportedHashes = {};
+
+    var style = document.createElement('style');
+    style.textContent = [
+      '.midori-ia-banner{position:fixed;left:14px;right:14px;top:10px;z-index:2147483646;background:#1c2b1f;color:#e7f8ea;border:1px solid #4e9f62;border-radius:10px;padding:10px 12px;font:600 12px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.25)}',
+      '.midori-ia-isolated-warn{outline:2px dashed #f39c12 !important;filter:blur(1px) !important}',
+      '.midori-ia-isolated-block{display:none !important}',
+    ].join('');
+    (document.head || document.documentElement).appendChild(style);
+
+    var banner = null;
+    function showBanner(message) {
+      if (!message) return;
+      var now = Date.now();
+      if ((now - lastBannerAt) < 700) return;
+      lastBannerAt = now;
+      if (!banner) banner = createIaBanner();
+      var msgEl = banner.querySelector('.midori-ia-banner-msg');
+      if (msgEl) msgEl.textContent = message;
+      banner.style.display = 'block';
+      clearTimeout(banner._hideTimer);
+      banner._hideTimer = setTimeout(function() {
+        banner.style.display = 'none';
+      }, strict ? 5200 : 3200);
+    }
+
+    function hashText(text) {
+      var s = String(text || '').slice(0, 256);
+      var h = 0;
+      for (var i = 0; i < s.length; i++) {
+        h = ((h << 5) - h) + s.charCodeAt(i);
+        h |= 0;
+      }
+      return String(h);
+    }
+
+    function shouldReport(hashKey) {
+      var now = Date.now();
+      var prev = reportedHashes[hashKey] || 0;
+      if ((now - prev) < 60000) return false;
+      reportedHashes[hashKey] = now;
+      var keys = Object.keys(reportedHashes);
+      if (keys.length > 120) {
+        for (var i = 0; i < keys.length - 120; i++) {
+          delete reportedHashes[keys[i]];
+        }
+      }
+      return true;
+    }
+
+    function analyzeAndWarn(text, source, sample) {
+      var analysis = analyzePromptPayload(text);
+      if (analysis.score < 4) return analysis;
+
+      var key = hashText(source + ':' + text);
+      if (shouldReport(key)) {
+        reportIaRisk({
+          type: 'prompt_injection_detected',
+          severity: analysis.severity,
+          timestamp: Date.now(),
+          payload: {
+            source: source,
+            sample: String(sample || text || '').slice(0, 200),
+            findings: analysis.findings,
+            strict: strict,
+          },
+        });
+      }
+      showBanner(strict
+        ? 'Contenido sospechoso aislado. Modo estricto activo.'
+        : 'Posible prompt-injection detectado en esta pagina IA.');
+      return analysis;
+    }
+
+    function isOverlayLike(el) {
+      if (!el || el.nodeType !== 1) return false;
+      var styleObj = window.getComputedStyle(el);
+      if (!styleObj) return false;
+      if (styleObj.position === 'fixed' || styleObj.position === 'sticky') return true;
+      var cls = String(el.className || '').toLowerCase();
+      if (/(overlay|modal|banner|toast|popover|dialog)/.test(cls)) return true;
+      return false;
+    }
+
+    function inspectNode(node) {
+      if (!node || node.nodeType !== 1) return;
+      if (node.__midoriIaChecked) return;
+      node.__midoriIaChecked = true;
+
+      var text = normalizePromptText(node.textContent || '').slice(0, 4000);
+      if (!text || text.length < 30) return;
+
+      var analysis = analyzePromptPayload(text);
+      if (analysis.score < 5) return;
+
+      var overlay = isOverlayLike(node);
+      if (!overlay && !strict) return;
+
+      if (strict) node.classList.add('midori-ia-isolated-block');
+      else node.classList.add('midori-ia-isolated-warn');
+
+      analyzeAndWarn(text, 'dom-overlay', text.slice(0, 180));
+
+      reportIaRisk({
+        type: 'suspicious_overlay_isolated',
+        severity: strict ? 'high' : 'medium',
+        timestamp: Date.now(),
+        payload: {
+          source: 'dom-overlay',
+          findings: analysis.findings,
+          strict: strict,
+          sample: text.slice(0, 180),
+        },
+      });
+    }
+
+    function inspectMutations(records) {
+      for (var i = 0; i < records.length; i++) {
+        var rec = records[i];
+        for (var j = 0; j < rec.addedNodes.length; j++) {
+          var n = rec.addedNodes[j];
+          if (!n || n.nodeType !== 1) continue;
+          inspectNode(n);
+          var descendants = n.querySelectorAll ? n.querySelectorAll('[role="dialog"],[role="alert"],div,aside,section') : [];
+          for (var d = 0; d < Math.min(descendants.length, 18); d++) {
+            inspectNode(descendants[d]);
+          }
+        }
+      }
+    }
+
+    var observer = new MutationObserver(inspectMutations);
+    observer.observe(document.documentElement || document, { childList: true, subtree: true });
+
+    setTimeout(function() {
+      var primaries = document.querySelectorAll('[role="dialog"],[role="alert"],.modal,.overlay,.banner,aside,section');
+      for (var i = 0; i < Math.min(primaries.length, 50); i++) {
+        inspectNode(primaries[i]);
+      }
+    }, 350);
+
+    if (sanitizeOnPaste) {
+      document.addEventListener('paste', function(event) {
+        var target = event && event.target;
+        if (!isPromptField(target)) return;
+        var cd = event.clipboardData || window.clipboardData;
+        var text = cd && cd.getData ? cd.getData('text/plain') : '';
+        if (!text) return;
+
+        var analysis = analyzePromptPayload(text);
+        if (analysis.score < 3) return;
+
+        var sanitized = sanitizePromptPayload(text);
+        if (!sanitized.changed) return;
+
+        event.preventDefault();
+        insertTextIntoTarget(target, sanitized.text);
+
+        showBanner('Prompt sanitizado localmente para reducir riesgo de injection.');
+        reportIaRisk({
+          type: 'prompt_sanitized',
+          severity: analysis.severity,
+          timestamp: Date.now(),
+          payload: {
+            source: 'paste',
+            findings: analysis.findings.concat(sanitized.findings),
+            fieldType: (target.tagName || '').toLowerCase(),
+            sample: String(text || '').slice(0, 160),
+            strict: strict,
+          },
+        });
+      }, true);
+    }
+
+    document.addEventListener('input', function(event) {
+      var target = event && event.target;
+      if (!isPromptField(target)) return;
+      var value = '';
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') value = target.value || '';
+      else value = target.textContent || '';
+      if (!value || value.length < 24) return;
+      analyzeAndWarn(value.slice(0, 2000), 'prompt-input', value.slice(0, 120));
+    }, true);
+
+    function isKnownExfilUrl(url) {
+      if (!url) return false;
+      var u;
+      try {
+        u = new URL(url, location.href);
+      } catch (e) {
+        return false;
+      }
+
+      var host = String(u.hostname || '').toLowerCase();
+      var path = String(u.pathname || '').toLowerCase();
+
+      var hostNeedles = [
+        'webhook.site', 'hookbin', 'requestbin', 'ngrok', 'pipedream',
+        'beeceptor', 'interact.sh', 'oast', 'discord.com', 'slack.com',
+      ];
+      for (var i = 0; i < hostNeedles.length; i++) {
+        if (host.indexOf(hostNeedles[i]) !== -1) return true;
+      }
+
+      if (u.origin !== location.origin) {
+        if (/\/(collect|exfil|steal|dump|leak|prompt|history|conversation|memory)\b/.test(path)) return true;
+      }
+
+      var params = u.searchParams;
+      var suspiciousKeys = ['prompt', 'system_prompt', 'history', 'chat_history', 'conversation', 'api_key', 'token', 'authorization'];
+      var keys = [];
+      params.forEach(function(_, k) { keys.push(k); });
+
+      for (var j = 0; j < keys.length; j++) {
+        var key = keys[j].toLowerCase();
+        for (var k = 0; k < suspiciousKeys.length; k++) {
+          if (key.indexOf(suspiciousKeys[k]) !== -1 && u.origin !== location.origin) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
+    function maybeBlockOutbound(url, channel) {
+      if (!isKnownExfilUrl(url)) return false;
+      reportIaRisk({
+        type: 'exfil_request_blocked',
+        severity: 'high',
+        timestamp: Date.now(),
+        payload: {
+          source: channel,
+          blockedUrl: String(url || '').slice(0, 280),
+          strict: strict,
+        },
+      });
+      showBanner('Solicitud de exfiltracion bloqueada por IA Shield.');
+      return true;
+    }
+
+    var origFetch = window.fetch;
+    if (typeof origFetch === 'function') {
+      window.fetch = function(resource, init) {
+        var reqUrl = '';
+        if (typeof resource === 'string') reqUrl = resource;
+        else if (resource && resource.url) reqUrl = resource.url;
+
+        if (maybeBlockOutbound(reqUrl, 'fetch')) {
+          return Promise.resolve(new Response('', { status: 204, statusText: 'No Content' }));
+        }
+        return origFetch.apply(this, arguments);
+      };
+    }
+
+    var xhrOpen = XMLHttpRequest.prototype.open;
+    var xhrSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function(method, url) {
+      this.__midoriIaUrl = String(url || '');
+      return xhrOpen.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function() {
+      if (this.__midoriIaUrl && maybeBlockOutbound(this.__midoriIaUrl, 'xhr')) {
+        try { this.abort(); } catch (e) {}
+        return;
+      }
+      return xhrSend.apply(this, arguments);
+    };
+
+    if (typeof navigator.sendBeacon === 'function') {
+      var origBeacon = navigator.sendBeacon.bind(navigator);
+      navigator.sendBeacon = function(url) {
+        if (maybeBlockOutbound(url, 'sendBeacon')) return false;
+        return origBeacon.apply(null, arguments);
+      };
+    }
+  }
+
   // ── Scriptlet Registry ─────────────────────────────────────────────────────
   // Each scriptlet is a function that receives (...args) and returns a string
   // of JS code to be injected into the page context via a <script> element.
@@ -1296,6 +1762,11 @@
   var hn = '';
   try { hn = window.location.hostname; } catch(e) {}
   installPopupGestureBridge();
+  sendRuntimeMessage({ action: 'get-ia-shield-config', hostname: hn }).then(function(response) {
+    if (response && response.config && response.config.enabled) {
+      installIaShieldRuntime(response.config);
+    }
+  });
   sendRuntimeMessage({ action: 'get-popup-defense-config', hostname: hn }).then(function(response) {
     if (response && response.config) {
       injectCode(buildPopupDefenseCode(response.config));

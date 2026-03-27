@@ -100,6 +100,8 @@ const DEFAULTS = {
   },
   setupCompleted: false,
   protectionLevel: 'standard',
+  iaShieldStrict: false,
+  iaShieldSanitizeOnPaste: true,
   installMode: 'both',
   customLists: [],
   userFilters: '',
@@ -140,6 +142,7 @@ const DEFAULTS = {
   hourlyStats: {},
   totalBlocked: 0,
   siteAdReports: [],
+  iaRiskEvents: [],
   localTelemetry: {
     enabled: true,
     version: 1,
@@ -156,6 +159,13 @@ const DEFAULTS = {
       total: 0,
       byCategory: { ads: 0, trackers: 0, other: 0, unknown: 0 },
       byHostname: {},
+    },
+    iaShield: {
+      totalEvents: 0,
+      bySeverity: { low: 0, medium: 0, high: 0, critical: 0 },
+      byType: {},
+      byHostname: {},
+      lastEventAt: 0,
     },
   },
 };

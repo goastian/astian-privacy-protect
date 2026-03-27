@@ -759,6 +759,17 @@ example.com##+js(abort-on-property-read, adBlockDetected)
               <span class="toggle-slider"></span>
             </label>
           </div>
+          <div class="option-divider"></div>
+          <div class="option-row">
+            <div class="option-info">
+              <div class="font-semibold text-sm">Local prompt sanitization (paste)</div>
+              <div class="text-xs text-tertiary">Detect hidden instructions and encoded payloads before they are pasted into AI prompts</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="ds-ia-sanitize" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
 
         <!-- YouTube card -->
@@ -842,16 +853,26 @@ example.com##+js(abort-on-property-read, adBlockDetected)
         <div class="option-card mb-3">
           <div class="p-3">
             <h3 class="font-semibold mb-1">Functional Exceptions</h3>
-            <div class="text-xs text-tertiary mb-3">Create playback-safe exceptions for sites where strict blocking breaks core video playback.</div>
+            <div class="text-xs text-tertiary mb-3">Create site-specific exceptions for video/adult compatibility or to bypass IA Shield when needed.</div>
             <div class="ds-grid-3">
               <input type="text" id="ds-exception-domain" class="text-input" placeholder="example.com">
               <select id="ds-exception-mode" class="text-input">
                 <option value="video-balanced">Video safe mode</option>
                 <option value="adult-balanced">Adult safe mode</option>
+                <option value="ia-bypass">IA Shield bypass</option>
               </select>
               <button class="btn btn-secondary btn-sm" id="ds-exception-add">Add exception</button>
             </div>
             <div id="ds-exception-list" class="ds-exception-list mt-3"></div>
+          </div>
+        </div>
+
+        <div class="option-card mb-3">
+          <div class="p-3">
+            <h3 class="font-semibold mb-1">IA Shield Risk Events (Local)</h3>
+            <div class="text-xs text-tertiary mb-3">Events are stored only on this device for auditing and tuning. No external telemetry is sent.</div>
+            <div id="ds-ia-risk-summary" class="text-sm text-secondary mb-2">No events yet.</div>
+            <div id="ds-ia-risk-list" class="ds-report-list"></div>
           </div>
         </div>
 

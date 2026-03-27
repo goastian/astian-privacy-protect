@@ -1496,6 +1496,7 @@ function renderDifficultSites() {
   const ds = (id, val) => { const el = $(`#${id}`); if (el) el.checked = !!val; };
   ds('ds-ia-shield', experiments.iaShield);
   ds('ds-ia-strict', currentOptions.iaShieldStrict);
+  ds('ds-ia-sanitize', currentOptions.iaShieldSanitizeOnPaste !== false);
   ds('ds-youtube', lists['ublock-quick-fixes']?.enabled !== false);
   ds('ds-aggressive-vertical', experiments.aggressiveVerticalRules);
   ds('ds-anti-adblock', lists['ublock-annoyances-others']?.enabled !== false);
@@ -1504,6 +1505,7 @@ function renderDifficultSites() {
 
   renderFunctionalExceptions();
   loadSiteAdReports();
+  loadIaRiskEvents();
 }
 
 function normalizeDomainInput(input) {
@@ -1522,6 +1524,16 @@ function getDomainOverrides() {
 }
 
 function buildFunctionalException(mode) {
+  if (mode === 'ia-bypass') {
+    return {
+      functionalException: true,
+      exceptionMode: 'ia-bypass',
+      vertical: 'ai',
+      iaShieldBypass: true,
+      iaShieldStrict: false,
+    };
+  }
+
   if (mode === 'adult-balanced') {
     return {
       functionalException: true,
@@ -1603,6 +1615,45 @@ function renderSiteAdReports(reports) {
         `${report.note ? `<div class="ds-report-evidence">${escapeHtml(report.note)}</div>` : ''}` +
       `</div>`;
     container.appendChild(row);
+  }
+}
+
+async function loadIaRiskEvents() {
+  const summaryEl = $('#ds-ia-risk-summary');
+  const listEl = $('#ds-ia-risk-list');
+  if (!summaryEl || !listEl) return;
+
+  const data = await sendMessage({ action: 'get-ia-risk-events', days: 30, limit: 20 }) || {};
+  const events = Array.isArray(data.events) ? data.events : [];
+  const sev = data.bySeverity || {};
+
+  const total = Number(data.total) || 0;
+  if (total <= 0) {
+    summaryEl.textContent = 'No events yet.';
+    listEl.innerHTML = '<div class="text-xs text-tertiary">No local IA risk activity recorded.</div>';
+    return;
+  }
+
+  summaryEl.textContent = `Last 30d: ${total} events · High ${sev.high || 0} · Critical ${sev.critical || 0}`;
+  listEl.innerHTML = '';
+
+  for (const event of events.slice(0, 12)) {
+    const date = new Date(event.timestamp || Date.now());
+    const ts = Number.isNaN(date.getTime()) ? 'now' : date.toLocaleString();
+    const host = escapeHtml(event.hostname || 'unknown-host');
+    const type = escapeHtml(event.type || 'unknown');
+    const severity = escapeHtml(event.severity || 'medium');
+    const findings = Array.isArray(event.details?.findings) ? event.details.findings.slice(0, 3).join(', ') : '';
+
+    const row = document.createElement('div');
+    row.className = 'ds-pill-row';
+    row.innerHTML =
+      `<div class="ds-pill-main" style="display:block">` +
+        `<div><span class="ds-pill-domain">${host}</span> · <span class="ds-pill-meta">${type}</span> · <span class="ds-pill-meta">${severity}</span></div>` +
+        `<div class="ds-report-evidence">${escapeHtml(ts)}</div>` +
+        (findings ? `<div class="ds-report-evidence">${escapeHtml(findings)}</div>` : '') +
+      `</div>`;
+    listEl.appendChild(row);
   }
 }
 
@@ -1919,6 +1970,7 @@ function setupListeners() {
 
     const iaOn = $('#ds-ia-shield')?.checked;
     const iaStrictOn = $('#ds-ia-strict')?.checked;
+    const iaSanitizeOn = $('#ds-ia-sanitize')?.checked;
     const ytOn = $('#ds-youtube')?.checked ?? true;
     const aggrOn = $('#ds-aggressive-vertical')?.checked;
     const antiAbOn = $('#ds-anti-adblock')?.checked ?? true;
@@ -1933,12 +1985,17 @@ function setupListeners() {
     if (lists['ublock-quick-fixes']) lists['ublock-quick-fixes'] = { ...lists['ublock-quick-fixes'], enabled: !!ytOn };
     if (lists['ublock-annoyances-others']) lists['ublock-annoyances-others'] = { ...lists['ublock-annoyances-others'], enabled: !!antiAbOn };
 
-    currentOptions = await saveOptions({ experiments, lists, iaShieldStrict: !!iaStrictOn });
+    currentOptions = await saveOptions({
+      experiments,
+      lists,
+      iaShieldStrict: !!iaStrictOn,
+      iaShieldSanitizeOnPaste: iaSanitizeOn !== false,
+    });
     // Notify background for experiment flag changes
     await sendMessage({ action: 'set-trackerdb-assisted', enabled: !!tdbAsstOn });
   };
 
-  for (const id of ['ds-ia-shield', 'ds-ia-strict', 'ds-youtube', 'ds-aggressive-vertical', 'ds-anti-adblock', 'ds-serp-bar', 'ds-trackerdb-assisted']) {
+  for (const id of ['ds-ia-shield', 'ds-ia-strict', 'ds-ia-sanitize', 'ds-youtube', 'ds-aggressive-vertical', 'ds-anti-adblock', 'ds-serp-bar', 'ds-trackerdb-assisted']) {
     $(`#${id}`)?.addEventListener('change', syncDifficultSites);
   }
 
