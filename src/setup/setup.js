@@ -10,7 +10,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 const api = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
 
 let currentStep = 1;
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 3;
 
 // ── Protection level presets ─────────────────────────────────────────────────
 
@@ -145,16 +145,7 @@ function goToStep(step) {
 // ── Option card selection ────────────────────────────────────────────────────
 
 function setupOptionCards() {
-  // Step 1: Install mode cards
-  for (const card of $$('.option-card')) {
-    card.addEventListener('click', () => {
-      for (const c of $$('.option-card')) c.classList.remove('selected');
-      card.classList.add('selected');
-      card.querySelector('input').checked = true;
-    });
-  }
-
-  // Step 2: Protection level cards
+  // Step 1: Protection level cards
   for (const card of $$('.level-card')) {
     card.addEventListener('click', () => {
       for (const c of $$('.level-card')) c.classList.remove('selected');
@@ -166,80 +157,52 @@ function setupOptionCards() {
 
 // ── Summary ──────────────────────────────────────────────────────────────────
 
-function getSelectedMode() {
-  const radio = document.querySelector('input[name="install-mode"]:checked');
-  return radio ? radio.value : 'both';
-}
-
 function getSelectedLevel() {
   const radio = document.querySelector('input[name="protection-level"]:checked');
   return radio ? radio.value : 'standard';
 }
 
 function updateSummary() {
-  const mode = getSelectedMode();
   const level = getSelectedLevel();
   const preset = PROTECTION_LEVELS[level];
-
-  // Mode
-  const modeLabels = {
-    both: 'Blocker + AstianGO Search',
-    blocker: 'Blocker Only',
-    search: 'AstianGO Search Only',
-  };
-  $('#summary-mode').textContent = modeLabels[mode] || mode;
 
   // Level
   $('#summary-level').textContent = preset.label;
 
-  // Search engine
-  const useAstianGO = mode === 'both' || mode === 'search';
-  $('#summary-search').textContent = useAstianGO ? 'AstianGO.com' : 'Default (unchanged)';
-
   // Anti-fingerprinting
-  const blockerEnabled = mode === 'both' || mode === 'blocker';
-  $('#summary-fp').textContent = (blockerEnabled && preset.antiFingerprint) ? 'Enabled' : 'Disabled';
+  $('#summary-fp').textContent = preset.antiFingerprint ? 'Enabled' : 'Disabled';
 
   // Count enabled lists
-  if (blockerEnabled) {
-    const enabledCount = Object.values(preset.lists).filter(Boolean).length;
-    $('#summary-lists').textContent = `${enabledCount} active`;
-  } else {
-    $('#summary-lists').textContent = 'None (blocker disabled)';
-  }
+  const enabledCount = Object.values(preset.lists).filter(Boolean).length;
+  $('#summary-lists').textContent = `${enabledCount} active`;
 }
 
 // ── Apply configuration ──────────────────────────────────────────────────────
 
 async function applyConfiguration() {
-  const mode = getSelectedMode();
   const level = getSelectedLevel();
   const preset = PROTECTION_LEVELS[level];
-  const blockerEnabled = mode === 'both' || mode === 'blocker';
 
   // Build the options to save
   const configUpdate = {
     setupCompleted: true,
     protectionLevel: level,
-    installMode: mode,
-    enabled: blockerEnabled,
-    antiFingerprint: blockerEnabled ? preset.antiFingerprint : false,
+    installMode: 'blocker',
+    enabled: true,
+    antiFingerprint: preset.antiFingerprint,
   };
 
-  // Update list enabled states if blocker is active
-  if (blockerEnabled) {
-    // Get current options to preserve list URLs
-    const currentOptions = await sendMessage({ action: 'get-options' });
-    const lists = currentOptions?.lists || {};
+  // Get current options to preserve list URLs
+  const currentOptions = await sendMessage({ action: 'get-options' });
+  const lists = currentOptions?.lists || {};
 
-    for (const [listId, enabled] of Object.entries(preset.lists)) {
-      if (lists[listId]) {
-        lists[listId].enabled = enabled;
-      }
+  for (const [listId, enabled] of Object.entries(preset.lists)) {
+    if (lists[listId]) {
+      lists[listId].enabled = enabled;
     }
-
-    configUpdate.lists = lists;
   }
+
+  configUpdate.lists = lists;
 
   // Try saving via background message first
   const result = await sendMessage({ action: 'save-setup', config: configUpdate });
@@ -250,10 +213,6 @@ async function applyConfiguration() {
     await saveDirectToStorage(configUpdate);
   }
 }
-
-// AstianGO is set as default search engine via chrome_settings_overrides
-// in the manifest. The browser handles the prompt to the user automatically
-// on extension install. No programmatic action needed here.
 
 // ── Finish ───────────────────────────────────────────────────────────────────
 
