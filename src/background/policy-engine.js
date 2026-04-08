@@ -34,6 +34,67 @@ const ADULT_HOST_PATTERNS = [
   'sexvid.xxx',
 ];
 
+const AGGRESSIVE_THREAT_EXACT_HOSTS = new Set([
+  'adtago.s3.amazonaws.com',
+  'analyticsengine.s3.amazonaws.com',
+  'analytics.s3.amazonaws.com',
+  'advice-ads.s3.amazonaws.com',
+  'ads-api.tiktok.com',
+  'analytics.tiktok.com',
+  'ads-sg.tiktok.com',
+  'analytics-sg.tiktok.com',
+  'business-api.tiktok.com',
+  'ads.tiktok.com',
+  'log.byteoversea.com',
+  'udcm.yahoo.com',
+  'analytics.query.yahoo.com',
+  'log.fc.yahoo.com',
+  'gemini.yahoo.com',
+  'adtech.yahooinc.com',
+  'appmetrica.yandex.ru',
+  'adfstat.yandex.ru',
+  'metrika.yandex.ru',
+  'iot-eu-logser.realme.com',
+  'iot-logser.realme.com',
+  'bdapi-ads.realmemobile.com',
+  'bdapi-in-ads.realmemobile.com',
+  'adsfs.oppomobile.com',
+  'adx.ads.oppomobile.com',
+  'ck.ads.oppomobile.com',
+  'data.ads.oppomobile.com',
+  'api.ad.xiaomi.com',
+  'data.mistat.xiaomi.com',
+  'data.mistat.india.xiaomi.com',
+  'data.mistat.rus.xiaomi.com',
+  'sdkconfig.ad.xiaomi.com',
+  'sdkconfig.ad.intl.xiaomi.com',
+  'tracking.rus.miui.com',
+  'metrics.data.hicloud.com',
+  'metrics2.data.hicloud.com',
+  'grs.hicloud.com',
+  'logservice.hicloud.com',
+  'logservice1.hicloud.com',
+  'logbak.hicloud.com',
+  'samsungads.com',
+  'smetrics.samsung.com',
+  'nmetrics.samsung.com',
+  'analytics-api.samsunghealthcn.com',
+  'iadsdk.apple.com',
+  'api-adservices.apple.com',
+  'books-analytics-events.apple.com',
+  'weather-analytics-events.apple.com',
+  'notes-analytics-events.apple.com',
+  'auction.unityads.unity3d.com',
+  'webview.unityads.unity3d.com',
+  'config.unityads.unity3d.com',
+  'adserver.unityads.unity3d.com',
+]);
+
+const AGGRESSIVE_THREAT_SUFFIX_HOSTS = [
+  'unityads.unity3d.com',
+  'amazon-adsystem.com',
+];
+
 const PROTECTION_CONFIG = {
   basic: {
     trackerSignalMode: 'off',
@@ -104,6 +165,17 @@ function normalizeProtectionLevel(level) {
 
 function domainMatches(hostname, pattern) {
   return hostname === pattern || hostname.endsWith(`.${pattern}`);
+}
+
+function matchesAggressiveThreatHost(hostname) {
+  if (!hostname) return false;
+  if (AGGRESSIVE_THREAT_EXACT_HOSTS.has(hostname)) return true;
+
+  for (const suffix of AGGRESSIVE_THREAT_SUFFIX_HOSTS) {
+    if (domainMatches(hostname, suffix)) return true;
+  }
+
+  return false;
 }
 
 export function inferSiteVertical(hostname) {
@@ -243,8 +315,20 @@ export function evaluateRequestPolicy({
     signalScore >= protectionConfig.signalThreshold
   );
 
-  const shouldBlock = engineBlocked || trackerSignalEligible;
-  const reason = engineBlocked ? engineReason : (trackerSignalEligible ? 'trackerdb-policy' : 'allow');
+  const aggressiveThreatBlockingEnabled = options?.experiments?.aggressiveThreatBlocking !== false;
+  const hardThreatBlocked = (
+    aggressiveThreatBlockingEnabled &&
+    requestDomain &&
+    matchesAggressiveThreatHost(requestDomain) &&
+    (isThirdParty || resourceType === 'script' || resourceType === 'xmlhttprequest' || resourceType === 'ping' || resourceType === 'beacon')
+  );
+
+  const shouldBlock = engineBlocked || hardThreatBlocked || trackerSignalEligible;
+  const reason = engineBlocked
+    ? engineReason
+    : (hardThreatBlocked
+      ? 'threat-domain-policy'
+      : (trackerSignalEligible ? 'trackerdb-policy' : 'allow'));
 
   return {
     shouldBlock,
@@ -258,6 +342,7 @@ export function evaluateRequestPolicy({
     signalScore,
     sources: {
       engine: engineBlocked,
+      threatDomain: hardThreatBlocked,
       trackerDb: trackerSignalEligible,
     },
   };

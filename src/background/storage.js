@@ -70,6 +70,7 @@ const DEFAULTS = {
     trackerDbAssisted: false,
     iaShield: false,
     aggressiveVerticalRules: false,
+    aggressiveThreatBlocking: true,
   },
   lists: {
     // ── Core lists (enabled by default) ──
