@@ -216,7 +216,8 @@ function renderGeneral() {
   $('#opt-block-social').checked = lists['fanboy-social']?.enabled === true;
   $('#opt-anti-fingerprint').checked = currentOptions.antiFingerprint !== false;
   $('#opt-local-telemetry').checked = telemetry.enabled !== false;
-  $('#exp-serp-bar').checked = experiments.serpBar === true;
+  const serpToggle = $('#exp-serp-bar') || $('#ds-serp-bar');
+  if (serpToggle) serpToggle.checked = experiments.serpBar === true;
   $('#exp-trackerdb-assisted').checked = experiments.trackerDbAssisted === true;
   $('#exp-ia-shield').checked = experiments.iaShield === true;
   $('#exp-aggressive-vertical-rules').checked = experiments.aggressiveVerticalRules === true;
@@ -1774,9 +1775,10 @@ function setupListeners() {
   });
 
   const syncExperimentFlags = async () => {
+    const serpToggle = $('#exp-serp-bar') || $('#ds-serp-bar');
     const experiments = {
       ...(currentOptions.experiments || {}),
-      serpBar: $('#exp-serp-bar').checked,
+      serpBar: serpToggle ? serpToggle.checked : (currentOptions.experiments?.serpBar === true),
       trackerDbAssisted: $('#exp-trackerdb-assisted').checked,
       iaShield: $('#exp-ia-shield').checked,
       aggressiveVerticalRules: $('#exp-aggressive-vertical-rules').checked,
@@ -1784,7 +1786,7 @@ function setupListeners() {
     currentOptions = await saveOptions({ experiments });
   };
 
-  $('#exp-serp-bar').addEventListener('change', syncExperimentFlags);
+  ($('#exp-serp-bar') || $('#ds-serp-bar'))?.addEventListener('change', syncExperimentFlags);
   $('#exp-trackerdb-assisted').addEventListener('change', syncExperimentFlags);
   $('#exp-ia-shield').addEventListener('change', syncExperimentFlags);
   $('#exp-aggressive-vertical-rules').addEventListener('change', syncExperimentFlags);
@@ -1945,7 +1947,8 @@ function setupListeners() {
 
   // Report period buttons
   for (const btn of $$('.report-period-btn')) {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
       for (const b of $$('.report-period-btn')) b.classList.remove('active');
       btn.classList.add('active');
       reportDays = parseInt(btn.dataset.days);
@@ -1955,7 +1958,8 @@ function setupListeners() {
 
   // Trends period buttons
   for (const btn of $$('.trends-period-btn')) {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
       for (const b of $$('.trends-period-btn')) b.classList.remove('active');
       btn.classList.add('active');
       trendsDays = parseInt(btn.dataset.days);
