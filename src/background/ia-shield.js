@@ -32,6 +32,9 @@ const AI_HOST_PATTERNS = [
   'bing.com',
   'github.com',
   'gitlab.com',
+  'you.com',
+  'duck.ai',
+  'abacus.ai',
 ];
 
 const VALID_SEVERITIES = new Set(['low', 'medium', 'high', 'critical']);
