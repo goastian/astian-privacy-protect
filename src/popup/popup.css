@@ -13,8 +13,7 @@ body {
   flex-direction: column;
   height: 100%;
   max-height: 640px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* ── Header ── */
@@ -22,7 +21,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
+  padding: 10px 14px;
   background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
 }
@@ -46,8 +45,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-sm);
   color: var(--color-text-tertiary);
   transition: all var(--transition-fast);
@@ -60,7 +59,7 @@ body {
 
 /* ── Status section ── */
 .popup-status {
-  padding: 16px 18px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--color-border);
   transition: all var(--transition-fast);
   background: var(--color-bg);
@@ -102,20 +101,20 @@ body {
 }
 
 .status-label {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--color-text);
 }
 
 .status-host {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--color-text-tertiary);
   margin-top: 2px;
 }
 
 /* ── Sections ── */
 .popup-section {
-  padding: 10px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -128,7 +127,7 @@ body {
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 /* ── Protection Level (Segmented Control) ── */
@@ -142,7 +141,7 @@ body {
 
 .level-btn {
   flex: 1;
-  padding: 10px 4px;
+  padding: 8px 4px;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
@@ -223,7 +222,7 @@ body {
 
 /* ── Pause ── */
 .popup-pause {
-  padding: 10px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-warning-light);
   display: none;
@@ -449,11 +448,11 @@ body {
 
 /* ── Footer ── */
 .popup-footer {
-  padding: 12px 18px;
+  padding: 8px 12px;
   border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   background: var(--color-bg);
 }
 
@@ -461,10 +460,10 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   color: var(--color-primary);
   font-weight: 700;
-  padding: 8px 12px;
+  padding: 6px 8px;
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
   flex: 1;
@@ -489,7 +488,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px 6px;
+  padding: 6px 12px 2px;
 }
 
 .oa-title {
@@ -509,8 +508,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-sm);
   color: var(--color-text-tertiary);
   cursor: pointer;
@@ -527,8 +526,8 @@ body {
 .oa-body {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 18px 14px;
+  gap: 10px;
+  padding: 2px 12px 4px;
 }
 
 .oa-body.hidden {
@@ -538,14 +537,14 @@ body {
 /* ── Donut SVG wrapper ── */
 .oa-donut-wrap {
   position: relative;
-  width: 100px;
-  height: 100px;
+  width: 60px;
+  height: 60px;
   flex-shrink: 0;
 }
 
 .oa-donut {
-  width: 100px;
-  height: 100px;
+  width: 60px;
+  height: 60px;
   transform: rotate(-90deg);
   overflow: visible;
 }
@@ -569,14 +568,14 @@ body {
 }
 
 .donut-total {
-  font-size: 1.6rem;
+  font-size: 1.1rem;
   font-weight: 900;
   letter-spacing: -0.04em;
   color: var(--color-text);
 }
 
 .donut-label {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -589,15 +588,15 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
 }
 
 .oa-cat-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.88rem;
+  gap: 6px;
+  font-size: 0.82rem;
 }
 
 .oa-cat-dot {
@@ -629,10 +628,10 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 12px 0 6px;
+  gap: 3px;
+  padding: 2px 0;
   color: var(--color-text-tertiary);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
   width: 100%;
   text-align: center;
@@ -647,9 +646,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 18px 12px;
-  font-size: 0.85rem;
+  gap: 5px;
+  padding: 4px 12px 5px;
+  font-size: 0.78rem;
   color: var(--color-text-tertiary);
 }
 
@@ -721,24 +720,24 @@ body {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .module-cards {
-  padding: 10px 14px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .mc-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .module-card {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 11px 12px;
+  gap: 8px;
+  padding: 8px 9px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
@@ -771,7 +770,7 @@ body {
 }
 
 .mc-name {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--color-text);
   white-space: nowrap;
@@ -780,7 +779,7 @@ body {
 }
 
 .mc-state {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -793,19 +792,19 @@ body {
 
 /* smaller toggle inside cards */
 .toggle.toggle-xs .toggle-slider {
-  width: 34px;
-  height: 20px;
+  width: 30px;
+  height: 18px;
 }
 
 .toggle.toggle-xs .toggle-slider::before {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   top: 2px;
   left: 2px;
 }
 
 .toggle.toggle-xs input:checked + .toggle-slider::before {
-  transform: translateX(14px);
+  transform: translateX(12px);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -815,7 +814,7 @@ body {
 .cstats-bar {
   display: flex;
   align-items: center;
-  padding: 12px 10px;
+  padding: 8px 8px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg);
 }
@@ -829,7 +828,7 @@ body {
 }
 
 .cstat-val {
-  font-size: 1.55rem;
+  font-size: 1.35rem;
   font-weight: 900;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -837,7 +836,7 @@ body {
 }
 
 .cstat-lbl {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
