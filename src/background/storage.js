@@ -64,7 +64,10 @@ const storageLocal = {
 
 const DEFAULTS = {
   enabled: true,
-  whitelist: {},
+  whitelist: {
+    'astian.org': true,
+    'astiango.com': true,
+  },
   experiments: {
     serpBar: false,
     trackerDbAssisted: false,
@@ -175,6 +178,10 @@ function mergeOptionsWithDefaults(options = {}) {
   return {
     ...DEFAULTS,
     ...options,
+    whitelist: {
+      ...DEFAULTS.whitelist,
+      ...(options.whitelist || {}),
+    },
     experiments: {
       ...DEFAULTS.experiments,
       ...(options.experiments || {}),
