@@ -25,6 +25,16 @@ export const TRACKERDB_URL_PRIMARY =
 export const TRACKERDB_URL_FALLBACK =
   'https://raw.githubusercontent.com/duckduckgo/tracker-radar/main/build-data/generated/domain_map.json';
 
+// Alternative CDN mirrors when GitHub raw fails
+export const TRACKERDB_URL_PRIMARY_ALT =
+  'https://cdn.jsdelivr.net/gh/duckduckgo/tracker-radar@main/build-data/generated/domain_summary.json';
+export const TRACKERDB_URL_FALLBACK_ALT =
+  'https://cdn.jsdelivr.net/gh/duckduckgo/tracker-radar@main/build-data/generated/domain_map.json';
+
+// ── Fetch robustness constants ───────────────────────────────────────────────
+const FETCH_TIMEOUT_MS = 30000;
+const RETRY_DELAYS = [5000, 15000, 30000];
+
 // ── Confidence thresholds ────────────────────────────────────────────────────
 /** Prevalence ≥ 5 % → high confidence (eligible for assisted blocking) */
 export const HIGH_CONFIDENCE_THRESHOLD = 0.05;
@@ -574,7 +584,22 @@ async function setStoredMeta(meta) {
 // ── Fetch pipeline ───────────────────────────────────────────────────────────
 
 /**
- * Fetch TrackerDB from a URL. Sends If-None-Match header if we have a cached ETag.
+ * Fetch with AbortController timeout
+ */
+function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetch TrackerDB from a URL with timeout and retry with backoff.
+ * Sends If-None-Match header if we have a cached ETag.
  * Returns { text, etag } on success, null on HTTP 304 (unchanged), throws on error.
  *
  * @param {string} url
@@ -587,17 +612,35 @@ async function fetchTrackerDb(url, currentEtag) {
     headers['If-None-Match'] = currentEtag;
   }
 
-  const response = await fetch(url, { headers, cache: 'no-cache' });
+  let lastError = null;
 
-  if (response.status === 304) return null; // Not modified
+  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+    if (attempt > 0) {
+      const waitMs = RETRY_DELAYS[attempt - 1];
+      console.log(`[trackerdb] Retry ${attempt}/${RETRY_DELAYS.length} for ${url} in ${waitMs / 1000}s`);
+      await delay(waitMs);
+    }
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} from ${url}`);
+    try {
+      const response = await fetchWithTimeout(url, { headers, cache: 'no-cache' });
+
+      if (response.status === 304) return null; // Not modified
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} from ${url}`);
+      }
+
+      const text = await response.text();
+      const etag = response.headers.get('ETag') || '';
+      return { text, etag };
+    } catch (e) {
+      lastError = e;
+      const isTimeout = e.name === 'AbortError';
+      console.warn(`[trackerdb] Attempt ${attempt + 1} failed for ${url}: ${isTimeout ? 'timeout' : e.message}`);
+    }
   }
 
-  const text = await response.text();
-  const etag = response.headers.get('ETag') || '';
-  return { text, etag };
+  throw lastError || new Error(`Failed to fetch ${url} after ${RETRY_DELAYS.length + 1} attempts`);
 }
 
 async function fetchRadarPair(summaryUrl, mapUrl, meta) {
@@ -691,13 +734,21 @@ export async function fetchAndUpdateTrackerDb({ primaryUrl, fallbackUrl } = {}) 
   const url1 = primaryUrl || TRACKERDB_URL_PRIMARY;
   const url2 = fallbackUrl || TRACKERDB_URL_FALLBACK;
 
-  // ── Step 1: Fetch Tracker Radar pair ──
+  // ── Step 1: Fetch Tracker Radar pair (primary URLs) ──
   let fetchResult = null;
   try {
     fetchResult = await fetchRadarPair(url1, url2, meta);
   } catch (e) {
-    console.error(`[trackerdb] Radar feed fetch failed (${e.message}). Keeping current data.`);
-    return 'failed';
+    console.warn(`[trackerdb] Primary feed failed (${e.message}). Trying alternative CDN...`);
+
+    // ── Step 1b: Try alternative CDN URLs as fallback ──
+    try {
+      fetchResult = await fetchRadarPair(TRACKERDB_URL_PRIMARY_ALT, TRACKERDB_URL_FALLBACK_ALT, meta);
+      console.log('[trackerdb] Alternative CDN fetch succeeded');
+    } catch (e2) {
+      console.error(`[trackerdb] Alternative CDN also failed (${e2.message}). Keeping current data.`);
+      return 'failed';
+    }
   }
 
   if (fetchResult === null) {
