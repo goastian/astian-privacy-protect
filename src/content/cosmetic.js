@@ -331,8 +331,18 @@ iframe[name*="google_ads"],
   // LAYER 3 — Filter-list cosmetic selectors (from background engine)
   // ══════════════════════════════════════════════════════════════════════════
 
+  let appliedSelectorsKey = '';
+
   function applySelectors(selectors) {
     if (!selectors || selectors.length === 0) return;
+
+    // Cache check: skip re-injection if selectors haven't changed and the
+    // <style> element is still in the DOM (common during SPA navigations).
+    const key = selectors.join('|');
+    if (key === appliedSelectorsKey && appliedStyle && appliedStyle.parentNode) {
+      return;
+    }
+    appliedSelectorsKey = key;
 
     if (appliedStyle && appliedStyle.parentNode) {
       appliedStyle.parentNode.removeChild(appliedStyle);
@@ -866,7 +876,12 @@ iframe[name*="google_ads"],
   }
 
   // For pushState/replaceState SPAs (non-YouTube sites)
+  // Skip on sites that already have their own SPA event handlers (e.g. YouTube
+  // uses yt-navigate-finish above) to avoid redundant MutationObservers.
   function startSPAObserver() {
+    for (const domain of OBSERVER_SKIP_HOSTNAMES) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) return;
+    }
     const target = document.body || document.documentElement;
     if (!target) {
       document.addEventListener('DOMContentLoaded', startSPAObserver, { once: true });
