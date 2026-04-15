@@ -143,30 +143,78 @@ async function init() {
   applyTheme(currentOptions?.theme || 'system');
 
   setupNavigation();
+  setupOptionsChangeListener();
+
+  // Only render the active section at init (lazy-load others on demand)
+  const hash = window.location.hash.replace('#', '');
+  const activeSection = hash || 'general';
+
   renderGeneral();
-  renderFilterLists();
-  renderCustomFilters();
-  renderWhitelist();
   renderAbout();
+  renderSectionOnDemand(activeSection);
+
   setupListeners();
 
-  // Handle hash navigation
-  const hash = window.location.hash.replace('#', '');
   if (hash) {
     switchSection(hash);
   }
-
-  // Load reports after section is visible (canvas needs offsetWidth > 0)
-  const reportsSection = $('#section-reports');
-  if (reportsSection && reportsSection.classList.contains('active')) {
-    await loadReports();
-  }
-  if ($('#section-tracker-browser')?.classList.contains('active')) renderTrackerBrowser();
-  if ($('#section-trends')?.classList.contains('active')) requestAnimationFrame(() => loadTrendsAlerts());
-  if ($('#section-difficult-sites')?.classList.contains('active')) renderDifficultSites();
 }
 
 // ── Navigation ──────────────────────────────────────────────────────────────
+
+// Track which sections have been rendered
+const renderedSections = new Set();
+
+function setupOptionsChangeListener() {
+  api.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'options-changed') {
+      // Re-fetch full options and refresh active section
+      sendMessage({ action: 'get-options' }).then((opts) => {
+        if (opts) {
+          currentOptions = opts;
+          // Always refresh general (lightweight)
+          renderGeneral();
+          // Refresh filter lists if it was rendered
+          if (renderedSections.has('filter-lists')) renderFilterLists();
+          if (renderedSections.has('whitelist')) renderWhitelist();
+          if (renderedSections.has('difficult-sites')) renderDifficultSites();
+        }
+      });
+      sendResponse({ ok: true });
+      return true;
+    }
+  });
+}
+
+function renderSectionOnDemand(name) {
+  if (renderedSections.has(name)) return;
+  renderedSections.add(name);
+
+  switch (name) {
+    case 'filter-lists':
+      renderFilterLists();
+      break;
+    case 'custom-filters':
+      renderCustomFilters();
+      break;
+    case 'whitelist':
+      renderWhitelist();
+      break;
+    case 'reports':
+      requestAnimationFrame(() => loadReports());
+      break;
+    case 'tracker-browser':
+      renderTrackerBrowser();
+      break;
+    case 'trends':
+      requestAnimationFrame(() => loadTrendsAlerts());
+      break;
+    case 'difficult-sites':
+      renderDifficultSites();
+      break;
+    // general and about are always rendered at init
+  }
+}
 
 function setupNavigation() {
   for (const item of $$('.nav-item')) {
@@ -186,6 +234,9 @@ function switchSection(name) {
   for (const section of $$('.section')) {
     section.classList.toggle('active', section.id === `section-${name}`);
   }
+
+  // Lazy-load section content on first visit
+  renderSectionOnDemand(name);
 
   // Re-render charts when Reports section becomes visible (canvas needs offsetWidth > 0)
   if (name === 'reports') {
@@ -1909,6 +1960,16 @@ function setupListeners() {
       const presetId = btn.dataset.preset;
       const preset = PRESETS[presetId];
       if (!preset) return;
+
+      // Check if preset already exists in editor to avoid duplication
+      const editor = $('#user-filters-editor');
+      if (editor && editor.value.includes(preset.trim())) {
+        btn.classList.add('added');
+        btn.title = 'Already added';
+        setTimeout(() => { btn.classList.remove('added'); btn.title = ''; }, 2000);
+        return;
+      }
+
       appendToEditor(preset.trim());
       btn.classList.add('added');
       setTimeout(() => btn.classList.remove('added'), 2000);
