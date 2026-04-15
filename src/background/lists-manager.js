@@ -8,9 +8,28 @@
 import { getOptions, setOptions, storageLocal } from './storage.js';
 
 const LIST_CACHE_KEY = 'filter_lists_cache';
+const FETCH_TIMEOUT_MS = 30000;
+const RETRY_DELAYS = [5000, 15000, 30000]; // 3 retries with backoff
 
 /**
- * Download a filter list from URL with ETag caching
+ * Fetch with AbortController timeout
+ */
+function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+}
+
+/**
+ * Wait for the specified delay (used between retries)
+ */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Download a filter list from URL with ETag caching, timeout, and retry with backoff
  */
 async function fetchList(id, url) {
   const cacheData = await storageLocal.get(LIST_CACHE_KEY);
@@ -22,40 +41,76 @@ async function fetchList(id, url) {
     headers['If-None-Match'] = cached.etag;
   }
 
-  try {
-    const response = await fetch(url, { headers, cache: 'no-cache' });
+  let lastError = null;
 
-    if (response.status === 304 && cached?.text) {
-      console.log(`[lists] ${id}: not modified (ETag match)`);
-      return cached.text;
+  // Try original request + RETRY_DELAYS.length retries
+  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+    if (attempt > 0) {
+      const waitMs = RETRY_DELAYS[attempt - 1];
+      console.log(`[lists] ${id}: retry ${attempt}/${RETRY_DELAYS.length} in ${waitMs / 1000}s`);
+      await delay(waitMs);
     }
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    try {
+      const response = await fetchWithTimeout(url, { headers, cache: 'no-cache' });
+
+      if (response.status === 304 && cached?.text) {
+        console.log(`[lists] ${id}: not modified (ETag match)`);
+        return cached.text;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const text = await response.text();
+      const etag = response.headers.get('ETag') || '';
+
+      // If server returned 200 but no ETag, check if content actually changed
+      if (!etag && cached?.text && text === cached.text) {
+        console.log(`[lists] ${id}: content unchanged (no ETag support)`);
+        return cached.text;
+      }
+
+      // Save to cache
+      cache[id] = { etag, text, fetchedAt: Date.now() };
+      await storageLocal.set({ [LIST_CACHE_KEY]: cache });
+
+      console.log(`[lists] ${id}: downloaded (${text.split('\n').length} lines)`);
+      return text;
+    } catch (e) {
+      lastError = e;
+      const isTimeout = e.name === 'AbortError';
+      console.warn(`[lists] ${id}: attempt ${attempt + 1} failed — ${isTimeout ? 'timeout' : e.message}`);
     }
-
-    const text = await response.text();
-    const etag = response.headers.get('ETag') || '';
-
-    // Save to cache
-    cache[id] = { etag, text, fetchedAt: Date.now() };
-    await storageLocal.set({ [LIST_CACHE_KEY]: cache });
-
-    console.log(`[lists] ${id}: downloaded (${text.split('\n').length} lines)`);
-    return text;
-  } catch (e) {
-    console.error(`[lists] Failed to fetch ${id}:`, e.message);
-    // Return cached version if available
-    if (cached?.text) return cached.text;
-    return null;
   }
+
+  console.error(`[lists] Failed to fetch ${id} after ${RETRY_DELAYS.length + 1} attempts:`, lastError?.message);
+  // Return cached version if available
+  if (cached?.text) {
+    console.log(`[lists] ${id}: using cached version from ${new Date(cached.fetchedAt || 0).toISOString()}`);
+    return cached.text;
+  }
+  return null;
 }
 
 /**
  * Download all enabled filter lists
+ * @param {boolean} [force=false] - If true, ignore ETag cache and re-download everything
  * @returns {Object} map of listId → raw text
  */
-export async function downloadAllLists() {
+export async function downloadAllLists(force = false) {
+  // If force, clear ETag cache so all lists are re-downloaded
+  if (force) {
+    console.log('[lists] Force update: clearing ETag cache');
+    const cacheData = await storageLocal.get(LIST_CACHE_KEY);
+    const cache = cacheData[LIST_CACHE_KEY] || {};
+    for (const id of Object.keys(cache)) {
+      if (cache[id]) cache[id].etag = '';
+    }
+    await storageLocal.set({ [LIST_CACHE_KEY]: cache });
+  }
+
   const options = await getOptions();
   const results = {};
 
