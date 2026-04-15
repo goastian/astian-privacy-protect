@@ -849,26 +849,42 @@
       var propsToRemove = '${safeArg(propsToRemove || '')}';
       var requiredProps = '${safeArg(requiredProps || '')}';
       var origParse = JSON.parse;
+      function deepHas(obj, chain) {
+        if (!obj || typeof obj !== 'object') return false;
+        var parts = chain.split('.');
+        var cur = obj;
+        for (var i = 0; i < parts.length; i++) {
+          if (cur == null || typeof cur !== 'object') return false;
+          if (!(parts[i] in cur)) return false;
+          cur = cur[parts[i]];
+        }
+        return true;
+      }
+      function deepDelete(obj, chain) {
+        if (!obj || typeof obj !== 'object') return;
+        var parts = chain.split('.');
+        var cur = obj;
+        for (var i = 0; i < parts.length - 1; i++) {
+          if (cur == null || typeof cur !== 'object') return;
+          if (!(parts[i] in cur)) return;
+          cur = cur[parts[i]];
+        }
+        if (cur && typeof cur === 'object' && parts.length > 0) {
+          delete cur[parts[parts.length - 1]];
+        }
+      }
       JSON.parse = function() {
         var r = origParse.apply(this, arguments);
         if (r instanceof Object === false) return r;
         if (requiredProps) {
           var reqs = requiredProps.split(' ');
           for (var i = 0; i < reqs.length; i++) {
-            if (!(reqs[i] in r)) return r;
+            if (!deepHas(r, reqs[i])) return r;
           }
         }
         var props = propsToRemove.split(' ');
         for (var i = 0; i < props.length; i++) {
-          var parts = props[i].split('.');
-          var obj = r;
-          for (var j = 0; j < parts.length - 1; j++) {
-            if (!(parts[j] in obj)) break;
-            obj = obj[parts[j]];
-          }
-          if (obj && parts.length > 0) {
-            delete obj[parts[parts.length - 1]];
-          }
+          deepDelete(r, props[i]);
         }
         return r;
       };
@@ -1403,9 +1419,25 @@
         }
       }
 
+      function getMainPlayerVideo() {
+        // Select only the main player video, not sidebar/preview thumbnails
+        var player = document.querySelector('.video-player__container video, [data-a-target="video-player"] video');
+        if (player) return player;
+        // Fallback: pick the largest visible video element
+        var videos = document.querySelectorAll('video');
+        var best = null;
+        var bestArea = 0;
+        for (var i = 0; i < videos.length; i++) {
+          var rect = videos[i].getBoundingClientRect();
+          var area = rect.width * rect.height;
+          if (area > bestArea) { bestArea = area; best = videos[i]; }
+        }
+        return best;
+      }
+
       function muteAd() {
         try {
-          var v = document.querySelector('video');
+          var v = getMainPlayerVideo();
           if (!v) return;
           if (!adActive) {
             wasMuted = v.muted;
@@ -1419,7 +1451,7 @@
       function restoreAudio() {
         if (!adActive) return;
         try {
-          var v = document.querySelector('video');
+          var v = getMainPlayerVideo();
           if (!v) return;
           v.muted = wasMuted;
           v.volume = savedVol;
@@ -1783,6 +1815,34 @@
           return origAnchorClick.apply(this, arguments);
         };
       }
+
+      // Intercept onclick handlers that call window.open
+      var origSetAttribute = Element.prototype.setAttribute;
+      Element.prototype.setAttribute = function(name, value) {
+        if (name === 'onclick' && typeof value === 'string' && /window\.open\s*\(/.test(value)) {
+          if (!withinGestureWindow() && cfg.closeTabsWithoutGesture !== false) {
+            postBlocked('onclick-window-open', value.slice(0, 200));
+            return;
+          }
+        }
+        return origSetAttribute.apply(this, arguments);
+      };
+
+      document.addEventListener('click', function(e) {
+        if (e.isTrusted) return;
+        var el = e.target;
+        if (!el) return;
+        var onclickFn = el.onclick;
+        if (typeof onclickFn === 'function') {
+          var fnStr = onclickFn.toString();
+          if (/window\.open\s*\(/.test(fnStr) && !withinGestureWindow() && cfg.closeTabsWithoutGesture !== false) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            postBlocked('onclick-handler-open', fnStr.slice(0, 200));
+            return;
+          }
+        }
+      }, true);
     })();`;
   }
 
@@ -1837,6 +1897,14 @@
     // Ghostery engine: pre-compiled scriptlet code (inject directly)
     if (event.data.type === 'midori-compiled-scriptlet' && event.data.code) {
       injectCode(event.data.code);
+    }
+
+    // Ghostery engine: batch of pre-compiled scriptlets (inject as single script)
+    if (event.data.type === 'midori-compiled-scriptlet-batch' && event.data.scripts) {
+      var scripts = event.data.scripts;
+      if (scripts.length > 0) {
+        injectCode(scripts.join('\n'));
+      }
     }
 
     if (event.data.type === 'midori-popup-blocked') {
