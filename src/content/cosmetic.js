@@ -234,6 +234,10 @@ iframe[name*="google_ads"],
       'tp-yt-paper-dialog.ytd-popup-container:has(#dismiss-button)',
       'tp-yt-paper-dialog.ytd-popup-container:has(ytd-enforcement-message-view-model)',
       'ytd-popup-container tp-yt-paper-dialog:has(.yt-about-this-ad-renderer)',
+      // ── YouTube Shorts ads ──
+      'ytd-reel-video-renderer ytd-ad-slot-renderer',
+      'ytd-reel-video-renderer [is-ad]',
+      'ytd-reel-video-renderer .ytd-ad-slot-renderer',
       // NOTE: Do NOT hide .ytp-ad-module, .ytp-ad-skip-button-container,
       // .video-ads, .ytp-ad-player-overlay, .ytp-ad-action-interstitial,
       // .ytp-ad-persistent-progress-bar-container — hiding them breaks

@@ -1100,7 +1100,10 @@
         '#masthead-ad,',
         '#player-ads,',
         '#panels .ytd-ads-engagement-panel-content-renderer,',
-        'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)',
+        'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model),',
+        'ytd-reel-video-renderer ytd-ad-slot-renderer,',
+        'ytd-reel-video-renderer [is-ad],',
+        'ytd-reel-video-renderer .ytd-ad-slot-renderer',
         '{ display: none !important; }'
       ].join('');
       (document.head || document.documentElement).appendChild(s);
@@ -1111,7 +1114,17 @@
         if (!p) return false;
         // Only trust the definitive 'ad-showing' class — overlay elements
         // can persist in DOM after ads end and cause false positives.
-        return p.classList.contains('ad-showing');
+        if (!p.classList.contains('ad-showing')) return false;
+        // Secondary check: guard against race condition where 'ad-showing'
+        // class lingers briefly after the ad finishes. If the video has
+        // already ended or is within 0.5s of its end, the ad is over.
+        try {
+          var v = p.querySelector('video');
+          if (v && v.duration && isFinite(v.duration) && v.duration > 0) {
+            if (v.ended || v.currentTime >= v.duration - 0.5) return false;
+          }
+        } catch(e) {}
+        return true;
       }
 
       // ── SKIP LOGIC ──
@@ -1140,7 +1153,9 @@
 
       function forceSkipVideo() {
         try {
-          var v = document.querySelector('video.html5-main-video');
+          // Try main player first, then Shorts reel player as fallback
+          var v = document.querySelector('video.html5-main-video')
+               || document.querySelector('ytd-reel-video-renderer video');
           if (!v || !v.duration || !isFinite(v.duration) || v.duration <= 0) return;
 
           // Save user state once when ad starts
@@ -1251,6 +1266,8 @@
       // Event-driven first, with low-frequency heartbeat fallback.
       startHeartbeat();
 
+      var pendingRAF = 0;
+
       // MutationObserver for instant reaction to ad-showing class change
       function startObserver() {
         var player = document.getElementById('movie_player');
@@ -1258,16 +1275,23 @@
 
         if (playerObserver) playerObserver.disconnect();
         playerObserver = new MutationObserver(function(muts) {
+          var needsTick = false;
           for (var i = 0; i < muts.length; i++) {
             if (muts[i].attributeName === 'class') {
-              if (shouldRunTick(120)) tick();
-              return;
+              needsTick = true;
+              break;
             }
             if (muts[i].addedNodes.length > 0) {
               bindVideoEvents();
-              if (shouldRunTick(120)) tick();
-              return;
+              needsTick = true;
+              break;
             }
+          }
+          if (needsTick && !pendingRAF) {
+            pendingRAF = requestAnimationFrame(function() {
+              pendingRAF = 0;
+              if (shouldRunTick(120)) tick();
+            });
           }
         });
 
@@ -1287,11 +1311,19 @@
 
         if (enforcementObserver) enforcementObserver.disconnect();
         enforcementObserver = new MutationObserver(function(muts) {
+          var hasAdded = false;
           for (var i = 0; i < muts.length; i++) {
-            if (muts[i].addedNodes.length > 0) {
-              removeEnforcement();
-              if (shouldRunTick(250)) tick();
-              return;
+            if (muts[i].addedNodes.length > 0) { hasAdded = true; break; }
+          }
+          if (hasAdded) {
+            // Enforcement removal must be immediate (no rAF) for UX
+            removeEnforcement();
+            // Defer tick to next animation frame to reduce CPU churn
+            if (!pendingRAF) {
+              pendingRAF = requestAnimationFrame(function() {
+                pendingRAF = 0;
+                if (shouldRunTick(250)) tick();
+              });
             }
           }
         });
