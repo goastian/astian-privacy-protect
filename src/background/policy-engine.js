@@ -16,7 +16,7 @@ export const VERTICALS = {
 
 const AI_HOST_PATTERNS = [
   'openai.com', 'chatgpt.com', 'claude.ai', 'anthropic.com', 'gemini.google.com',
-  'bard.google.com', 'copilot.microsoft.com', 'perplexity.ai', 'poe.com',
+  'copilot.microsoft.com', 'perplexity.ai', 'poe.com',
   'character.ai', 'deepseek.com', 'huggingface.co',
 ];
 
