@@ -51,6 +51,11 @@ let runtimeOptionsCache = null;
 const popupGestureState = new Map();
 const popupCandidates = new Map();
 const popupBurstState = new Map();
+
+// Phase 6: popupCandidates memory leak fix — cap size + TTL eviction
+const MAX_POPUP_CANDIDATES = 50;
+const POPUP_CANDIDATE_TTL_MS = 60000; // 60s
+
 const ADULT_POPUNDER_DOMAINS = [
   'trafficjunky.net', 'trafficjunky.com', 'juicyads.com', 'exoclick.com',
   'ero-advertising.com', 'plugrush.com', 'exdynsrv.com', 'popads.net',
@@ -389,6 +394,19 @@ function maybeClosePopupTab(tabId, reason) {
 
 function registerPopupCandidate(tab) {
   if (!tab?.id || tab.openerTabId === undefined || tab.openerTabId === null) return;
+
+  // Phase 6: Evict expired candidates before adding new ones
+  const now = Date.now();
+  if (popupCandidates.size >= MAX_POPUP_CANDIDATES) {
+    for (const [id, c] of popupCandidates) {
+      if (now - c.createdAt > POPUP_CANDIDATE_TTL_MS) popupCandidates.delete(id);
+    }
+    // If still at capacity after TTL eviction, drop oldest
+    if (popupCandidates.size >= MAX_POPUP_CANDIDATES) {
+      const oldest = popupCandidates.keys().next().value;
+      popupCandidates.delete(oldest);
+    }
+  }
 
   const openerTab = getTab(tab.openerTabId);
   const openerHostname = openerTab?.hostname || '';
@@ -734,10 +752,11 @@ let whitelistCacheTime = 0;
 let isTrackerDbAssistedEnabled = false;
 
 function isWhitelistedSync(hostname) {
+  // Phase 6 perf: Lazy refresh whitelist cache (non-blocking)
   if (Date.now() - whitelistCacheTime > 30000) {
+    whitelistCacheTime = Date.now(); // Prevent concurrent refreshes
     getOptions().then(opts => {
       whitelistCache = opts.whitelist || {};
-      whitelistCacheTime = Date.now();
     });
   }
   return !!whitelistCache[hostname];
@@ -746,21 +765,26 @@ function isWhitelistedSync(hostname) {
 const pendingSaveTabsFirefox = new Set();
 let firefoxSaveTimer = null;
 
+// Phase 6 perf: Pre-allocated response objects for the webRequest hot path
+// Avoids GC pressure from creating new { cancel: false } on every request
+const WR_PASS = Object.freeze({ cancel: false });
+const WR_BLOCK = Object.freeze({ cancel: true });
+
 function setupWebRequestBlocking() {
   console.log('[midori] Setting up webRequest blocking, engine rules:', engine.rulesCount);
   webRequestAPI.onBeforeRequest.addListener(
     (details) => {
-      if (!isEnabled) return { cancel: false };
-      if (details.tabId < 0) return { cancel: false };
-      if (details.type === 'main_frame') return { cancel: false };
+      if (!isEnabled) return WR_PASS;
+      if (details.tabId < 0) return WR_PASS;
+      if (details.type === 'main_frame') return WR_PASS;
 
       const url = details.url;
-      if (!url.startsWith('http')) return { cancel: false };
+      if (!url.startsWith('http')) return WR_PASS;
 
       const tab = getTab(details.tabId) || ensureTab(details.tabId);
       const pageHostname = tab.hostname || '';
 
-      if (pageHostname && isWhitelistedSync(pageHostname)) return { cancel: false };
+      if (pageHostname && isWhitelistedSync(pageHostname)) return WR_PASS;
 
       const tMatchStart = performance.now();
       const matchResult = engine.matchRequest
@@ -787,16 +811,16 @@ function setupWebRequestBlocking() {
         // Record hourly stats for heatmap (debounced)
         bufferHourlyBlock(1);
 
-        // Debounced save for Firefox
+        // Debounced save for Firefox — Phase 6: reduced from 30s to 5s
         pendingSaveTabsFirefox.add(details.tabId);
         if (!firefoxSaveTimer) {
-          firefoxSaveTimer = setTimeout(flushFirefoxStats, 30000);
+          firefoxSaveTimer = setTimeout(flushFirefoxStats, 5000);
         }
 
-        return { cancel: true };
+        return WR_BLOCK;
       }
 
-      return { cancel: false };
+      return WR_PASS;
     },
     { urls: ['<all_urls>'] },
     ['blocking']
@@ -1249,6 +1273,34 @@ async function handleMessage(msg, sender) {
         await loadEngine(lists);
       }
       return { rulesCount: engine.rulesCount, updatedAt: Date.now() };
+    }
+
+    case 'force-update-all': {
+      const results = { lists: false, trackerDb: false, errors: [] };
+      // Force re-download all filter lists (ignore ETag cache)
+      try {
+        const lists = await downloadAllLists(true);
+        if (Object.keys(lists).length > 0) {
+          await loadEngine(lists);
+          results.lists = true;
+        }
+      } catch (e) {
+        results.errors.push(`Lists: ${e.message}`);
+      }
+      // Force re-fetch TrackerDB
+      try {
+        const opts = await getOptions();
+        const tdResult = await fetchAndUpdateTrackerDb({
+          primaryUrl: opts.trackerDbUrl || undefined,
+        });
+        results.trackerDb = tdResult === 'updated';
+        if (tdResult === 'unchanged') results.trackerDb = true; // Already up to date counts as success
+      } catch (e) {
+        results.errors.push(`TrackerDB: ${e.message}`);
+      }
+      results.updatedAt = Date.now();
+      results.rulesCount = engine.rulesCount;
+      return results;
     }
 
     case 'get-cosmetics': {
