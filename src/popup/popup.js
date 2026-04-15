@@ -156,6 +156,7 @@ async function loadTabStats() {
 // ── Render tab stats (extracted from loadTabStats for reusability) ─────────────
 
 function renderTabStats(data) {
+  if (!data) return;
   lastRenderedData = { ...data }; // Save for next diff
     // Update counter
   const blocked = data.blocked || 0;
@@ -179,6 +180,9 @@ function renderTabStats(data) {
 
   // Update groups
   const groups = data.groups || { trackers: [], ads: [], other: [] };
+  if (!groups.trackers) groups.trackers = [];
+  if (!groups.ads) groups.ads = [];
+  if (!groups.other) groups.other = [];
   lastGroups = groups;
 
   renderGroup('trackers', groups.trackers);
@@ -247,6 +251,8 @@ const OA_LABELS = {
 const OA_R = 36;
 const OA_C = 2 * Math.PI * OA_R; // ≈ 226.195
 
+let lastDonutCounts = null;
+
 function updateOAPanel(groups, blocked) {
   const counts = {
     ads:      (groups.ads      || []).length,
@@ -263,9 +269,18 @@ function updateOAPanel(groups, blocked) {
   const totalEl = $('#donut-total');
   if (totalEl) totalEl.textContent = total;
 
-  // Segmentos SVG
+  // Segmentos SVG — skip si counts idénticos
   const segsEl = $('#donut-segs');
-  if (segsEl) renderDonut(segsEl, counts, total);
+  if (segsEl) {
+    const countsChanged = !lastDonutCounts ||
+      lastDonutCounts.ads !== counts.ads ||
+      lastDonutCounts.trackers !== counts.trackers ||
+      lastDonutCounts.other !== counts.other;
+    if (countsChanged) {
+      renderDonut(segsEl, counts, total);
+      lastDonutCounts = { ...counts };
+    }
+  }
 
   // Filas de categorías
   renderOACats(counts, total);
@@ -371,7 +386,9 @@ function updateStatusUI() {
 
 function updateLevelUI(level) {
   for (const btn of $$('.level-btn')) {
-    btn.classList.toggle('active', btn.dataset.level === level);
+    const isActive = btn.dataset.level === level;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', String(isActive));
   }
   $('#level-status').textContent = '';
 }
@@ -381,13 +398,31 @@ async function changeProtectionLevel(level) {
   const statusEl = $('#level-status');
 
   // Disable buttons while applying
-  for (const btn of btns) btn.classList.add('loading');
+  for (const btn of btns) {
+    btn.classList.add('loading');
+    btn.disabled = true;
+  }
   statusEl.textContent = 'Applying...';
   statusEl.style.color = '';
 
+  // Timeout fallback in case background never responds
+  const applyingTimeout = setTimeout(() => {
+    for (const btn of btns) {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+    statusEl.style.color = 'var(--color-danger)';
+    statusEl.textContent = 'Timed out — try again';
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+  }, 8000);
+
   const result = await sendMessage({ action: 'change-protection-level', level });
 
-  for (const btn of btns) btn.classList.remove('loading');
+  clearTimeout(applyingTimeout);
+  for (const btn of btns) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
 
   if (result?.success) {
     updateLevelUI(level);
@@ -452,22 +487,41 @@ function updateCategoryTogglesUI() {
   }
 }
 
+let categoryTogglePending = false;
+
 async function toggleCategory(cat) {
+  if (categoryTogglePending) return; // Guard against race from rapid clicks
+  categoryTogglePending = true;
+
   categoryState[cat] = !categoryState[cat];
   updateCategoryTogglesUI();
 
-  // Map category to options
-  const optMap = {
-    ads: { 'easylist': categoryState.ads, 'ublock-filters': categoryState.ads, 'peter-lowe': categoryState.ads },
-    trackers: { 'easyprivacy': categoryState.trackers, 'ublock-privacy': categoryState.trackers },
-    fingerprinting: { antiFingerprint: categoryState.fingerprinting },
-  };
+  try {
+    // Build a single atomic message combining list updates + categoryState + antiFingerprint
+    const listUpdates = {};
+    const extraOptions = {};
 
-  if (cat === 'fingerprinting') {
-    await sendMessage({ action: 'save-options-partial', options: { antiFingerprint: categoryState.fingerprinting, categoryState } });
-  } else {
-    const listUpdates = optMap[cat] || {};
-    await sendMessage({ action: 'toggle-category', category: cat, enabled: categoryState[cat], listUpdates, categoryState });
+    if (cat === 'ads') {
+      listUpdates['easylist'] = categoryState.ads;
+      listUpdates['ublock-filters'] = categoryState.ads;
+      listUpdates['peter-lowe'] = categoryState.ads;
+    } else if (cat === 'trackers') {
+      listUpdates['easyprivacy'] = categoryState.trackers;
+      listUpdates['ublock-privacy'] = categoryState.trackers;
+    } else if (cat === 'fingerprinting') {
+      extraOptions.antiFingerprint = categoryState.fingerprinting;
+    }
+
+    await sendMessage({
+      action: 'toggle-category',
+      category: cat,
+      enabled: categoryState[cat],
+      listUpdates,
+      categoryState,
+      extraOptions,
+    });
+  } finally {
+    categoryTogglePending = false;
   }
 }
 
