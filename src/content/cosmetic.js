@@ -181,11 +181,12 @@ iframe[name*="google_ads"],
 `;
 
   // Sites where generic ad CSS causes false positives (breaks UI)
-  const GLOBAL_CSS_EXCLUDE = ['youtube.com', 'youtu.be', 'youtube-nocookie.com'];
+  const GLOBAL_CSS_EXCLUDE = new Set(['youtube.com', 'youtu.be', 'youtube-nocookie.com']);
 
   function shouldExcludeGlobalCSS(host) {
+    if (GLOBAL_CSS_EXCLUDE.has(host)) return true;
     for (const domain of GLOBAL_CSS_EXCLUDE) {
-      if (host === domain || host.endsWith('.' + domain)) return true;
+      if (host.endsWith('.' + domain)) return true;
     }
     return false;
   }
@@ -785,17 +786,26 @@ iframe[name*="google_ads"],
   // ── Step 5: Universal MutationObserver — watches for dynamically inserted ads ──
   // Skip on excluded sites to avoid false positives and performance overhead.
   // Optimization 8.2: Early exit for sites that don't need dynamic monitoring
-  const OBSERVER_SKIP_HOSTNAMES = [
+  // fix: Use Set for O(1) lookup + unified isObserverSkipHost() check
+  const OBSERVER_SKIP_DOMAINS = new Set([
     'youtube.com', 'youtu.be', 'youtube-nocookie.com', // YouTube has native ads, skip observer
-    'reddit.com', 'twitch.tv', // High-traffic sites: use less aggressive monitoring
-  ];
-  
-  function shouldSkipObserver() {
-    if (skipHeuristicScan) return true;
-    for (const domain of OBSERVER_SKIP_HOSTNAMES) {
-      if (hostname === domain || hostname.endsWith('.' + domain)) return true;
+    'reddit.com', 'twitch.tv', // High-traffic sites: CSS-only hiding, no JS observer
+  ]);
+
+  function isObserverSkipHost(host) {
+    if (OBSERVER_SKIP_DOMAINS.has(host)) return true;
+    // Check parent domains (www.reddit.com → .reddit.com)
+    for (const domain of OBSERVER_SKIP_DOMAINS) {
+      if (host.endsWith('.' + domain)) return true;
     }
     return false;
+  }
+
+  // Cache the result once per page load for zero-cost reuse
+  const _isSkippedHost = isObserverSkipHost(hostname);
+
+  function shouldSkipObserver() {
+    return skipHeuristicScan || _isSkippedHost;
   }
   
   let observerTimer = null;
@@ -866,9 +876,12 @@ iframe[name*="google_ads"],
         forwardScriptletsToPage(builtinScriptlets);
       }
 
-      // Re-scan for ads after navigation
-      setTimeout(initialScan, 300);
-      setTimeout(initialScan, 1500);
+      // Skip heavy heuristic rescan on observer-skipped sites
+      // (Reddit, Twitch, YouTube) — rely on CSS selectors only
+      if (!_isSkippedHost && !skipHeuristicScan) {
+        setTimeout(initialScan, 300);
+        setTimeout(initialScan, 1500);
+      }
     }
   }
 
@@ -892,9 +905,8 @@ iframe[name*="google_ads"],
   // Skip on sites that already have their own SPA event handlers (e.g. YouTube
   // uses yt-navigate-finish above) to avoid redundant MutationObservers.
   function startSPAObserver() {
-    for (const domain of OBSERVER_SKIP_HOSTNAMES) {
-      if (hostname === domain || hostname.endsWith('.' + domain)) return;
-    }
+    // Phase 6 fix: Use cached skip result for guaranteed consistency
+    if (_isSkippedHost) return;
     const target = document.body || document.documentElement;
     if (!target) {
       document.addEventListener('DOMContentLoaded', startSPAObserver, { once: true });
