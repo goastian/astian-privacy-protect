@@ -167,6 +167,7 @@ export class GhosteryEngine {
     });
 
     this._updateStats();
+    matchResultCache.clear(); // Phase 6: Invalidate stale match results after reload
     console.log(`[ghostery-engine] Loaded ${Object.keys(lists).length} lists, ${this.rulesCount} rules`);
   }
 
@@ -190,6 +191,7 @@ export class GhosteryEngine {
       });
     }
     this._updateStats();
+    matchResultCache.clear(); // Phase 6: Invalidate stale match results after rule change
   }
 
   /**
@@ -275,7 +277,9 @@ export class GhosteryEngine {
     if (!this._engine || !hostname) return [];
 
     try {
-      const domain = this._getDomain(hostname);
+      // Phase 6: Inline domain extraction (removed _getDomain dead code)
+      const parts = hostname.split('.');
+      const domain = parts.length <= 2 ? hostname : parts.slice(-2).join('.');
       const result = this._engine.getCosmeticsFilters({
         url: `https://${hostname}/`,
         hostname,
@@ -321,7 +325,9 @@ export class GhosteryEngine {
     if (!this._engine || !hostname) return { styles: '', scripts: [], extended: [] };
 
     try {
-      const domain = this._getDomain(hostname);
+      //Inline domain extraction (removed _getDomain dead code)
+      const parts = hostname.split('.');
+      const domain = parts.length <= 2 ? hostname : parts.slice(-2).join('.');
       return this._engine.getCosmeticsFilters({
         url: `https://${hostname}/`,
         hostname,
@@ -454,12 +460,6 @@ export class GhosteryEngine {
     }
     const { networkFilters, cosmeticFilters } = this._engine.getFilters();
     this.rulesCount = networkFilters.length + cosmeticFilters.length;
-  }
-
-  _getDomain(hostname) {
-    const parts = hostname.split('.');
-    if (parts.length <= 2) return hostname;
-    return parts.slice(-2).join('.');
   }
 }
 
