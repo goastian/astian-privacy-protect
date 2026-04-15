@@ -1880,6 +1880,31 @@ function setupListeners() {
     btn.disabled = false;
   });
 
+  // Force Update all (lists + TrackerDB)
+  $('#btn-force-update').addEventListener('click', async () => {
+    const btn = $('#btn-force-update');
+    btn.textContent = 'Updating...';
+    btn.disabled = true;
+    try {
+      const result = await sendMessage({ action: 'force-update-all' });
+      if (result?.updatedAt) {
+        $('#last-updated').textContent = 'Just now';
+      }
+      const parts = [];
+      if (result?.lists) parts.push('Lists ✓');
+      else parts.push('Lists ✗');
+      if (result?.trackerDb) parts.push('TrackerDB ✓');
+      else parts.push('TrackerDB ✗');
+      btn.textContent = parts.join(' · ');
+      setTimeout(() => { btn.textContent = 'Force Update'; }, 3000);
+    } catch (e) {
+      console.error('Force update failed:', e);
+      btn.textContent = 'Failed';
+      setTimeout(() => { btn.textContent = 'Force Update'; }, 3000);
+    }
+    btn.disabled = false;
+  });
+
   // Add custom list
   $('#btn-add-custom-list').addEventListener('click', async () => {
     const input = $('#input-custom-list');
