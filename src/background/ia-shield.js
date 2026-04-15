@@ -10,7 +10,6 @@ const AI_HOST_PATTERNS = [
   'chatgpt.com',
   'openai.com',
   'gemini.google.com',
-  'bard.google.com',
   'claude.ai',
   'copilot.microsoft.com',
   'bing.com',
@@ -29,10 +28,8 @@ const AI_HOST_PATTERNS = [
   'cerebras.ai',
   'gmail.com',
   'google.com',
-  'bing.com',
   'github.com',
   'gitlab.com',
-  'you.com',
   'duck.ai',
   'abacus.ai',
 ];
