@@ -537,14 +537,14 @@ body {
 /* ── Donut SVG wrapper ── */
 .oa-donut-wrap {
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 80px;
   flex-shrink: 0;
 }
 
 .oa-donut {
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 80px;
   transform: rotate(-90deg);
   overflow: visible;
 }
@@ -568,19 +568,19 @@ body {
 }
 
 .donut-total {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 900;
   letter-spacing: -0.04em;
   color: var(--color-text);
 }
 
 .donut-label {
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-tertiary);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 /* ── Category rows ── */
