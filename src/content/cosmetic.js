@@ -680,13 +680,9 @@ iframe[name*="google_ads"],
     }
     // Ghostery engine: pre-compiled scriptlet code (inject directly into page)
     if (msg.action === 'apply-compiled-scriptlets' && msg.scripts) {
-      for (const code of msg.scripts) {
-        if (code && typeof code === 'string') {
-          window.postMessage({
-            type: 'midori-compiled-scriptlet',
-            code: code,
-          }, '*');
-        }
+      const validScripts = msg.scripts.filter(c => c && typeof c === 'string');
+      if (validScripts.length > 0) {
+        window.postMessage({ type: 'midori-compiled-scriptlet-batch', scripts: validScripts }, '*');
       }
     }
   });
@@ -713,10 +709,9 @@ iframe[name*="google_ads"],
       (document.head || document.documentElement).appendChild(ghosteryStyle);
     }
     if (response?.compiledScripts?.length > 0) {
-      for (const code of response.compiledScripts) {
-        if (code && typeof code === 'string') {
-          window.postMessage({ type: 'midori-compiled-scriptlet', code }, '*');
-        }
+      const validScripts = response.compiledScripts.filter(c => c && typeof c === 'string');
+      if (validScripts.length > 0) {
+        window.postMessage({ type: 'midori-compiled-scriptlet-batch', scripts: validScripts }, '*');
       }
     }
   });
@@ -751,12 +746,26 @@ iframe[name*="google_ads"],
   // BUILTIN_COSMETICS selectors.
   const skipHeuristicScan = shouldExcludeGlobalCSS(hostname);
 
+  // Never-Consent: skip on YouTube (excluded from consent handling)
+  const NEVER_CONSENT_EXCLUDE = [
+    'youtube.com', 'youtu.be', 'youtube-nocookie.com',
+  ];
+  function isNeverConsentExcluded() {
+    for (const domain of NEVER_CONSENT_EXCLUDE) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) return true;
+    }
+    return false;
+  }
+  const skipNeverConsent = isNeverConsentExcluded();
+
   function initialScan() {
     if (skipHeuristicScan) return;
     scanAndCollapse(document.body || document.documentElement, true);
-    // Never-Consent
-    setTimeout(handleNeverConsent, 500);
-    setTimeout(handleNeverConsent, 2000);
+    // Never-Consent — skip if YouTube is excluded
+    if (!skipNeverConsent) {
+      setTimeout(handleNeverConsent, 500);
+      setTimeout(handleNeverConsent, 2000);
+    }
   }
 
   if (!skipHeuristicScan) {
