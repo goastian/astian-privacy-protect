@@ -332,6 +332,20 @@ function getRuntimeOptions() {
   return runtimeOptionsCache || { protectionLevel: 'standard', experiments: {}, whitelist: {} };
 }
 
+// Broadcast options changes to any open options/popup page
+function broadcastOptionsChanged(changedFields) {
+  try {
+    const msg = { action: 'options-changed', changed: changedFields };
+    if (typeof browser !== 'undefined' && browser.runtime?.sendMessage) {
+      browser.runtime.sendMessage(msg).catch(() => {});
+    } else if (chrome.runtime?.sendMessage) {
+      chrome.runtime.sendMessage(msg).catch?.(() => {});
+    }
+  } catch (e) {
+    // No listeners open, ignore
+  }
+}
+
 function recordUserGesture(tabId, payload = {}) {
   if (!Number.isInteger(tabId) || tabId < 0) return;
   popupGestureState.set(tabId, {
@@ -1430,8 +1444,14 @@ async function handleMessage(msg, sender) {
           lists[listId] = { ...lists[listId], enabled };
         }
       }
-      await setOptions({ lists, categoryState: msg.categoryState || {} });
-      refreshRuntimeOptions({ ...opts, lists, categoryState: msg.categoryState || {} });
+      // Merge any extra options (e.g. antiFingerprint) atomically
+      const extra = msg.extraOptions || {};
+      const savePayload = { lists, categoryState: msg.categoryState || {}, ...extra };
+      await setOptions(savePayload);
+      refreshRuntimeOptions({ ...opts, ...savePayload });
+
+      // Notify options page about list changes
+      broadcastOptionsChanged({ lists, categoryState: msg.categoryState || {} });
 
       // Chromium: update DNR rulesets
       if (IS_CHROMIUM) {
@@ -1468,6 +1488,7 @@ async function handleMessage(msg, sender) {
       if (msg.options) {
         const updatedOptions = await setOptions(msg.options);
         refreshRuntimeOptions(updatedOptions);
+        broadcastOptionsChanged(msg.options);
         if (Object.prototype.hasOwnProperty.call(msg.options, 'localTelemetry')) {
           telemetryState = normalizeTelemetry(msg.options.localTelemetry);
         }
