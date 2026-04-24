@@ -180,6 +180,12 @@ function mergeOptionsWithDefaults(options = {}) {
   return {
     ...DEFAULTS,
     ...options,
+    // Deep-merge lists so new entries added to DEFAULTS are always included,
+    // while user-stored enabled/disabled overrides are preserved.
+    lists: {
+      ...DEFAULTS.lists,
+      ...(options.lists || {}),
+    },
     whitelist: {
       ...DEFAULTS.whitelist,
       ...(options.whitelist || {}),
