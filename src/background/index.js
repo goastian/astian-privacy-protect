@@ -9,7 +9,7 @@ import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, r
 import { FilterEngine, extractDomain, categorizeRequest } from './filter-engine.js';
 import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
-import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
+import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, exportReport } from './report-generator.js';
 import { evaluateRequestPolicy, getPopupDefenseConfig } from './policy-engine.js';
 import {
@@ -1177,6 +1177,7 @@ async function handleMessage(msg, sender) {
         const eco = getEcoStats(msg.tabId);
         // Phase 8: Use enriched groups with owner information
         stats.groups = getGroupedRequestsEnriched(msg.tabId);
+        stats.blockedByCategory = getBlockedByCategory(msg.tabId);
         return { ...stats, ...eco };
       }
       // Firefox: use in-memory data with enriched owner information (Phase 8)
@@ -1186,6 +1187,7 @@ async function handleMessage(msg, sender) {
       return {
         hostname: tab?.hostname || '',
         blocked: tab?.blocked || 0,
+        blockedByCategory: getBlockedByCategory(msg.tabId),
         dataSaved: getDataSaved(msg.tabId),
         groups,
         recentRequests: getRecentRequests(msg.tabId, 10),

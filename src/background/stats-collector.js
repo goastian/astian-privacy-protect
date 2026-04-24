@@ -33,6 +33,7 @@ export function initTab(tabId, hostname) {
   tabData.set(tabId, {
     hostname,
     blocked: 0,
+    blockedByCategory: { ads: 0, trackers: 0, other: 0 },
     dataSaved: 0,
     energySaved: 0, // In kWh
     co2Saved: 0,    // In grams
@@ -53,6 +54,7 @@ export function ensureTab(tabId) {
     tab = { 
       hostname: '', 
       blocked: 0, 
+      blockedByCategory: { ads: 0, trackers: 0, other: 0 },
       dataSaved: 0, 
       energySaved: 0, 
       co2Saved: 0, 
@@ -62,6 +64,7 @@ export function ensureTab(tabId) {
     };
     tabData.set(tabId, tab);
   }
+  if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, other: 0 };
   return tab;
 }
 
@@ -80,6 +83,11 @@ export function recordBlock(tabId, url) {
 
   const domain = extractDomain(url);
   const category = categorizeRequest(url);
+
+  // Track per-category blocked count (always accurate, regardless of requests cap)
+  if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, other: 0 };
+  const cat = (category === 'ads' || category === 'trackers') ? category : 'other';
+  tab.blockedByCategory[cat]++;
   
   // Phase 8 optimization: Get owner via LRU-cached lookup (O(1))
   const owner = getTrackerOwner(domain);
@@ -114,6 +122,11 @@ export function removeTab(tabId) {
 export function getBlockedCount(tabId) {
   const tab = tabData.get(tabId);
   return tab ? tab.blocked : 0;
+}
+
+export function getBlockedByCategory(tabId) {
+  const tab = tabData.get(tabId);
+  return tab?.blockedByCategory ? { ...tab.blockedByCategory } : { ads: 0, trackers: 0, other: 0 };
 }
 
 export function getDataSaved(tabId) {

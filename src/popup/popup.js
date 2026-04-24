@@ -195,7 +195,7 @@ function renderTabStats(data) {
   if (emptyStateEl) emptyStateEl.classList.toggle('hidden', hasItems);
 
   // OA Panel — dona + categorías
-  updateOAPanel(groups, blocked);
+  updateOAPanel(groups, blocked, data.blockedByCategory || null);
 
   // Update live stream (skip if disabled by default)
   if (liveStreamEnabled) {
@@ -289,12 +289,19 @@ const OA_C = 2 * Math.PI * OA_R; // ≈ 226.195
 
 let lastDonutCounts = null;
 
-function updateOAPanel(groups, blocked) {
-  const counts = {
+function updateOAPanel(groups, blocked, blockedByCategory) {
+  // Domain-unique counts (used only for donut segments proportions + domain list)
+  const domainCounts = {
     ads:      (groups.ads      || []).length,
     trackers: (groups.trackers || []).length,
     other:    (groups.other    || []).length,
   };
+  const domainTotal = domainCounts.ads + domainCounts.trackers + domainCounts.other;
+
+  // Per-category request counts (accurate total, same units as badge)
+  const counts = blockedByCategory && (blockedByCategory.ads + blockedByCategory.trackers + blockedByCategory.other) > 0
+    ? blockedByCategory
+    : { ads: domainCounts.ads, trackers: domainCounts.trackers, other: domainCounts.other };
   const total = counts.ads + counts.trackers + counts.other;
 
   // Contador de blockeados en la fila inferior
@@ -321,7 +328,7 @@ function updateOAPanel(groups, blocked) {
   // Filas de categorías
   renderOACats(counts, total);
 
-  // Lista plana (vista lista)
+  // Lista plana (vista lista) — usa dominios únicos para no repetir entradas
   const flatList = $('#flat-list');
   if (flatList) {
     const all = [
