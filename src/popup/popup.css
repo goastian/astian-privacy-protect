@@ -130,6 +130,60 @@ body {
   margin-bottom: 8px;
 }
 
+.entity-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.entity-action-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.entity-action-owner {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-action-meta {
+  margin-top: 3px;
+  font-size: 0.7rem;
+  color: var(--color-text-tertiary);
+}
+
+.entity-action-btn {
+  flex-shrink: 0;
+  border: 1px solid var(--color-danger);
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.entity-action-btn:hover:not(:disabled) {
+  background: rgba(231, 76, 60, 0.14);
+}
+
+.entity-action-btn.is-unblock {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.entity-action-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 /* ── Protection Level (Segmented Control) ── */
 .level-selector {
   display: flex;

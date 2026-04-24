@@ -105,6 +105,7 @@ const DEFAULTS = {
   },
   setupCompleted: false,
   protectionLevel: 'standard',
+  blockedEntities: {},
   iaShieldStrict: false,
   iaShieldSanitizeOnPaste: true,
   installMode: 'both',
@@ -190,6 +191,10 @@ function mergeOptionsWithDefaults(options = {}) {
       ...DEFAULTS.whitelist,
       ...(options.whitelist || {}),
     },
+    blockedEntities: {
+      ...DEFAULTS.blockedEntities,
+      ...(options.blockedEntities || {}),
+    },
     experiments: {
       ...DEFAULTS.experiments,
       ...(options.experiments || {}),
@@ -239,6 +244,10 @@ export async function setOptions(partial) {
   const merged = mergeOptionsWithDefaults({
     ...current,
     ...partial,
+    blockedEntities: {
+      ...(current.blockedEntities || {}),
+      ...(partial.blockedEntities || {}),
+    },
     experiments: {
       ...(current.experiments || {}),
       ...(partial.experiments || {}),

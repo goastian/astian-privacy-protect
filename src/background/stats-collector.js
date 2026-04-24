@@ -95,6 +95,7 @@ export function recordBlock(tabId, url, metadata = {}) {
   const confidence = Number(metadata.confidence ?? tracker.confidence) || 0;
   const fingerprinting = metadata.fingerprinting === true || Number(metadata.fingerprintScore ?? tracker.fingerprintScore) > 0;
   const owner = metadata.owner || tracker.owner || domain;
+  const ownerId = metadata.ownerId || tracker.ownerId || domain;
 
   // Track per-category blocked count (always accurate, regardless of requests cap)
   if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, other: 0 };
@@ -117,6 +118,7 @@ export function recordBlock(tabId, url, metadata = {}) {
       domain,
       category: cat,
       owner,
+      ownerId,
       confidence,
       fingerprinting,
       reason,
@@ -177,6 +179,7 @@ export function getRecentRequests(tabId, count) {
     domain: r.domain,
     type: r.category === 'trackers' ? 'tracker' : r.category,
     owner: r.owner || r.domain,
+    ownerId: r.ownerId || r.domain,
     reason: r.reason || 'rule-match',
     confidence: Number(r.confidence) || 0,
     fingerprinting: r.fingerprinting === true,
@@ -226,6 +229,7 @@ export function getGroupedRequestsEnriched(tabId) {
     const enriched = {
       domain: req.domain,
       owner: req.owner || req.domain,
+      ownerId: req.ownerId || req.domain,
       category: cat,
       reason: req.reason || 'rule-match',
       confidence: Number(req.confidence) || 0,

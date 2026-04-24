@@ -320,6 +320,8 @@ export function evaluateRequestPolicy({
   const protectionConfig = PROTECTION_CONFIG[protectionLevel];
   const siteContext = resolveSiteProfile(pageHostname, options);
   const requestDomain = extractDomain(url);
+  const requestOwnerId = requestDomain ? getTrackerOwnerId(requestDomain) : '';
+  const blockedEntities = options?.blockedEntities || {};
   const trackerCategory = requestDomain ? getTrackerCategory(requestDomain) : null;
   const trackerConfidence = requestDomain ? getTrackerConfidence(requestDomain) : 0;
   const classification = classifyRequestDetails(url, pageHostname, resourceType);
@@ -373,6 +375,12 @@ export function evaluateRequestPolicy({
     (isThirdParty || resourceType === 'script' || resourceType === 'xmlhttprequest' || resourceType === 'ping' || resourceType === 'beacon')
   );
 
+  const entityBlocked = !!(
+    requestDomain &&
+    requestOwnerId &&
+    blockedEntities[requestOwnerId] === true
+  );
+
   // ── Phase 8: First-Party Relaxation ──────────────────────────────────────
   // Allow first-party or same-entity resources to pass through for non-blocking content types.
   // This improves UX by reducing false-positive blocks on legitimate same-org resources.
@@ -382,8 +390,10 @@ export function evaluateRequestPolicy({
     (isOwnedByPageHost(requestDomain, pageHostname) && resourceType !== 'script' && resourceType !== 'xmlhttprequest')
   );
 
-  const shouldBlock = (engineBlocked || hardThreatBlocked || trackerSignalEligible) && !firstPartyRelaxation;
+  const shouldBlock = (entityBlocked || engineBlocked || hardThreatBlocked || trackerSignalEligible) && !firstPartyRelaxation;
   const reason = firstPartyRelaxation ? 'first-party-relaxed'
+    : entityBlocked
+    ? 'entity-block'
     : engineBlocked
     ? engineReason
     : (hardThreatBlocked
@@ -399,8 +409,10 @@ export function evaluateRequestPolicy({
     profile: siteContext.profile,
     trackerCategory,
     trackerConfidence,
+    ownerId: requestOwnerId,
     signalScore,
     sources: {
+      entity: entityBlocked,
       engine: engineBlocked,
       threatDomain: hardThreatBlocked,
       trackerDb: trackerSignalEligible,

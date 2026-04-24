@@ -20,6 +20,7 @@ import {
   rollbackTrackerDb,
   getTrackerDbMeta,
   collectHighConfidenceDomains,
+  getTrackerEntityMetadata,
   TRACKERDB_ALARM_NAME,
 } from './trackerdb.js';
 import {
@@ -339,6 +340,61 @@ function refreshRuntimeOptions(options) {
 
 function getRuntimeOptions() {
   return runtimeOptionsCache || { protectionLevel: 'standard', experiments: {}, whitelist: {} };
+}
+
+function getBlockedEntitiesMap(options) {
+  return options?.blockedEntities && typeof options.blockedEntities === 'object'
+    ? options.blockedEntities
+    : {};
+}
+
+function getEntityControlForGroups(groups, options) {
+  const blockedEntities = getBlockedEntitiesMap(options);
+  const scoreByOwnerId = new Map();
+  const items = [
+    ...(groups?.trackers || []),
+    ...(groups?.ads || []),
+    ...(groups?.other || []),
+  ];
+
+  for (const rawItem of items) {
+    if (!rawItem || typeof rawItem !== 'object') continue;
+
+    const ownerId = String(rawItem.ownerId || rawItem.domain || '').trim();
+    if (!ownerId) continue;
+
+    const owner = String(rawItem.owner || rawItem.domain || ownerId).trim() || ownerId;
+    const domain = String(rawItem.domain || '').trim();
+    const confidence = Number(rawItem.confidence) || 0;
+    const nextScore = (scoreByOwnerId.get(ownerId)?.score || 0) + 1 + confidence;
+
+    scoreByOwnerId.set(ownerId, {
+      ownerId,
+      owner,
+      domain,
+      score: nextScore,
+      blocked: blockedEntities[ownerId] === true,
+    });
+  }
+
+  const ranked = [...scoreByOwnerId.values()].sort((left, right) => {
+    if (right.score !== left.score) return right.score - left.score;
+    const rightNamed = right.owner !== right.domain ? 1 : 0;
+    const leftNamed = left.owner !== left.domain ? 1 : 0;
+    if (rightNamed !== leftNamed) return rightNamed - leftNamed;
+    return left.owner.localeCompare(right.owner);
+  });
+
+  if (!ranked.length) return null;
+
+  const top = ranked[0];
+  const entity = getTrackerEntityMetadata(top.ownerId);
+  return {
+    ownerId: top.ownerId,
+    owner: top.owner,
+    blocked: top.blocked,
+    domainCount: Array.isArray(entity?.domains) ? entity.domains.length : (top.domain ? 1 : 0),
+  };
 }
 
 // Broadcast options changes to any open options/popup page
@@ -682,6 +738,11 @@ async function initialize() {
         console.warn('[midori] TrackerDB dynamic rules (startup):', e)
       );
     }
+    if (IS_CHROMIUM) {
+      updateDnrEntityBlockRules(options).catch(e =>
+        console.warn('[midori] Entity session rules (startup):', e)
+      );
+    }
     scheduleTrackerDbUpdates(options.trackerDbUpdateIntervalHours || 24);
   } catch (e) {
     console.warn('[midori] TrackerDB startup failed (non-fatal):', e);
@@ -809,6 +870,7 @@ function setupWebRequestBlocking() {
         recordBlock(details.tabId, url, {
           category: policy.category,
           reason: policy.reason,
+          ownerId: policy.ownerId,
           confidence: policy.trackerConfidence,
           fingerprinting: policy.taxonomy === 'fingerprinting' || policy.trackerCategory === 'fingerprinting',
         });
@@ -1111,6 +1173,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         console.warn('[midori] TrackerDB dynamic rules update:', e)
       );
     }
+    if (result === 'updated' && IS_CHROMIUM) {
+      updateDnrEntityBlockRules(options).catch(e =>
+        console.warn('[midori] Entity session rules update:', e)
+      );
+    }
   }
 
   if (alarm.name === 'resume-protection') {
@@ -1182,6 +1249,7 @@ async function handleMessage(msg, sender) {
         const eco = getEcoStats(msg.tabId);
         // Phase 8: Use enriched groups with owner information
         stats.groups = getGroupedRequestsEnriched(msg.tabId);
+        stats.entityControl = getEntityControlForGroups(stats.groups, getRuntimeOptions());
         stats.blockedByCategory = getBlockedByCategory(msg.tabId);
         return { ...stats, ...eco };
       }
@@ -1195,6 +1263,7 @@ async function handleMessage(msg, sender) {
         blockedByCategory: getBlockedByCategory(msg.tabId),
         dataSaved: getDataSaved(msg.tabId),
         groups,
+        entityControl: getEntityControlForGroups(groups, getRuntimeOptions()),
         recentRequests: getRecentRequests(msg.tabId, 10),
         ...eco
       };
@@ -1239,6 +1308,27 @@ async function handleMessage(msg, sender) {
         await updateDnrWhitelist();
       }
       return { whitelisted: nowWhitelisted };
+    }
+
+    case 'toggle-entity-block': {
+      const ownerId = String(msg.ownerId || '').trim();
+      if (!ownerId) return { success: false, error: 'ownerId-required' };
+
+      const opts = await getOptions();
+      const blockedEntities = { ...getBlockedEntitiesMap(opts) };
+      const nextBlocked = msg.blocked !== false;
+
+      if (nextBlocked) blockedEntities[ownerId] = true;
+      else delete blockedEntities[ownerId];
+
+      const updatedOptions = await setOptions({ blockedEntities });
+      refreshRuntimeOptions(updatedOptions);
+
+      if (IS_CHROMIUM) {
+        await updateDnrEntityBlockRules(updatedOptions);
+      }
+
+      return { success: true, blocked: nextBlocked, ownerId };
     }
 
     case 'toggle-enabled': {
@@ -1737,12 +1827,12 @@ async function updateDnrWhitelist() {
 
   const existingRules = await chrome.declarativeNetRequest.getSessionRules();
   const removeIds = existingRules
-    .filter(r => r.id >= 900000)
+    .filter(r => r.id >= 900000 && r.id < 910000)
     .map(r => r.id);
 
   const addRules = domains.map((domain, i) => ({
     id: 900000 + i,
-    priority: 1,
+    priority: 10,
     action: { type: 'allow' },
     condition: {
       initiatorDomains: [domain],
@@ -1752,6 +1842,59 @@ async function updateDnrWhitelist() {
       ],
     },
   }));
+
+  await chrome.declarativeNetRequest.updateSessionRules({
+    removeRuleIds: removeIds,
+    addRules,
+  });
+}
+
+async function updateDnrEntityBlockRules(options) {
+  if (!IS_CHROMIUM) return;
+
+  const blockedEntitiesMap = getBlockedEntitiesMap(options);
+  const blockedOwnerIds = Object.keys(blockedEntitiesMap).filter(ownerId => blockedEntitiesMap[ownerId] === true);
+
+  const existingRules = await chrome.declarativeNetRequest.getSessionRules();
+  const removeIds = existingRules
+    .filter(r => r.id >= 910000 && r.id < 920000)
+    .map(r => r.id);
+
+  const addRules = [];
+  let nextRuleId = 910000;
+
+  for (const ownerId of blockedOwnerIds) {
+    const entity = getTrackerEntityMetadata(ownerId);
+    const domains = Array.isArray(entity?.domains) && entity.domains.length
+      ? entity.domains
+      : (ownerId.includes('.') ? [ownerId] : []);
+
+    if (!domains.length) continue;
+
+    addRules.push({
+      id: nextRuleId++,
+      priority: 3,
+      action: { type: 'allow' },
+      condition: {
+        initiatorDomains: domains,
+        requestDomains: domains,
+        resourceTypes: ['image', 'stylesheet', 'font', 'other'],
+      },
+    });
+
+    addRules.push({
+      id: nextRuleId++,
+      priority: 2,
+      action: { type: 'block' },
+      condition: {
+        requestDomains: domains,
+        resourceTypes: [
+          'sub_frame', 'stylesheet', 'script', 'image',
+          'font', 'object', 'xmlhttprequest', 'ping', 'media', 'websocket', 'other'
+        ],
+      },
+    });
+  }
 
   await chrome.declarativeNetRequest.updateSessionRules({
     removeRuleIds: removeIds,

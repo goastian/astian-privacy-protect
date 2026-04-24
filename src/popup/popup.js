@@ -15,6 +15,8 @@ let currentTabId = null;
 let currentHostname = '';
 let isWhitelisted = false;
 let lastGroups = { trackers: [], ads: [], other: [] };
+let currentBlockedEntities = {};
+let currentEntityControl = null;
 
 // ── Category toggle state ────────────────────────────────────────────────────
 let categoryState = { ads: true, trackers: true, fingerprinting: true };
@@ -101,6 +103,7 @@ async function init() {
   // Get options to check whitelist, protection level, category state, and pause
   const options = await sendMessage({ action: 'get-options' });
   isWhitelisted = !!(options?.whitelist?.[currentHostname]);
+  currentBlockedEntities = options?.blockedEntities || {};
 
   // Restore category toggle state
   if (options?.categoryState) {
@@ -184,10 +187,12 @@ function renderTabStats(data) {
   if (!groups.ads) groups.ads = [];
   if (!groups.other) groups.other = [];
   lastGroups = groups;
+  currentEntityControl = resolveEntityControl(data);
 
   renderGroup('trackers', groups.trackers);
   renderGroup('ads', groups.ads);
   renderGroup('other', groups.other);
+  updateEntityActionUI();
 
   // Show/hide empty state (hidden compat list)
   const hasItems = groups.trackers.length + groups.ads.length + groups.other.length > 0;
@@ -260,7 +265,7 @@ function renderGroup(name, items) {
 
 function normalizeTrackerItem(item) {
   if (typeof item === 'string') {
-    return { domain: item, owner: item, reason: 'rule-match', category: 'other', confidence: 0, fingerprinting: false };
+    return { domain: item, owner: item, ownerId: item, reason: 'rule-match', category: 'other', confidence: 0, fingerprinting: false };
   }
 
   if (item && typeof item === 'object') {
@@ -269,6 +274,7 @@ function normalizeTrackerItem(item) {
     return {
       domain,
       owner,
+      ownerId: String(item.ownerId || domain),
       reason: String(item.reason || 'rule-match'),
       category: String(item.category || 'other'),
       confidence: Number(item.confidence) || 0,
@@ -277,7 +283,105 @@ function normalizeTrackerItem(item) {
   }
 
   const fallback = String(item || 'unknown');
-  return { domain: fallback, owner: fallback, reason: 'rule-match', category: 'other', confidence: 0, fingerprinting: false };
+  return { domain: fallback, owner: fallback, ownerId: fallback, reason: 'rule-match', category: 'other', confidence: 0, fingerprinting: false };
+}
+
+function resolveEntityControl(data) {
+  if (data?.entityControl?.ownerId) {
+    return {
+      ownerId: String(data.entityControl.ownerId),
+      owner: String(data.entityControl.owner || data.entityControl.ownerId),
+      blocked: data.entityControl.blocked === true || currentBlockedEntities[data.entityControl.ownerId] === true,
+      domainCount: Number(data.entityControl.domainCount) || 0,
+    };
+  }
+
+  const items = [
+    ...(data?.groups?.trackers || []),
+    ...(data?.groups?.ads || []),
+    ...(data?.groups?.other || []),
+  ];
+  const counts = new Map();
+
+  for (const rawItem of items) {
+    const item = normalizeTrackerItem(rawItem);
+    const ownerId = String(item.ownerId || item.domain || '').trim();
+    if (!ownerId) continue;
+
+    const entry = counts.get(ownerId) || { ownerId, owner: item.owner || ownerId, score: 0 };
+    entry.score += 1 + (Number(item.confidence) || 0);
+    counts.set(ownerId, entry);
+  }
+
+  const ranked = [...counts.values()].sort((left, right) => right.score - left.score);
+  if (!ranked.length) return null;
+
+  const top = ranked[0];
+  return {
+    ownerId: top.ownerId,
+    owner: top.owner,
+    blocked: currentBlockedEntities[top.ownerId] === true,
+    domainCount: 0,
+  };
+}
+
+function updateEntityActionUI() {
+  const section = $('#entity-action-section');
+  const ownerEl = $('#entity-action-owner');
+  const metaEl = $('#entity-action-meta');
+  const btn = $('#btn-entity-action');
+  if (!section || !ownerEl || !metaEl || !btn) return;
+
+  if (!currentEntityControl?.ownerId) {
+    section.classList.add('hidden');
+    btn.disabled = true;
+    return;
+  }
+
+  section.classList.remove('hidden');
+  ownerEl.textContent = currentEntityControl.owner;
+  metaEl.textContent = currentEntityControl.domainCount > 1
+    ? `${currentEntityControl.domainCount} domains in this entity`
+    : 'Apply blocking to every domain in this entity';
+
+  const blocked = currentBlockedEntities[currentEntityControl.ownerId] === true || currentEntityControl.blocked === true;
+  currentEntityControl.blocked = blocked;
+  btn.disabled = false;
+  btn.classList.toggle('is-unblock', blocked);
+  btn.textContent = blocked
+    ? `Unblock ${currentEntityControl.owner}`
+    : `Block ${currentEntityControl.owner}`;
+}
+
+async function toggleEntityBlock() {
+  if (!currentEntityControl?.ownerId) return;
+
+  const btn = $('#btn-entity-action');
+  if (!btn) return;
+
+  const nextBlocked = !currentEntityControl.blocked;
+  const previousText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = nextBlocked ? 'Blocking...' : 'Unblocking...';
+
+  const result = await sendMessage({
+    action: 'toggle-entity-block',
+    ownerId: currentEntityControl.ownerId,
+    blocked: nextBlocked,
+  });
+
+  if (result?.success) {
+    if (result.blocked) currentBlockedEntities[currentEntityControl.ownerId] = true;
+    else delete currentBlockedEntities[currentEntityControl.ownerId];
+
+    currentEntityControl.blocked = result.blocked === true;
+    updateEntityActionUI();
+    await loadTabStats();
+    return;
+  }
+
+  btn.disabled = false;
+  btn.textContent = previousText;
 }
 
 function formatReasonLabel(reason) {
@@ -784,6 +888,10 @@ function setupListeners() {
     }
     btn.textContent = 'Retry Report';
     btn.disabled = false;
+  });
+
+  $('#btn-entity-action')?.addEventListener('click', () => {
+    toggleEntityBlock();
   });
 
   // Group toggle (collapse/expand)
