@@ -28,6 +28,10 @@ import {
   appendIaRiskEvent,
   summarizeIaRiskEvents,
 } from './ia-shield.js';
+import {
+  handleAutoConsentRequest,
+  handleAutoConsentPageMessage,
+} from './autoconsent.js';
 
 // ── Dual engine: Ghostery (primary, high-perf) + legacy FilterEngine (fallback) ──
 let ghosteryEngine = new GhosteryEngine();
@@ -1323,6 +1327,22 @@ async function handleMessage(msg, sender) {
     case 'get-anti-fingerprint': {
       const afOpts = await getOptions();
       return { enabled: afOpts.antiFingerprint !== false };
+    }
+
+    case 'handle-autoconsent': {
+      const tabId = sender?.tab?.id;
+      if (!Number.isInteger(tabId) || tabId < 0) {
+        return { success: false, reason: 'invalid_tab' };
+      }
+      return await handleAutoConsentRequest(tabId);
+    }
+
+    case 'autoconsent-bg-message': {
+      const tabId = sender?.tab?.id;
+      if (!Number.isInteger(tabId) || tabId < 0) {
+        return { result: null };
+      }
+      return handleAutoConsentPageMessage(tabId, msg.payload);
     }
 
     case 'get-user-filters': {
