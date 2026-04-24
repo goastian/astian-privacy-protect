@@ -751,9 +751,10 @@ iframe[name*="google_ads"],
 
   // Listen for messages from background
   let ghosteryStyle = null;
+  let cosmeticsRuntimeEnabled = true;
 
   chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.action === 'apply-cosmetics' && msg.selectors) {
+    if (msg.action === 'apply-cosmetics' && msg.selectors && cosmeticsRuntimeEnabled) {
       const builtin = getBuiltinSelectors(window.location.hostname);
       applySelectors([...builtin, ...msg.selectors]);
     }
@@ -761,7 +762,7 @@ iframe[name*="google_ads"],
       forwardScriptletsToPage(msg.scriptlets);
     }
     // Ghostery engine: pre-compiled CSS styles (more complete than selectors alone)
-    if (msg.action === 'apply-cosmetic-styles' && msg.styles) {
+    if (msg.action === 'apply-cosmetic-styles' && msg.styles && cosmeticsRuntimeEnabled) {
       if (ghosteryStyle && ghosteryStyle.parentNode) {
         ghosteryStyle.parentNode.removeChild(ghosteryStyle);
       }
@@ -789,6 +790,9 @@ iframe[name*="google_ads"],
   const builtin = getBuiltinSelectors(hostname);
 
   sendMsg({ action: 'get-cosmetics', hostname }).then(response => {
+    cosmeticsRuntimeEnabled = response?.enabled !== false;
+    if (!cosmeticsRuntimeEnabled) return;
+
     const all = [...builtin, ...(response?.selectors || [])];
     applySelectors(all);
     if (response?.styles) {

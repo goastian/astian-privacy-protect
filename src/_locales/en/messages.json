@@ -106,5 +106,32 @@
     "placeholders": {
       "version": { "content": "$1" }
     }
+  },
+  "options_vertical_profiles": {
+    "message": "Vertical Profiles"
+  },
+  "options_vertical_tracker_sensitivity": {
+    "message": "Tracker sensitivity"
+  },
+  "options_vertical_ad_sensitivity": {
+    "message": "Ad sensitivity"
+  },
+  "options_vertical_script_sensitivity": {
+    "message": "Script sensitivity"
+  },
+  "options_vertical_xhr_sensitivity": {
+    "message": "XHR sensitivity"
+  },
+  "options_vertical_fingerprint_sensitivity": {
+    "message": "Fingerprint sensitivity"
+  },
+  "options_vertical_cosmetics_enabled": {
+    "message": "Enable cosmetics"
+  },
+  "options_vertical_popup_defense": {
+    "message": "Popup defense"
+  },
+  "options_vertical_guardrail_video": {
+    "message": "Guardrail active: strict video mode keeps minimal playback exceptions for core streaming hosts."
   }
 }

@@ -11,7 +11,12 @@ import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
 import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, exportReport } from './report-generator.js';
-import { evaluateRequestPolicy, getPopupDefenseConfig } from './policy-engine.js';
+import {
+  evaluateRequestPolicy,
+  getPopupDefenseConfig,
+  resolveSiteProfile,
+  invalidateSiteProfileCache,
+} from './policy-engine.js';
 import {
   loadTrackerDbFromCache,
   fetchAndUpdateTrackerDb,
@@ -332,6 +337,7 @@ function recordIaShieldRiskEvent(event) {
 function refreshRuntimeOptions(options) {
   runtimeOptionsCache = options || runtimeOptionsCache;
   if (!runtimeOptionsCache) return;
+  invalidateSiteProfileCache();
   isEnabled = runtimeOptionsCache.enabled !== false;
   whitelistCache = runtimeOptionsCache.whitelist || {};
   whitelistCacheTime = Date.now();
@@ -1272,6 +1278,18 @@ async function handleMessage(msg, sender) {
     case 'get-options':
       return await getOptions();
 
+    case 'get-site-profile': {
+      const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
+      const host = String(msg.hostname || tabHostname || '').toLowerCase();
+      if (!host) return { vertical: 'general', profile: null };
+      const siteContext = resolveSiteProfile(host, getRuntimeOptions());
+      return {
+        hostname: siteContext.hostname,
+        vertical: siteContext.vertical,
+        profile: siteContext.profile,
+      };
+    }
+
     case 'get-ia-shield-config': {
       const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
       const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
@@ -1408,15 +1426,27 @@ async function handleMessage(msg, sender) {
 
     case 'get-cosmetics': {
       const hostname = msg.hostname || '';
+      const siteContext = resolveSiteProfile(hostname, getRuntimeOptions());
+      const cosmeticsEnabled = siteContext.profile?.cosmeticsEnabled !== false;
+      if (!cosmeticsEnabled) {
+        return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
+      }
+
       if (engine === ghosteryEngine) {
         const cosmetics = ghosteryEngine.getFullCosmetics(hostname);
         return {
+          enabled: true,
           selectors: [],
           styles: cosmetics.styles || '',
           compiledScripts: (cosmetics.scripts || []).slice(0, 100),
         };
       }
-      return { selectors: engine.getCosmeticSelectors(hostname).slice(0, 500), styles: '', compiledScripts: [] };
+      return {
+        enabled: true,
+        selectors: engine.getCosmeticSelectors(hostname).slice(0, 500),
+        styles: '',
+        compiledScripts: [],
+      };
     }
 
     case 'get-scriptlets': {

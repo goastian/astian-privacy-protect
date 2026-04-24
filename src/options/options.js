@@ -134,6 +134,56 @@ forbes.com##.top-ad-container
 `,
 };
 
+const VERTICAL_ORDER = ['general', 'video', 'adult', 'ai'];
+const VERTICAL_LABELS = {
+  general: 'General',
+  video: 'Video',
+  adult: 'Adult',
+  ai: 'AI',
+};
+
+const VERTICAL_PROFILE_DEFAULTS = {
+  general: {
+    popupDefense: 'balanced',
+    trackerSensitivity: 0,
+    adSensitivity: 0,
+    scriptSensitivity: 0.06,
+    xhrSensitivity: 0.06,
+    fingerprintSensitivity: 0.1,
+    cosmeticsEnabled: true,
+  },
+  video: {
+    popupDefense: 'balanced',
+    trackerSensitivity: 0.03,
+    adSensitivity: 0.08,
+    scriptSensitivity: 0.04,
+    xhrSensitivity: 0.04,
+    fingerprintSensitivity: 0.08,
+    cosmeticsEnabled: true,
+  },
+  adult: {
+    popupDefense: 'strict',
+    trackerSensitivity: 0.12,
+    adSensitivity: 0.2,
+    scriptSensitivity: 0.08,
+    xhrSensitivity: 0.08,
+    fingerprintSensitivity: 0.14,
+    cosmeticsEnabled: true,
+  },
+  ai: {
+    popupDefense: 'balanced',
+    trackerSensitivity: 0.08,
+    adSensitivity: 0.03,
+    scriptSensitivity: 0.07,
+    xhrSensitivity: 0.07,
+    fingerprintSensitivity: 0.16,
+    cosmeticsEnabled: true,
+  },
+};
+
+let verticalProfileSaveTimer = null;
+let pendingVerticalProfiles = null;
+
 let currentOptions = null;
 let reportDays = 7;
 
@@ -177,8 +227,10 @@ function setupOptionsChangeListener() {
           renderGeneral();
           // Refresh filter lists if it was rendered
           if (renderedSections.has('filter-lists')) renderFilterLists();
+          if (renderedSections.has('lists')) renderFilterLists();
           if (renderedSections.has('whitelist')) renderWhitelist();
           if (renderedSections.has('difficult-sites')) renderDifficultSites();
+          if (renderedSections.has('vertical-profiles')) renderVerticalProfiles();
         }
       });
       sendResponse({ ok: true });
@@ -192,6 +244,7 @@ function renderSectionOnDemand(name) {
   renderedSections.add(name);
 
   switch (name) {
+    case 'lists':
     case 'filter-lists':
       renderFilterLists();
       break;
@@ -212,6 +265,9 @@ function renderSectionOnDemand(name) {
       break;
     case 'difficult-sites':
       renderDifficultSites();
+      break;
+    case 'vertical-profiles':
+      renderVerticalProfiles();
       break;
     // general and about are always rendered at init
   }
@@ -251,6 +307,9 @@ function switchSection(name) {
   }
   if (name === 'difficult-sites') {
     renderDifficultSites();
+  }
+  if (name === 'vertical-profiles') {
+    renderVerticalProfiles();
   }
 }
 
@@ -1575,6 +1634,177 @@ function getDomainOverrides() {
   return {
     ...(currentOptions?.sitePolicy?.domainOverrides || {}),
   };
+}
+
+function clampSensitivity(value, fallback = 0) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(0, Math.min(1, numeric));
+}
+
+function toPercent(value) {
+  return Math.round(clampSensitivity(value, 0) * 100);
+}
+
+function fromPercent(value, fallback = 0) {
+  return clampSensitivity((Number(value) || 0) / 100, fallback);
+}
+
+function getMergedVerticalProfiles(options) {
+  const configured = options?.sitePolicy?.verticalProfiles || {};
+  const merged = {};
+  for (const vertical of VERTICAL_ORDER) {
+    merged[vertical] = {
+      ...VERTICAL_PROFILE_DEFAULTS[vertical],
+      ...(configured[vertical] || {}),
+    };
+  }
+  return merged;
+}
+
+function updateVideoGuardrailBanner(profiles) {
+  const el = $('#vertical-profiles-guardrail');
+  if (!el) return;
+
+  const isStrictVideo = profiles?.video?.popupDefense === 'strict';
+  if (!isStrictVideo) {
+    el.classList.add('hidden');
+    el.textContent = '';
+    return;
+  }
+
+  el.classList.remove('hidden');
+  el.textContent = 'Guardrail active: strict video mode keeps minimal playback exceptions for core streaming hosts.';
+}
+
+function scheduleVerticalProfilesSave(profiles) {
+  pendingVerticalProfiles = profiles;
+  if (verticalProfileSaveTimer) clearTimeout(verticalProfileSaveTimer);
+
+  verticalProfileSaveTimer = setTimeout(async () => {
+    verticalProfileSaveTimer = null;
+    if (!pendingVerticalProfiles) return;
+
+    const sitePolicy = {
+      ...(currentOptions.sitePolicy || {}),
+      verticalProfiles: pendingVerticalProfiles,
+      domainOverrides: {
+        ...(currentOptions.sitePolicy?.domainOverrides || {}),
+      },
+    };
+
+    currentOptions = await saveOptions({ sitePolicy });
+  }, 250);
+}
+
+function renderVerticalProfiles() {
+  if (!currentOptions) return;
+  const container = $('#vertical-profiles-container');
+  if (!container) return;
+
+  const profiles = getMergedVerticalProfiles(currentOptions);
+  updateVideoGuardrailBanner(profiles);
+
+  const metricRows = [
+    { field: 'trackerSensitivity', label: 'Tracker sensitivity' },
+    { field: 'adSensitivity', label: 'Ad sensitivity' },
+    { field: 'scriptSensitivity', label: 'Script sensitivity' },
+    { field: 'xhrSensitivity', label: 'XHR sensitivity' },
+    { field: 'fingerprintSensitivity', label: 'Fingerprint sensitivity' },
+  ];
+
+  container.innerHTML = VERTICAL_ORDER.map((vertical) => {
+    const profile = profiles[vertical] || VERTICAL_PROFILE_DEFAULTS[vertical];
+    const metrics = metricRows.map((metric) => {
+      const percent = toPercent(profile[metric.field]);
+      return (
+        `<label class="vp-row">` +
+          `<span class="vp-row-label">${metric.label}</span>` +
+          `<div class="vp-row-control">` +
+            `<input type="range" min="0" max="100" step="1" class="vp-slider" data-vp-vertical="${vertical}" data-vp-field="${metric.field}" value="${percent}">` +
+            `<span class="vp-value" data-vp-value="${vertical}:${metric.field}">${percent}%</span>` +
+          `</div>` +
+        `</label>`
+      );
+    }).join('');
+
+    return (
+      `<article class="option-card vp-card">` +
+        `<div class="vp-card-header">` +
+          `<h3 class="vp-title">${VERTICAL_LABELS[vertical]}</h3>` +
+          `<span class="vp-tag">${vertical}</span>` +
+        `</div>` +
+        `<div class="vp-card-body">` +
+          `${metrics}` +
+          `<label class="vp-row">` +
+            `<span class="vp-row-label">Popup defense</span>` +
+            `<select class="select-input" data-vp-vertical="${vertical}" data-vp-field="popupDefense">` +
+              `<option value="relaxed" ${profile.popupDefense === 'relaxed' ? 'selected' : ''}>Relaxed</option>` +
+              `<option value="balanced" ${profile.popupDefense === 'balanced' ? 'selected' : ''}>Balanced</option>` +
+              `<option value="strict" ${profile.popupDefense === 'strict' ? 'selected' : ''}>Strict</option>` +
+            `</select>` +
+          `</label>` +
+          `<div class="vp-row">` +
+            `<span class="vp-row-label">Enable cosmetics</span>` +
+            `<label class="toggle">` +
+              `<input type="checkbox" data-vp-vertical="${vertical}" data-vp-field="cosmeticsEnabled" ${profile.cosmeticsEnabled !== false ? 'checked' : ''}>` +
+              `<span class="toggle-slider"></span>` +
+            `</label>` +
+          `</div>` +
+          `<div class="vp-reset-wrap">` +
+            `<button type="button" class="btn btn-outline btn-sm" data-vp-reset="${vertical}">Reset defaults</button>` +
+          `</div>` +
+        `</div>` +
+      `</article>`
+    );
+  }).join('');
+
+  const workingProfiles = getMergedVerticalProfiles(currentOptions);
+
+  const persistProfiles = () => {
+    updateVideoGuardrailBanner(workingProfiles);
+    scheduleVerticalProfilesSave(workingProfiles);
+  };
+
+  for (const slider of container.querySelectorAll('.vp-slider')) {
+    slider.addEventListener('input', (e) => {
+      const vertical = e.target.dataset.vpVertical;
+      const field = e.target.dataset.vpField;
+      const value = fromPercent(e.target.value, VERTICAL_PROFILE_DEFAULTS[vertical]?.[field] || 0);
+      workingProfiles[vertical] = { ...(workingProfiles[vertical] || {}), [field]: value };
+
+      const output = container.querySelector(`[data-vp-value="${vertical}:${field}"]`);
+      if (output) output.textContent = `${toPercent(value)}%`;
+
+      persistProfiles();
+    });
+  }
+
+  for (const select of container.querySelectorAll('select[data-vp-field="popupDefense"]')) {
+    select.addEventListener('change', (e) => {
+      const vertical = e.target.dataset.vpVertical;
+      workingProfiles[vertical] = { ...(workingProfiles[vertical] || {}), popupDefense: e.target.value };
+      persistProfiles();
+    });
+  }
+
+  for (const checkbox of container.querySelectorAll('input[type="checkbox"][data-vp-field="cosmeticsEnabled"]')) {
+    checkbox.addEventListener('change', (e) => {
+      const vertical = e.target.dataset.vpVertical;
+      workingProfiles[vertical] = { ...(workingProfiles[vertical] || {}), cosmeticsEnabled: e.target.checked };
+      persistProfiles();
+    });
+  }
+
+  for (const resetBtn of container.querySelectorAll('[data-vp-reset]')) {
+    resetBtn.addEventListener('click', () => {
+      const vertical = resetBtn.getAttribute('data-vp-reset');
+      if (!vertical || !VERTICAL_PROFILE_DEFAULTS[vertical]) return;
+      workingProfiles[vertical] = { ...VERTICAL_PROFILE_DEFAULTS[vertical] };
+      scheduleVerticalProfilesSave(workingProfiles);
+      renderVerticalProfiles();
+    });
+  }
 }
 
 function buildFunctionalException(mode) {

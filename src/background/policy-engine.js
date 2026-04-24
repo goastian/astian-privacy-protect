@@ -84,6 +84,16 @@ const ADULT_HOST_PATTERNS = [
   'sexvid.xxx',
 ];
 
+const VIDEO_STRICT_ALLOWLIST = [
+  'googlevideo.com',
+  'ytimg.com',
+  'i.ytimg.com',
+  'youtube-nocookie.com',
+  'vimeocdn.com',
+  'ttvnw.net',
+  'hls.ttvnw.net',
+];
+
 const AGGRESSIVE_THREAT_EXACT_HOSTS = new Set([
   'adtago.s3.amazonaws.com',
   'analyticsengine.s3.amazonaws.com',
@@ -181,6 +191,10 @@ export const DEFAULT_SITE_POLICY = {
       popupDefense: 'balanced',
       trackerSensitivity: 0,
       adSensitivity: 0,
+      scriptSensitivity: 0.06,
+      xhrSensitivity: 0.06,
+      fingerprintSensitivity: 0.1,
+      cosmeticsEnabled: true,
       popupBurstLimit: null,
       redirectHopThreshold: null,
     },
@@ -188,6 +202,10 @@ export const DEFAULT_SITE_POLICY = {
       popupDefense: 'balanced',
       trackerSensitivity: 0.03,
       adSensitivity: 0.08,
+      scriptSensitivity: 0.04,
+      xhrSensitivity: 0.04,
+      fingerprintSensitivity: 0.08,
+      cosmeticsEnabled: true,
       popupBurstLimit: 1,
       redirectHopThreshold: 3,
     },
@@ -195,6 +213,10 @@ export const DEFAULT_SITE_POLICY = {
       popupDefense: 'strict',
       trackerSensitivity: 0.12,
       adSensitivity: 0.2,
+      scriptSensitivity: 0.08,
+      xhrSensitivity: 0.08,
+      fingerprintSensitivity: 0.14,
+      cosmeticsEnabled: true,
       popupBurstLimit: 0,
       redirectHopThreshold: 1,
     },
@@ -202,12 +224,43 @@ export const DEFAULT_SITE_POLICY = {
       popupDefense: 'balanced',
       trackerSensitivity: 0.08,
       adSensitivity: 0.03,
+      scriptSensitivity: 0.07,
+      xhrSensitivity: 0.07,
+      fingerprintSensitivity: 0.16,
+      cosmeticsEnabled: true,
       popupBurstLimit: 1,
       redirectHopThreshold: 2,
     },
   },
   domainOverrides: {},
 };
+
+const SITE_PROFILE_CACHE_LIMIT = 256;
+const siteProfileCache = new Map();
+
+function cacheGetSiteProfile(hostname) {
+  const key = String(hostname || '').toLowerCase();
+  if (!key || !siteProfileCache.has(key)) return null;
+  const value = siteProfileCache.get(key);
+  siteProfileCache.delete(key);
+  siteProfileCache.set(key, value);
+  return value;
+}
+
+function cacheSetSiteProfile(hostname, value) {
+  const key = String(hostname || '').toLowerCase();
+  if (!key) return;
+  if (siteProfileCache.has(key)) {
+    siteProfileCache.delete(key);
+  } else if (siteProfileCache.size >= SITE_PROFILE_CACHE_LIMIT) {
+    siteProfileCache.delete(siteProfileCache.keys().next().value);
+  }
+  siteProfileCache.set(key, value);
+}
+
+export function invalidateSiteProfileCache() {
+  siteProfileCache.clear();
+}
 
 function normalizeProtectionLevel(level) {
   return PROTECTION_CONFIG[level] ? level : 'standard';
@@ -257,7 +310,7 @@ export function getSitePolicyOptions(options) {
   };
 }
 
-export function resolveSiteProfile(pageHostname, options) {
+function resolveSiteProfileUncached(pageHostname, options) {
   const host = String(pageHostname || '').toLowerCase();
   const sitePolicy = getSitePolicyOptions(options);
   const override = host ? (sitePolicy.domainOverrides[host] || null) : null;
@@ -277,6 +330,31 @@ export function resolveSiteProfile(pageHostname, options) {
   };
 }
 
+export function resolveSiteProfile(pageHostname, options) {
+  const host = String(pageHostname || '').toLowerCase();
+  const cached = cacheGetSiteProfile(host);
+  if (cached) return cached;
+
+  const resolved = resolveSiteProfileUncached(host, options);
+  cacheSetSiteProfile(host, resolved);
+  return resolved;
+}
+
+function asSensitivity(value, fallback) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(0, Math.min(1, numeric));
+}
+
+function isVideoStrictAllowlistedHost(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host) return false;
+  for (const pattern of VIDEO_STRICT_ALLOWLIST) {
+    if (domainMatches(host, pattern)) return true;
+  }
+  return false;
+}
+
 function computeTrackerSignalScore({
   trackerConfidence,
   trackerCategory,
@@ -294,8 +372,15 @@ function computeTrackerSignalScore({
     : (siteProfile.trackerSensitivity || 0);
 
   if (isThirdParty) score += 0.08;
-  if (resourceType === 'script' || resourceType === 'xmlhttprequest') score += 0.06;
-  if (classification.taxonomy === 'fingerprinting' || classification.taxonomy === 'session-replay') score += 0.1;
+  if (resourceType === 'script') {
+    score += asSensitivity(siteProfile.scriptSensitivity, 0.06);
+  } else if (resourceType === 'xmlhttprequest') {
+    score += asSensitivity(siteProfile.xhrSensitivity, 0.06);
+  }
+  if (classification.taxonomy === 'fingerprinting') {
+    score += asSensitivity(siteProfile.fingerprintSensitivity, 0.1);
+  }
+  if (classification.taxonomy === 'session-replay') score += 0.1;
   if (classification.taxonomy === 'adult-ad-network') score += 0.16;
   if (classification.taxonomy === 'popup' || classification.taxonomy === 'redirect-tracker') score += 0.12;
   if (classification.vertical === 'adult' && classification.taxonomy === 'popup') score += 0.1;
@@ -381,24 +466,36 @@ export function evaluateRequestPolicy({
     blockedEntities[requestOwnerId] === true
   );
 
+  const videoStrictGuardrail = (
+    siteContext.vertical === VERTICALS.VIDEO &&
+    siteContext.profile?.popupDefense === 'strict' &&
+    isVideoStrictAllowlistedHost(requestDomain)
+  );
+
+  const effectiveEngineBlocked = videoStrictGuardrail ? false : engineBlocked;
+  const effectiveHardThreatBlocked = videoStrictGuardrail ? false : hardThreatBlocked;
+  const effectiveTrackerSignalEligible = videoStrictGuardrail ? false : trackerSignalEligible;
+
   // ── Phase 8: First-Party Relaxation ──────────────────────────────────────
   // Allow first-party or same-entity resources to pass through for non-blocking content types.
   // This improves UX by reducing false-positive blocks on legitimate same-org resources.
-  const firstPartyRelaxation = !engineBlocked && (
+  const firstPartyRelaxation = !effectiveEngineBlocked && (
     !isThirdParty ||
     isFirstPartyRelaxable(requestDomain, pageHostname, resourceType) ||
     (isOwnedByPageHost(requestDomain, pageHostname) && resourceType !== 'script' && resourceType !== 'xmlhttprequest')
   );
 
-  const shouldBlock = (entityBlocked || engineBlocked || hardThreatBlocked || trackerSignalEligible) && !firstPartyRelaxation;
+  const shouldBlock = (entityBlocked || effectiveEngineBlocked || effectiveHardThreatBlocked || effectiveTrackerSignalEligible) && !firstPartyRelaxation;
   const reason = firstPartyRelaxation ? 'first-party-relaxed'
     : entityBlocked
     ? 'entity-block'
-    : engineBlocked
+    : effectiveEngineBlocked
     ? engineReason
-    : (hardThreatBlocked
+    : (effectiveHardThreatBlocked
       ? 'entity-block'
-      : (trackerSignalEligible ? 'entity-block' : 'allow'));
+      : (effectiveTrackerSignalEligible
+        ? 'entity-block'
+        : (videoStrictGuardrail ? 'video-strict-guardrail' : 'allow')));
 
   return {
     shouldBlock,
@@ -413,9 +510,10 @@ export function evaluateRequestPolicy({
     signalScore,
     sources: {
       entity: entityBlocked,
-      engine: engineBlocked,
-      threatDomain: hardThreatBlocked,
-      trackerDb: trackerSignalEligible,
+      engine: effectiveEngineBlocked,
+      threatDomain: effectiveHardThreatBlocked,
+      trackerDb: effectiveTrackerSignalEligible,
+      videoGuardrail: videoStrictGuardrail,
     },
   };
 }
