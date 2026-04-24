@@ -70,10 +70,14 @@ const DEFAULTS = {
   },
   experiments: {
     serpBar: false,
-    trackerDbAssisted: false,
+    trackerDbAssisted: true,
     iaShield: false,
     aggressiveVerticalRules: false,
     aggressiveThreatBlocking: true,
+    rolloutTransparency: true,
+    rolloutEntityBlocking: true,
+    rolloutVerticalProfiles: true,
+    rolloutCosmeticAudit: true,
   },
   lists: {
     // ── Core lists (enabled by default) ──
