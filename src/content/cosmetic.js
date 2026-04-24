@@ -29,6 +29,7 @@
   let appliedStyle = null;
   let globalAdStyle = null;
   let appliedRulesFlushTimer = null;
+  let cosmeticAuditEnabled = false;
   const appliedRulesBuffer = {
     selectorCount: 0,
     scriptletCount: 0,
@@ -67,6 +68,15 @@
     }).catch(() => {});
   }
 
+  async function initRolloutFlags() {
+    try {
+      const flags = await sendMsg({ action: 'get-rollout-flags' });
+      cosmeticAuditEnabled = flags?.cosmeticAudit === true;
+    } catch {
+      cosmeticAuditEnabled = false;
+    }
+  }
+
   function sanitizeSampleToken(raw) {
     const token = String(raw || '').trim();
     if (!token) return '';
@@ -90,6 +100,7 @@
   }
 
   function queueAppliedSelectors(selectors, source) {
+    if (!cosmeticAuditEnabled) return;
     if (!Array.isArray(selectors) || selectors.length === 0) return;
     appliedRulesBuffer.selectorCount += selectors.length;
     appliedRulesBuffer.sources[source] = (appliedRulesBuffer.sources[source] || 0) + selectors.length;
@@ -107,6 +118,7 @@
   }
 
   function queueAppliedScriptlets(scriptlets, source) {
+    if (!cosmeticAuditEnabled) return;
     if (!Array.isArray(scriptlets) || scriptlets.length === 0) return;
     appliedRulesBuffer.scriptletCount += scriptlets.length;
     appliedRulesBuffer.sources[source] = (appliedRulesBuffer.sources[source] || 0) + scriptlets.length;
@@ -125,6 +137,7 @@
   }
 
   function queueCompiledScriptlets(count, source) {
+    if (!cosmeticAuditEnabled) return;
     const numeric = Number(count) || 0;
     if (numeric <= 0) return;
     appliedRulesBuffer.scriptletCount += numeric;
@@ -140,6 +153,7 @@
   }
 
   function flushAppliedRulesTelemetry() {
+    if (!cosmeticAuditEnabled) return;
     if (!appliedRulesBuffer.selectorCount && !appliedRulesBuffer.scriptletCount) return;
 
     const payload = {
@@ -162,6 +176,8 @@
 
     sendMsg(payload).catch(() => {});
   }
+
+  initRolloutFlags();
 
   // ══════════════════════════════════════════════════════════════════════════
   // LAYER 1 — Global CSS rules (injected on EVERY page, zero JS overhead)
