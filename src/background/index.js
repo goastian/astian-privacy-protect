@@ -9,7 +9,7 @@ import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, r
 import { FilterEngine, extractDomain, categorizeRequest } from './filter-engine.js';
 import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
-import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getRecentRequests, getBlockedCount, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
+import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, exportReport } from './report-generator.js';
 import { evaluateRequestPolicy, getPopupDefenseConfig } from './policy-engine.js';
 import {
@@ -1175,11 +1175,13 @@ async function handleMessage(msg, sender) {
       if (IS_CHROMIUM) {
         const stats = await getChromiumTabStats(msg.tabId);
         const eco = getEcoStats(msg.tabId);
+        // Phase 8: Use enriched groups with owner information
+        stats.groups = getGroupedRequestsEnriched(msg.tabId);
         return { ...stats, ...eco };
       }
-      // Firefox: use in-memory data
+      // Firefox: use in-memory data with enriched owner information (Phase 8)
       const tab = getTab(msg.tabId);
-      const groups = getGroupedRequests(msg.tabId);
+      const groups = getGroupedRequestsEnriched(msg.tabId);
       const eco = getEcoStats(msg.tabId);
       return {
         hostname: tab?.hostname || '',
@@ -1239,7 +1241,7 @@ async function handleMessage(msg, sender) {
       refreshRuntimeOptions({ ...options, enabled: isEnabled });
 
       if (IS_CHROMIUM) {
-        const rulesetIds = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
+        const rulesetIds = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe', 'ddg-tds'];
         if (isEnabled) {
           await chrome.declarativeNetRequest.updateEnabledRulesets({ enableRulesetIds: rulesetIds });
         } else {
@@ -1397,7 +1399,7 @@ async function handleMessage(msg, sender) {
         try {
           const enableIds = [];
           const disableIds = [];
-          const dnrRulesets = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
+          const dnrRulesets = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe', 'ddg-tds'];
           for (const id of dnrRulesets) {
             if (preset.lists[id]) {
               enableIds.push(id);
@@ -1446,7 +1448,7 @@ async function handleMessage(msg, sender) {
         try {
           const enableIds = [];
           const disableIds = [];
-          const dnrRulesets = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
+          const dnrRulesets = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe', 'ddg-tds'];
           for (const id of dnrRulesets) {
             if (config.lists[id]?.enabled) {
               enableIds.push(id);
@@ -1530,7 +1532,7 @@ async function handleMessage(msg, sender) {
         try {
           const enableIds = [];
           const disableIds = [];
-          const dnrRulesets = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
+          const dnrRulesets = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe', 'ddg-tds'];
           for (const id of dnrRulesets) {
             if (lists[id]?.enabled) enableIds.push(id);
             else disableIds.push(id);

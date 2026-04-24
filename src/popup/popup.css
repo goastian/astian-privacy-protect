@@ -372,10 +372,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 0;
+  padding: 8px 0;
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   border-bottom: 1px solid var(--color-border);
+  gap: 6px;
 }
 
 .request-item:last-child { border-bottom: none; }
@@ -383,9 +384,20 @@ body {
 .request-domain {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 220px;
+  max-width: 280px;
   font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* Phase 8: Support for owner names with domain subtitles */
+.request-domain small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.65rem;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+  opacity: 0.75;
 }
 
 .request-blocked-icon {

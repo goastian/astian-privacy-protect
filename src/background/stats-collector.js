@@ -6,6 +6,7 @@
  */
 
 import { categorizeRequest, extractDomain } from './filter-engine.js';
+import { getTrackerOwner } from './trackerdb.js';
 
 // In-memory per-tab stats (fast access, no async)
 const tabData = new Map();
@@ -64,6 +65,14 @@ export function ensureTab(tabId) {
   return tab;
 }
 
+/**
+ * Record a blocked request with enriched owner information.
+ * Optimization: batched eco-calculations + owner lookup via LRU cache.
+ * 
+ * @param {string} tabId
+ * @param {string} url
+ * @returns {object} updated tab
+ */
 export function recordBlock(tabId, url) {
   const tab = ensureTab(tabId);
 
@@ -71,6 +80,9 @@ export function recordBlock(tabId, url) {
 
   const domain = extractDomain(url);
   const category = categorizeRequest(url);
+  
+  // Phase 8 optimization: Get owner via LRU-cached lookup (O(1))
+  const owner = getTrackerOwner(domain);
 
   // Optimization 8.3: Batch eco-calculations — only recalculate every 10 blocks
   if (tab.blocked % 10 === 0) {
@@ -82,8 +94,9 @@ export function recordBlock(tabId, url) {
 
   // Only store details for the first 100 unique domains (saves memory)
   // Optimization 8.3: Skip storing if already have 100 requests
+  // Phase 8: Include owner information for popup display
   if (tab.requests.length < 100) {
-    tab.requests.push({ domain, category });
+    tab.requests.push({ domain, category, owner });
   }
 
   return tab;
@@ -152,6 +165,40 @@ export function getGroupedRequests(tabId) {
       groups[cat].push(req.domain);
     } else {
       groups.other.push(req.domain);
+    }
+  }
+
+  return groups;
+}
+
+/**
+ * Get grouped requests with enriched owner information (Phase 8).
+ * Returns objects {domain, owner, category} instead of plain domain strings.
+ * Suitable for popup display with owner names (e.g., "Alphabet Inc.").
+ * 
+ * @param {string} tabId
+ * @returns {object} groups with enriched tracker data {trackers, ads, other}
+ */
+export function getGroupedRequestsEnriched(tabId) {
+  const tab = tabData.get(tabId);
+  if (!tab) return { trackers: [], ads: [], other: [] };
+
+  const groups = { trackers: [], ads: [], other: [] };
+  const seen = new Set();
+
+  for (const req of tab.requests) {
+    if (seen.has(req.domain)) continue;
+    seen.add(req.domain);
+    const cat = req.category;
+    const enriched = {
+      domain: req.domain,
+      owner: req.owner || req.domain,
+      category: cat,
+    };
+    if (groups[cat]) {
+      groups[cat].push(enriched);
+    } else {
+      groups.other.push(enriched);
     }
   }
 

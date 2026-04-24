@@ -5,7 +5,57 @@
  */
 
 import { extractDomain, classifyRequestDetails } from './filter-engine.js';
-import { getTrackerCategory, getTrackerConfidence, isHighConfidenceTracker } from './trackerdb.js';
+import { getTrackerCategory, getTrackerConfidence, isHighConfidenceTracker, getTrackerOwnerId } from './trackerdb.js';
+
+// ── Phase 8: First-Party Relaxation (entity matching) ──────────────────────
+/**
+ * Determine if the request is eligible for first-party relaxation.
+ * First-party relaxation allows specific request types (images, stylesheets, fonts)
+ * from first-party or same-entity domains to pass through.
+ * 
+ * @param {string} requestDomain
+ * @param {string} pageHostname
+ * @param {string} resourceType
+ * @returns {boolean} true if eligible for relaxation
+ */
+function isFirstPartyRelaxable(requestDomain, pageHostname, resourceType) {
+  if (!requestDomain || !pageHostname) return false;
+
+  // Essential resource types that can safely pass through
+  const relaxableTypes = new Set(['image', 'stylesheet', 'font', 'manifest']);
+  if (!relaxableTypes.has(resourceType)) return false;
+
+  // Extract registry-level domains for comparison
+  const req_reg = requestDomain.split('.').slice(-2).join('.');
+  const page_reg = pageHostname.split('.').slice(-2).join('.');
+
+  // Same registry (e.g., google.com owns analytics.google.com)
+  return req_reg === page_reg;
+}
+
+/**
+ * Check if the request domain is owned by the same entity as the page hostname.
+ * Uses TrackerDB entity information to match across different legal entities.
+ * Example: analytics.google.com and doubleclick.net are both owned by "Alphabet Inc."
+ * 
+ * Performance: ~O(1) with LRU caching in trackerdb.js
+ * 
+ * @param {string} requestDomain
+ * @param {string} pageHostname
+ * @returns {boolean} true if owned by same entity
+ */
+function isOwnedByPageHost(requestDomain, pageHostname) {
+  if (!requestDomain || !pageHostname) return false;
+
+  const pageId = getTrackerOwnerId(pageHostname);
+  const reqId = getTrackerOwnerId(requestDomain);
+
+  // If both have IDs and they match, same owner
+  if (pageId && reqId && pageId === reqId) return true;
+
+  // Fallback: exact domain match
+  return requestDomain === pageHostname;
+}
 
 export const VERTICALS = {
   GENERAL: 'general',
@@ -323,8 +373,18 @@ export function evaluateRequestPolicy({
     (isThirdParty || resourceType === 'script' || resourceType === 'xmlhttprequest' || resourceType === 'ping' || resourceType === 'beacon')
   );
 
-  const shouldBlock = engineBlocked || hardThreatBlocked || trackerSignalEligible;
-  const reason = engineBlocked
+  // ── Phase 8: First-Party Relaxation ──────────────────────────────────────
+  // Allow first-party or same-entity resources to pass through for non-blocking content types.
+  // This improves UX by reducing false-positive blocks on legitimate same-org resources.
+  const firstPartyRelaxation = !engineBlocked && (
+    !isThirdParty ||
+    isFirstPartyRelaxable(requestDomain, pageHostname, resourceType) ||
+    (isOwnedByPageHost(requestDomain, pageHostname) && resourceType !== 'script' && resourceType !== 'xmlhttprequest')
+  );
+
+  const shouldBlock = (engineBlocked || hardThreatBlocked || trackerSignalEligible) && !firstPartyRelaxation;
+  const reason = firstPartyRelaxation ? 'first-party-relaxed'
+    : engineBlocked
     ? engineReason
     : (hardThreatBlocked
       ? 'threat-domain-policy'

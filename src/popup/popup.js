@@ -203,35 +203,71 @@ function renderTabStats(data) {
   }
 }
 
-function renderGroup(name, domains) {
+/**
+ * Render a group of trackers/ads/other.
+ * Phase 8: Handles enriched objects {domain, owner, category} with owner display.
+ * Falls back to plain domain strings for backward compatibility.
+ * 
+ * @param {string} name - group name (trackers, ads, other)
+ * @param {array} items - array of strings or enriched objects
+ */
+function renderGroup(name, items) {
   const groupEl = $(`#group-${name}`);
   const countEl = $(`#count-${name}`);
   const listEl = $(`#list-${name}`);
 
-  if (!domains || domains.length === 0) {
+  if (!items || items.length === 0) {
     groupEl.classList.add('hidden');
     return;
   }
 
   groupEl.classList.remove('hidden');
-  if (countEl) countEl.textContent = domains.length;
+  if (countEl) countEl.textContent = items.length;
 
-  // Only re-render if content changed
-  const currentContent = listEl.dataset.domains || '';
-  const newContent = domains.join(',');
+  // Only re-render if content changed (with enrichment handling)
+  const currentContent = listEl.dataset.items || '';
+  const newContent = items.map(item => {
+    if (typeof item === 'string') return item;
+    return `${item.domain}|${item.owner}`;
+  }).join(',');
   if (currentContent === newContent) return;
-  listEl.dataset.domains = newContent;
+  listEl.dataset.items = newContent;
 
   listEl.innerHTML = '';
-  for (const domain of domains) {
-    const item = document.createElement('div');
-    item.className = 'request-item';
-    item.innerHTML = `
-      <span class="request-domain" title="${escapeHtml(domain)}">${escapeHtml(domain)}</span>
+  for (const item of items) {
+    const { domain, owner } = normalizeTrackerItem(item);
+    
+    const domainDisplay = escapeHtml(domain);
+    const ownerDisplay = escapeHtml(owner);
+    
+    // Phase 8: Show owner name with domain as subtitle if different
+    const displayText = (owner && owner !== domain) 
+      ? `${ownerDisplay}<br><small>${domainDisplay}</small>`
+      : domainDisplay;
+    
+    const item_el = document.createElement('div');
+    item_el.className = 'request-item';
+    item_el.innerHTML = `
+      <span class="request-domain" title="${domainDisplay}">${displayText}</span>
       <span class="request-blocked-icon">✕</span>
     `;
-    listEl.appendChild(item);
+    listEl.appendChild(item_el);
   }
+}
+
+function normalizeTrackerItem(item) {
+  if (typeof item === 'string') {
+    return { domain: item, owner: item };
+  }
+
+  if (item && typeof item === 'object') {
+    const domain = String(item.domain || item.d || 'unknown');
+    const owner = String(item.owner || domain);
+    return { domain, owner };
+  }
+
+  const fallback = String(item || 'unknown');
+  return { domain: fallback, owner: fallback };
 }
 
 // ── OA Panel — dona de categorías ──────────────────────────────────────────
@@ -239,7 +275,7 @@ function renderGroup(name, domains) {
 const OA_COLORS = {
   ads:      '#e74c3c',
   trackers: '#f39c12',
-  other:    '#3498db',
+  other:    '#34dbc2',
 };
 
 const OA_LABELS = {
@@ -293,16 +329,21 @@ function updateOAPanel(groups, blocked) {
       ...(groups.trackers || []).map(d => ({ d, cat: 'trackers' })),
       ...(groups.other    || []).map(d => ({ d, cat: 'other' })),
     ];
-    const newKey = all.map(e => e.d).join(',');
+    const newKey = all.map(({ d, cat }) => {
+      const { domain, owner } = normalizeTrackerItem(d);
+      return `${cat}:${domain}:${owner}`;
+    }).join(',');
     if (flatList.dataset.key !== newKey) {
       flatList.dataset.key = newKey;
       flatList.innerHTML = '';
       for (const { d, cat } of all.slice(0, 50)) {
+        const { domain, owner } = normalizeTrackerItem(d);
+        const primary = owner && owner !== domain ? owner : domain;
         const el = document.createElement('div');
         el.className = 'flat-entry';
         el.innerHTML =
           `<span class="flat-entry-dot" style="background:${OA_COLORS[cat]}"></span>` +
-          `<span class="flat-entry-domain">${escapeHtml(d)}</span>` +
+          `<span class="flat-entry-domain" title="${escapeHtml(domain)}">${escapeHtml(primary)}</span>` +
           `<span class="flat-entry-cat">${escapeHtml(OA_LABELS[cat] || cat)}</span>`;
         flatList.appendChild(el);
       }
@@ -810,7 +851,7 @@ function sendMessage(msg) {
 
 function escapeHtml(str) {
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = String(str ?? '');
   return div.innerHTML;
 }
 
