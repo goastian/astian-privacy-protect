@@ -435,6 +435,15 @@ function getRuntimeOptions() {
   return runtimeOptionsCache || { protectionLevel: 'standard', experiments: {}, whitelist: {} };
 }
 
+function getEffectiveRolloutFlags(options) {
+  const experiments = options?.experiments || {};
+  const transparency = experiments.rolloutTransparency !== false;
+  const entityBlocking = transparency && experiments.rolloutEntityBlocking === true;
+  const verticalProfiles = entityBlocking && experiments.rolloutVerticalProfiles === true;
+  const cosmeticAudit = verticalProfiles && experiments.rolloutCosmeticAudit === true;
+  return { transparency, entityBlocking, verticalProfiles, cosmeticAudit };
+}
+
 function getBlockedEntitiesMap(options) {
   return options?.blockedEntities && typeof options.blockedEntities === 'object'
     ? options.blockedEntities
@@ -442,6 +451,8 @@ function getBlockedEntitiesMap(options) {
 }
 
 function getEntityControlForGroups(groups, options) {
+  if (!getEffectiveRolloutFlags(options).entityBlocking) return null;
+
   const blockedEntities = getBlockedEntitiesMap(options);
   const scoreByOwnerId = new Map();
   const items = [
@@ -677,6 +688,9 @@ const TRACKERDB_RULE_ID_MAX = 800500;
 const TRACKERDB_MAX_RULES = TRACKERDB_RULE_ID_MAX - TRACKERDB_RULE_ID_MIN + 1;
 
 function shouldEnableTrackerDbAssisted(options) {
+  const rollout = getEffectiveRolloutFlags(options);
+  if (!rollout.entityBlocking) return false;
+
   // TrackerDB assisted blocking follows the protection level — no separate experiment flag.
   // strict → block high-confidence trackers not caught by filter lists.
   // standard / basic → classification only, no extra blocking.
@@ -1336,13 +1350,18 @@ async function handleMessage(msg, sender) {
       return { success: true };
 
     case 'get-tab-stats': {
+      const runtimeOptions = getRuntimeOptions();
+      const rollout = getEffectiveRolloutFlags(runtimeOptions);
+
       // Chromium: use getMatchedRules for real-time data
       if (IS_CHROMIUM) {
         const stats = await getChromiumTabStats(msg.tabId);
         const eco = getEcoStats(msg.tabId);
         // Phase 8: Use enriched groups with owner information
         stats.groups = getGroupedRequestsEnriched(msg.tabId);
-        stats.entityControl = getEntityControlForGroups(stats.groups, getRuntimeOptions());
+        stats.entityControl = rollout.entityBlocking
+          ? getEntityControlForGroups(stats.groups, runtimeOptions)
+          : null;
         stats.blockedByCategory = getBlockedByCategory(msg.tabId);
         return { ...stats, ...eco };
       }
@@ -1356,10 +1375,17 @@ async function handleMessage(msg, sender) {
         blockedByCategory: getBlockedByCategory(msg.tabId),
         dataSaved: getDataSaved(msg.tabId),
         groups,
-        entityControl: getEntityControlForGroups(groups, getRuntimeOptions()),
+        entityControl: rollout.entityBlocking
+          ? getEntityControlForGroups(groups, runtimeOptions)
+          : null,
         recentRequests: getRecentRequests(msg.tabId, 10),
         ...eco
       };
+    }
+
+    case 'get-rollout-flags': {
+      const runtime = getRuntimeOptions();
+      return getEffectiveRolloutFlags(runtime);
     }
 
     case 'get-options':
@@ -1416,6 +1442,11 @@ async function handleMessage(msg, sender) {
     }
 
     case 'toggle-entity-block': {
+      const runtime = getRuntimeOptions();
+      if (!getEffectiveRolloutFlags(runtime).entityBlocking) {
+        return { success: false, error: 'entity-blocking-rollout-disabled' };
+      }
+
       const ownerId = String(msg.ownerId || '').trim();
       if (!ownerId) return { success: false, error: 'ownerId-required' };
 
@@ -1805,7 +1836,10 @@ async function handleMessage(msg, sender) {
     }
 
     case 'record-applied-rules-event': {
-      recordAppliedRulesEvent(msg, sender);
+      const runtime = getRuntimeOptions();
+      if (getEffectiveRolloutFlags(runtime).cosmeticAudit) {
+        recordAppliedRulesEvent(msg, sender);
+      }
       return { success: true };
     }
 
@@ -1899,8 +1933,9 @@ async function handleMessage(msg, sender) {
 
     case 'set-trackerdb-assisted': {
       // Enable / disable TrackerDB assisted blocking at runtime
-      const enable = msg.enabled !== false;
       const opts = await getOptions();
+      const rollout = getEffectiveRolloutFlags(opts);
+      const enable = rollout.entityBlocking && msg.enabled !== false;
       const experiments = { ...(opts.experiments || {}), trackerDbAssisted: enable };
       const updatedOptions = await setOptions({ experiments });
       refreshRuntimeOptions(updatedOptions);
@@ -1977,8 +2012,12 @@ async function updateDnrWhitelist() {
 async function updateDnrEntityBlockRules(options) {
   if (!IS_CHROMIUM) return;
 
+  const rollout = getEffectiveRolloutFlags(options);
+
   const blockedEntitiesMap = getBlockedEntitiesMap(options);
-  const blockedOwnerIds = Object.keys(blockedEntitiesMap).filter(ownerId => blockedEntitiesMap[ownerId] === true);
+  const blockedOwnerIds = rollout.entityBlocking
+    ? Object.keys(blockedEntitiesMap).filter(ownerId => blockedEntitiesMap[ownerId] === true)
+    : [];
 
   const existingRules = await chrome.declarativeNetRequest.getSessionRules();
   const removeIds = existingRules

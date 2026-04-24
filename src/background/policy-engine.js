@@ -355,6 +355,15 @@ function isVideoStrictAllowlistedHost(hostname) {
   return false;
 }
 
+function getEffectiveRolloutFlags(options) {
+  const experiments = options?.experiments || {};
+  const transparency = experiments.rolloutTransparency !== false;
+  const entityBlocking = transparency && experiments.rolloutEntityBlocking === true;
+  const verticalProfiles = entityBlocking && experiments.rolloutVerticalProfiles === true;
+  const cosmeticAudit = verticalProfiles && experiments.rolloutCosmeticAudit === true;
+  return { transparency, entityBlocking, verticalProfiles, cosmeticAudit };
+}
+
 function computeTrackerSignalScore({
   trackerConfidence,
   trackerCategory,
@@ -401,9 +410,17 @@ export function evaluateRequestPolicy({
   engine,
   matchResult,
 }) {
+  const rollout = getEffectiveRolloutFlags(options);
   const protectionLevel = normalizeProtectionLevel(options?.protectionLevel);
   const protectionConfig = PROTECTION_CONFIG[protectionLevel];
-  const siteContext = resolveSiteProfile(pageHostname, options);
+  const siteContext = rollout.verticalProfiles
+    ? resolveSiteProfile(pageHostname, options)
+    : {
+        hostname: String(pageHostname || '').toLowerCase(),
+        vertical: VERTICALS.GENERAL,
+        profile: DEFAULT_SITE_POLICY.verticalProfiles.general,
+        override: null,
+      };
   const requestDomain = extractDomain(url);
   const requestOwnerId = requestDomain ? getTrackerOwnerId(requestDomain) : '';
   const blockedEntities = options?.blockedEntities || {};
@@ -432,7 +449,7 @@ export function evaluateRequestPolicy({
     engineBlocked = !!engine?.shouldBlock?.(url, pageHostname, resourceType);
   }
 
-  const aggressiveVerticalRules = options?.experiments?.aggressiveVerticalRules === true;
+  const aggressiveVerticalRules = rollout.verticalProfiles && options?.experiments?.aggressiveVerticalRules === true;
   const signalScore = computeTrackerSignalScore({
     trackerConfidence,
     trackerCategory,
@@ -446,6 +463,7 @@ export function evaluateRequestPolicy({
   const trackerSignalEligible = (
     protectionConfig.trackerSignalMode === 'strict' &&
     options?.trackerDbEnabled !== false &&
+    rollout.entityBlocking &&
     options?.experiments?.trackerDbAssisted === true &&
     requestDomain &&
     isHighConfidenceTracker(requestDomain) &&
@@ -461,6 +479,7 @@ export function evaluateRequestPolicy({
   );
 
   const entityBlocked = !!(
+    rollout.entityBlocking &&
     requestDomain &&
     requestOwnerId &&
     blockedEntities[requestOwnerId] === true
@@ -519,9 +538,17 @@ export function evaluateRequestPolicy({
 }
 
 export function getPopupDefenseConfig(pageHostname, options) {
+  const rollout = getEffectiveRolloutFlags(options);
   const protectionLevel = normalizeProtectionLevel(options?.protectionLevel);
   const protectionConfig = PROTECTION_CONFIG[protectionLevel];
-  const siteContext = resolveSiteProfile(pageHostname, options);
+  const siteContext = rollout.verticalProfiles
+    ? resolveSiteProfile(pageHostname, options)
+    : {
+        hostname: String(pageHostname || '').toLowerCase(),
+        vertical: VERTICALS.GENERAL,
+        profile: DEFAULT_SITE_POLICY.verticalProfiles.general,
+        override: null,
+      };
   const popupDefense = protectionLevel === 'basic'
     ? (siteContext.override?.popupDefense || 'relaxed')
     : (siteContext.profile.popupDefense || protectionConfig.popupBase);

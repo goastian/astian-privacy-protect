@@ -36,9 +36,44 @@ const SMART_REFRESH_DEBOUNCE_MS = 300; // Debounce rapid updates
 let pollbackTimer = null;
 const POLLBACK_INTERVAL_MS = 5000; // Fallback polling every 5s if no events
 
+function getGroupCount(groups, key) {
+  const arr = groups?.[key];
+  return Array.isArray(arr) ? arr.length : 0;
+}
+
+function getFastGroupFingerprint(groups) {
+  const trackers = groups?.trackers || [];
+  const ads = groups?.ads || [];
+  const other = groups?.other || [];
+
+  const firstTracker = normalizeTrackerItem(trackers[0] || {}).domain || '';
+  const firstAd = normalizeTrackerItem(ads[0] || {}).domain || '';
+  const firstOther = normalizeTrackerItem(other[0] || {}).domain || '';
+
+  return [
+    trackers.length,
+    ads.length,
+    other.length,
+    firstTracker,
+    firstAd,
+    firstOther,
+  ].join('|');
+}
+
 // ── Check if data changed ───────────────────────────────────────────────────
 function hasDataChanged(newData) {
   if (!lastRenderedData) return true;
+
+  const prevGroups = lastRenderedData.groups || {};
+  const nextGroups = newData.groups || {};
+  const groupCountsChanged = (
+    getGroupCount(prevGroups, 'trackers') !== getGroupCount(nextGroups, 'trackers') ||
+    getGroupCount(prevGroups, 'ads') !== getGroupCount(nextGroups, 'ads') ||
+    getGroupCount(prevGroups, 'other') !== getGroupCount(nextGroups, 'other')
+  );
+
+  const prevCats = lastRenderedData.blockedByCategory || {};
+  const nextCats = newData.blockedByCategory || {};
   
   // Compare key fields for efficient diffing
   return (
@@ -46,7 +81,11 @@ function hasDataChanged(newData) {
     newData.dataSaved !== lastRenderedData.dataSaved ||
     newData.energySaved !== lastRenderedData.energySaved ||
     newData.co2Saved !== lastRenderedData.co2Saved ||
-    JSON.stringify(newData.groups || {}) !== JSON.stringify(lastRenderedData.groups || {})
+    groupCountsChanged ||
+    (groupCountsChanged === false && getFastGroupFingerprint(prevGroups) !== getFastGroupFingerprint(nextGroups)) ||
+    (nextCats.ads || 0) !== (prevCats.ads || 0) ||
+    (nextCats.trackers || 0) !== (prevCats.trackers || 0) ||
+    (nextCats.other || 0) !== (prevCats.other || 0)
   );
 }
 

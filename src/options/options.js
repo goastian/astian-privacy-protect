@@ -321,6 +321,10 @@ function renderGeneral() {
   const lists = currentOptions.lists || {};
   const experiments = currentOptions.experiments || {};
   const telemetry = currentOptions.localTelemetry || {};
+  const rolloutTransparency = experiments.rolloutTransparency !== false;
+  const rolloutEntityBlocking = rolloutTransparency && experiments.rolloutEntityBlocking === true;
+  const rolloutVerticalProfiles = rolloutEntityBlocking && experiments.rolloutVerticalProfiles === true;
+  const rolloutCosmeticAudit = rolloutVerticalProfiles && experiments.rolloutCosmeticAudit === true;
   $('#opt-block-ads').checked = lists['easylist']?.enabled !== false;
   $('#opt-block-trackers').checked = lists['easyprivacy']?.enabled !== false;
   $('#opt-block-annoyances').checked = lists['ublock-annoyances-cookies']?.enabled === true;
@@ -330,9 +334,30 @@ function renderGeneral() {
   $('#opt-local-telemetry').checked = telemetry.enabled !== false;
   const serpToggle = $('#exp-serp-bar') || $('#ds-serp-bar');
   if (serpToggle) serpToggle.checked = experiments.serpBar === true;
+
+  const rolloutTransparencyEl = $('#exp-rollout-transparency');
+  const rolloutEntityBlockingEl = $('#exp-rollout-entity-blocking');
+  const rolloutVerticalProfilesEl = $('#exp-rollout-vertical-profiles');
+  const rolloutCosmeticAuditEl = $('#exp-rollout-cosmetic-audit');
+  if (rolloutTransparencyEl) rolloutTransparencyEl.checked = rolloutTransparency;
+  if (rolloutEntityBlockingEl) {
+    rolloutEntityBlockingEl.checked = rolloutEntityBlocking;
+    rolloutEntityBlockingEl.disabled = !rolloutTransparency;
+  }
+  if (rolloutVerticalProfilesEl) {
+    rolloutVerticalProfilesEl.checked = rolloutVerticalProfiles;
+    rolloutVerticalProfilesEl.disabled = !rolloutEntityBlocking;
+  }
+  if (rolloutCosmeticAuditEl) {
+    rolloutCosmeticAuditEl.checked = rolloutCosmeticAudit;
+    rolloutCosmeticAuditEl.disabled = !rolloutVerticalProfiles;
+  }
+
   $('#exp-trackerdb-assisted').checked = experiments.trackerDbAssisted === true;
+  $('#exp-trackerdb-assisted').disabled = !rolloutEntityBlocking;
   $('#exp-ia-shield').checked = experiments.iaShield === true;
   $('#exp-aggressive-vertical-rules').checked = experiments.aggressiveVerticalRules === true;
+  $('#exp-aggressive-vertical-rules').disabled = !rolloutVerticalProfiles;
   $('#opt-theme').value = currentOptions.theme || 'system';
   $('#opt-update-interval').value = String(currentOptions.updateInterval || 4);
 
@@ -1649,6 +1674,9 @@ function renderDifficultSites() {
   if (!currentOptions) return;
   const lists = currentOptions.lists || {};
   const experiments = currentOptions.experiments || {};
+  const rolloutTransparency = experiments.rolloutTransparency !== false;
+  const rolloutEntityBlocking = rolloutTransparency && experiments.rolloutEntityBlocking === true;
+  const rolloutVerticalProfiles = rolloutEntityBlocking && experiments.rolloutVerticalProfiles === true;
 
   const ds = (id, val) => { const el = $(`#${id}`); if (el) el.checked = !!val; };
   ds('ds-ia-shield', experiments.iaShield);
@@ -1659,6 +1687,11 @@ function renderDifficultSites() {
   ds('ds-anti-adblock', lists['ublock-annoyances-others']?.enabled !== false);
   ds('ds-serp-bar', experiments.serpBar);
   ds('ds-trackerdb-assisted', experiments.trackerDbAssisted);
+
+  const dsAggressiveVertical = $('#ds-aggressive-vertical');
+  if (dsAggressiveVertical) dsAggressiveVertical.disabled = !rolloutVerticalProfiles;
+  const dsTrackerDbAssisted = $('#ds-trackerdb-assisted');
+  if (dsTrackerDbAssisted) dsTrackerDbAssisted.disabled = !rolloutEntityBlocking;
 
   renderFunctionalExceptions();
   loadSiteAdReports();
@@ -2107,16 +2140,30 @@ function setupListeners() {
 
   const syncExperimentFlags = async () => {
     const serpToggle = $('#exp-serp-bar') || $('#ds-serp-bar');
+    const rolloutTransparency = $('#exp-rollout-transparency')?.checked !== false;
+    const rolloutEntityBlocking = rolloutTransparency && $('#exp-rollout-entity-blocking')?.checked === true;
+    const rolloutVerticalProfiles = rolloutEntityBlocking && $('#exp-rollout-vertical-profiles')?.checked === true;
+    const rolloutCosmeticAudit = rolloutVerticalProfiles && $('#exp-rollout-cosmetic-audit')?.checked === true;
+
     const experiments = {
       ...(currentOptions.experiments || {}),
+      rolloutTransparency,
+      rolloutEntityBlocking,
+      rolloutVerticalProfiles,
+      rolloutCosmeticAudit,
       serpBar: serpToggle ? serpToggle.checked : (currentOptions.experiments?.serpBar === true),
-      trackerDbAssisted: $('#exp-trackerdb-assisted').checked,
+      trackerDbAssisted: rolloutEntityBlocking && $('#exp-trackerdb-assisted').checked,
       iaShield: $('#exp-ia-shield').checked,
-      aggressiveVerticalRules: $('#exp-aggressive-vertical-rules').checked,
+      aggressiveVerticalRules: rolloutVerticalProfiles && $('#exp-aggressive-vertical-rules').checked,
     };
     currentOptions = await saveOptions({ experiments });
+    renderGeneral();
   };
 
+  $('#exp-rollout-transparency').addEventListener('change', syncExperimentFlags);
+  $('#exp-rollout-entity-blocking').addEventListener('change', syncExperimentFlags);
+  $('#exp-rollout-vertical-profiles').addEventListener('change', syncExperimentFlags);
+  $('#exp-rollout-cosmetic-audit').addEventListener('change', syncExperimentFlags);
   ($('#exp-serp-bar') || $('#ds-serp-bar'))?.addEventListener('change', syncExperimentFlags);
   $('#exp-trackerdb-assisted').addEventListener('change', syncExperimentFlags);
   $('#exp-ia-shield').addEventListener('change', syncExperimentFlags);
@@ -2337,6 +2384,9 @@ function setupListeners() {
   const syncDifficultSites = async () => {
     const lists = { ...currentOptions.lists };
     const experiments = { ...(currentOptions.experiments || {}) };
+    const rolloutTransparency = experiments.rolloutTransparency !== false;
+    const rolloutEntityBlocking = rolloutTransparency && experiments.rolloutEntityBlocking === true;
+    const rolloutVerticalProfiles = rolloutEntityBlocking && experiments.rolloutVerticalProfiles === true;
 
     const iaOn = $('#ds-ia-shield')?.checked;
     const iaStrictOn = $('#ds-ia-strict')?.checked;
@@ -2348,9 +2398,9 @@ function setupListeners() {
     const tdbAsstOn = $('#ds-trackerdb-assisted')?.checked;
 
     experiments.iaShield = !!iaOn;
-    experiments.aggressiveVerticalRules = !!aggrOn;
+    experiments.aggressiveVerticalRules = rolloutVerticalProfiles && !!aggrOn;
     experiments.serpBar = !!serpBarOn;
-    experiments.trackerDbAssisted = !!tdbAsstOn;
+    experiments.trackerDbAssisted = rolloutEntityBlocking && !!tdbAsstOn;
 
     if (lists['ublock-quick-fixes']) lists['ublock-quick-fixes'] = { ...lists['ublock-quick-fixes'], enabled: !!ytOn };
     if (lists['ublock-annoyances-others']) lists['ublock-annoyances-others'] = { ...lists['ublock-annoyances-others'], enabled: !!antiAbOn };
@@ -2362,7 +2412,8 @@ function setupListeners() {
       iaShieldSanitizeOnPaste: iaSanitizeOn !== false,
     });
     // Notify background for experiment flag changes
-    await sendMessage({ action: 'set-trackerdb-assisted', enabled: !!tdbAsstOn });
+    await sendMessage({ action: 'set-trackerdb-assisted', enabled: rolloutEntityBlocking && !!tdbAsstOn });
+    renderDifficultSites();
   };
 
   for (const id of ['ds-ia-shield', 'ds-ia-strict', 'ds-ia-sanitize', 'ds-youtube', 'ds-aggressive-vertical', 'ds-anti-adblock', 'ds-serp-bar', 'ds-trackerdb-assisted']) {
