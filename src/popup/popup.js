@@ -301,9 +301,9 @@ function updateOAPanel(groups, blocked) {
   const blockedBadge = $('#oa-blocked-count');
   if (blockedBadge) blockedBadge.textContent = blocked;
 
-  // Número central de la dona
+  // Número central de la dona — muestra el total de requests bloqueadas (igual que el badge)
   const totalEl = $('#donut-total');
-  if (totalEl) totalEl.textContent = total;
+  if (totalEl) totalEl.textContent = blocked;
 
   // Segmentos SVG — skip si counts idénticos
   const segsEl = $('#donut-segs');
