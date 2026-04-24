@@ -806,7 +806,12 @@ function setupWebRequestBlocking() {
 
       if (policy.shouldBlock) {
         recordBlockedCategory(policy.category || categorizeRequest(url));
-        recordBlock(details.tabId, url);
+        recordBlock(details.tabId, url, {
+          category: policy.category,
+          reason: policy.reason,
+          confidence: policy.trackerConfidence,
+          fingerprinting: policy.taxonomy === 'fingerprinting' || policy.trackerCategory === 'fingerprinting',
+        });
         updateBadge(details.tabId);
         
         // Notify popup of stats changes (8.1 optimization: event-driven)
@@ -886,7 +891,7 @@ if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
       if (d) {
         entry.domains.add(d);
         // Also record in stats-collector for proper categorization
-        recordBlock(tabId, url);
+        recordBlock(tabId, url, { reason: 'rule-match' });
         updateBadge(tabId);
         
         // Notify popup of stats changes (8.1 optimization: event-driven)
@@ -1800,7 +1805,7 @@ if (IS_CHROMIUM && webRequestAPI?.onErrorOccurred) {
       const tab = getTab(details.tabId);
       if (tab) {
         recordBlockedCategory(categorizeRequest(details.url));
-        recordBlock(details.tabId, details.url);
+        recordBlock(details.tabId, details.url, { reason: 'rule-match' });
         
         // Notify popup of stats changes (8.1 optimization: event-driven)
         notifyPopupStatsChange(details.tabId);

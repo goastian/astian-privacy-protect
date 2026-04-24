@@ -332,15 +332,15 @@ export function evaluateRequestPolicy({
   );
 
   let engineBlocked = false;
-  let engineReason = 'engine';
+  let engineReason = 'rule-match';
 
   if (matchResult) {
     engineBlocked = !!(matchResult.match && !matchResult.redirect && !matchResult.exception);
-    if (matchResult.redirect) engineReason = 'engine-redirect';
+    if (matchResult.redirect) engineReason = 'rule-match';
   } else if (engine?.matchRequest) {
     const nextMatch = engine.matchRequest(url, pageHostname, resourceType);
     engineBlocked = !!(nextMatch.match && !nextMatch.redirect && !nextMatch.exception);
-    if (nextMatch.redirect) engineReason = 'engine-redirect';
+    if (nextMatch.redirect) engineReason = 'rule-match';
   } else {
     engineBlocked = !!engine?.shouldBlock?.(url, pageHostname, resourceType);
   }
@@ -387,8 +387,8 @@ export function evaluateRequestPolicy({
     : engineBlocked
     ? engineReason
     : (hardThreatBlocked
-      ? 'threat-domain-policy'
-      : (trackerSignalEligible ? 'trackerdb-policy' : 'allow'));
+      ? 'entity-block'
+      : (trackerSignalEligible ? 'entity-block' : 'allow'));
 
   return {
     shouldBlock,

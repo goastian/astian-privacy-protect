@@ -6,7 +6,7 @@
  */
 
 import { categorizeRequest, extractDomain } from './filter-engine.js';
-import { getTrackerOwner } from './trackerdb.js';
+import { enrichTrackerWithOwner } from './trackerdb.js';
 
 // In-memory per-tab stats (fast access, no async)
 const tabData = new Map();
@@ -74,23 +74,32 @@ export function ensureTab(tabId) {
  * 
  * @param {string} tabId
  * @param {string} url
+ * @param {object} metadata
  * @returns {object} updated tab
  */
-export function recordBlock(tabId, url) {
+export function recordBlock(tabId, url, metadata = {}) {
   const tab = ensureTab(tabId);
 
   tab.blocked++;
 
   const domain = extractDomain(url);
-  const category = categorizeRequest(url);
+  const tracker = enrichTrackerWithOwner(domain) || {
+    domain,
+    owner: domain,
+    category: 'unknown',
+    confidence: 0,
+    fingerprintScore: 0,
+  };
+  const category = metadata.category || categorizeRequest(url);
+  const reason = metadata.reason || 'rule-match';
+  const confidence = Number(metadata.confidence ?? tracker.confidence) || 0;
+  const fingerprinting = metadata.fingerprinting === true || Number(metadata.fingerprintScore ?? tracker.fingerprintScore) > 0;
+  const owner = metadata.owner || tracker.owner || domain;
 
   // Track per-category blocked count (always accurate, regardless of requests cap)
   if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, other: 0 };
   const cat = (category === 'ads' || category === 'trackers') ? category : 'other';
   tab.blockedByCategory[cat]++;
-  
-  // Phase 8 optimization: Get owner via LRU-cached lookup (O(1))
-  const owner = getTrackerOwner(domain);
 
   // Optimization 8.3: Batch eco-calculations — only recalculate every 10 blocks
   if (tab.blocked % 10 === 0) {
@@ -104,7 +113,14 @@ export function recordBlock(tabId, url) {
   // Optimization 8.3: Skip storing if already have 100 requests
   // Phase 8: Include owner information for popup display
   if (tab.requests.length < 100) {
-    tab.requests.push({ domain, category, owner });
+    tab.requests.push({
+      domain,
+      category: cat,
+      owner,
+      confidence,
+      fingerprinting,
+      reason,
+    });
   }
 
   return tab;
@@ -160,6 +176,10 @@ export function getRecentRequests(tabId, count) {
   return tab.requests.slice(-n).map(r => ({
     domain: r.domain,
     type: r.category === 'trackers' ? 'tracker' : r.category,
+    owner: r.owner || r.domain,
+    reason: r.reason || 'rule-match',
+    confidence: Number(r.confidence) || 0,
+    fingerprinting: r.fingerprinting === true,
   }));
 }
 
@@ -207,6 +227,9 @@ export function getGroupedRequestsEnriched(tabId) {
       domain: req.domain,
       owner: req.owner || req.domain,
       category: cat,
+      reason: req.reason || 'rule-match',
+      confidence: Number(req.confidence) || 0,
+      fingerprinting: req.fingerprinting === true,
     };
     if (groups[cat]) {
       groups[cat].push(enriched);

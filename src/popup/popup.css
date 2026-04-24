@@ -390,6 +390,10 @@ body {
   word-break: break-word;
 }
 
+.request-owner {
+  display: block;
+}
+
 /* Phase 8: Support for owner names with domain subtitles */
 .request-domain small {
   display: block;
@@ -398,6 +402,16 @@ body {
   color: var(--color-text-tertiary);
   margin-top: 2px;
   opacity: 0.75;
+}
+
+.request-meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
 }
 
 .request-blocked-icon {
@@ -692,7 +706,7 @@ body {
 
 .flat-entry {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 0.85rem;
   padding: 6px 0;
@@ -711,7 +725,7 @@ body {
 }
 
 .flat-entry-domain {
-  flex: 1;
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -719,12 +733,32 @@ body {
   color: var(--color-text-secondary);
 }
 
-.flat-entry-cat {
+.flat-entry-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.flat-entry-subtitle {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flat-entry-meta {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   flex-shrink: 0;
+  max-width: 42%;
+  text-align: right;
+  line-height: 1.3;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -228,27 +228,30 @@ function renderGroup(name, items) {
   const currentContent = listEl.dataset.items || '';
   const newContent = items.map(item => {
     if (typeof item === 'string') return item;
-    return `${item.domain}|${item.owner}`;
+    return `${item.domain}|${item.owner}|${item.reason}|${item.confidence}|${item.fingerprinting}`;
   }).join(',');
   if (currentContent === newContent) return;
   listEl.dataset.items = newContent;
 
   listEl.innerHTML = '';
   for (const item of items) {
-    const { domain, owner } = normalizeTrackerItem(item);
+    const tracker = normalizeTrackerItem(item);
+    const { domain, owner } = tracker;
     
     const domainDisplay = escapeHtml(domain);
     const ownerDisplay = escapeHtml(owner);
-    
-    // Phase 8: Show owner name with domain as subtitle if different
-    const displayText = (owner && owner !== domain) 
-      ? `${ownerDisplay}<br><small>${domainDisplay}</small>`
-      : domainDisplay;
+    const detailsHtml = buildTrackerMetaLine(tracker);
+    const titleText = owner && owner !== domain ? `${owner} (${domain})` : domain;
+    const subtitleHtml = owner && owner !== domain ? `<small>${domainDisplay}</small>` : '';
     
     const item_el = document.createElement('div');
     item_el.className = 'request-item';
     item_el.innerHTML = `
-      <span class="request-domain" title="${domainDisplay}">${displayText}</span>
+      <span class="request-domain" title="${escapeHtml(titleText)}">
+        <span class="request-owner">${ownerDisplay}</span>
+        ${subtitleHtml}
+        <span class="request-meta">${detailsHtml}</span>
+      </span>
       <span class="request-blocked-icon">✕</span>
     `;
     listEl.appendChild(item_el);
@@ -257,17 +260,58 @@ function renderGroup(name, items) {
 
 function normalizeTrackerItem(item) {
   if (typeof item === 'string') {
-    return { domain: item, owner: item };
+    return { domain: item, owner: item, reason: 'rule-match', category: 'other', confidence: 0, fingerprinting: false };
   }
 
   if (item && typeof item === 'object') {
     const domain = String(item.domain || item.d || 'unknown');
     const owner = String(item.owner || domain);
-    return { domain, owner };
+    return {
+      domain,
+      owner,
+      reason: String(item.reason || 'rule-match'),
+      category: String(item.category || 'other'),
+      confidence: Number(item.confidence) || 0,
+      fingerprinting: item.fingerprinting === true,
+    };
   }
 
   const fallback = String(item || 'unknown');
-  return { domain: fallback, owner: fallback };
+  return { domain: fallback, owner: fallback, reason: 'rule-match', category: 'other', confidence: 0, fingerprinting: false };
+}
+
+function formatReasonLabel(reason) {
+  switch (reason) {
+    case 'entity-block':
+      return 'Entity block';
+    case 'first-party-relaxed':
+      return 'First-party relaxed';
+    case 'allowlist':
+      return 'Allowed by allowlist';
+    case 'rule-match':
+      return 'Matched block rule';
+    default:
+      return 'Blocked';
+  }
+}
+
+function formatConfidenceLabel(confidence) {
+  if (!confidence || confidence <= 0) return 'Low confidence';
+  if (confidence >= 0.05) return 'High confidence';
+  if (confidence >= 0.01) return 'Medium confidence';
+  return 'Low confidence';
+}
+
+function buildTrackerMetaLine(item) {
+  const parts = [formatReasonLabel(item.reason)];
+  if (item.category && item.category !== 'other') {
+    parts.push(String(item.category));
+  }
+  parts.push(formatConfidenceLabel(item.confidence));
+  if (item.fingerprinting) {
+    parts.push('Fingerprinting');
+  }
+  return escapeHtml(parts.join(' • '));
 }
 
 // ── OA Panel — dona de categorías ──────────────────────────────────────────
@@ -337,21 +381,27 @@ function updateOAPanel(groups, blocked, blockedByCategory) {
       ...(groups.other    || []).map(d => ({ d, cat: 'other' })),
     ];
     const newKey = all.map(({ d, cat }) => {
-      const { domain, owner } = normalizeTrackerItem(d);
-      return `${cat}:${domain}:${owner}`;
+      const { domain, owner, reason, confidence, fingerprinting } = normalizeTrackerItem(d);
+      return `${cat}:${domain}:${owner}:${reason}:${confidence}:${fingerprinting}`;
     }).join(',');
     if (flatList.dataset.key !== newKey) {
       flatList.dataset.key = newKey;
       flatList.innerHTML = '';
       for (const { d, cat } of all.slice(0, 50)) {
-        const { domain, owner } = normalizeTrackerItem(d);
+        const tracker = normalizeTrackerItem(d);
+        const { domain, owner } = tracker;
         const primary = owner && owner !== domain ? owner : domain;
+        const secondary = owner && owner !== domain ? domain : OA_LABELS[cat] || cat;
+        const meta = buildTrackerMetaLine({ ...tracker, category: cat });
         const el = document.createElement('div');
         el.className = 'flat-entry';
         el.innerHTML =
           `<span class="flat-entry-dot" style="background:${OA_COLORS[cat]}"></span>` +
-          `<span class="flat-entry-domain" title="${escapeHtml(domain)}">${escapeHtml(primary)}</span>` +
-          `<span class="flat-entry-cat">${escapeHtml(OA_LABELS[cat] || cat)}</span>`;
+          `<span class="flat-entry-body">` +
+            `<span class="flat-entry-domain" title="${escapeHtml(domain)}">${escapeHtml(primary)}</span>` +
+            `<span class="flat-entry-subtitle">${escapeHtml(secondary)}</span>` +
+          `</span>` +
+          `<span class="flat-entry-meta">${meta}</span>`;
         flatList.appendChild(el);
       }
     }
@@ -508,13 +558,15 @@ function updateLiveStream(recentRequests, totalBlocked) {
       const item = document.createElement('div');
       item.className = 'live-item';
       const color = req.type === 'tracker' ? 'var(--color-warning)' :
-                    req.type === 'ad' ? 'var(--color-danger)' : 'var(--color-text-tertiary)';
+                    (req.type === 'ad' || req.type === 'ads') ? 'var(--color-danger)' : 'var(--color-text-tertiary)';
       const now = new Date();
       const time = String(now.getHours()).padStart(2, '0') + ':' +
                    String(now.getMinutes()).padStart(2, '0') + ':' +
                    String(now.getSeconds()).padStart(2, '0');
+      const liveLabel = req.owner && req.owner !== req.domain ? req.owner : (req.domain || req.url || 'unknown');
+      const liveTitle = req.reason ? `${liveLabel} • ${formatReasonLabel(req.reason)}` : liveLabel;
       item.innerHTML = `<span class="live-item-type" style="background:${color}"></span>` +
-        `<span class="live-item-domain">${escapeHtml(req.domain || req.url || 'unknown')}</span>` +
+        `<span class="live-item-domain" title="${escapeHtml(liveTitle)}">${escapeHtml(liveLabel)}</span>` +
         `<span class="live-item-time">${time}</span>`;
       itemsEl.insertBefore(item, itemsEl.firstChild);
     }
