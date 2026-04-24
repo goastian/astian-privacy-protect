@@ -1819,7 +1819,7 @@
       // Intercept onclick handlers that call window.open
       var origSetAttribute = Element.prototype.setAttribute;
       Element.prototype.setAttribute = function(name, value) {
-        if (name === 'onclick' && typeof value === 'string' && /window\.open\s*\(/.test(value)) {
+        if (name === 'onclick' && typeof value === 'string' && /window\\.open\\s*\\(/.test(value)) {
           if (!withinGestureWindow() && cfg.closeTabsWithoutGesture !== false) {
             postBlocked('onclick-window-open', value.slice(0, 200));
             return;
@@ -1835,7 +1835,7 @@
         var onclickFn = el.onclick;
         if (typeof onclickFn === 'function') {
           var fnStr = onclickFn.toString();
-          if (/window\.open\s*\(/.test(fnStr) && !withinGestureWindow() && cfg.closeTabsWithoutGesture !== false) {
+          if (/window\\.open\\s*\\(/.test(fnStr) && !withinGestureWindow() && cfg.closeTabsWithoutGesture !== false) {
             e.preventDefault();
             e.stopImmediatePropagation();
             postBlocked('onclick-handler-open', fnStr.slice(0, 200));
