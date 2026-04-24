@@ -537,13 +537,14 @@ function scoreToGrade(score) {
 }
 
 async function loadReports() {
-  const [stats, topSites, categories, heatmap, trend, summary] = await Promise.all([
+  const [stats, topSites, categories, heatmap, trend, summary, appliedDiagnostics] = await Promise.all([
     sendMessage({ action: 'get-report-stats', days: reportDays }),
     sendMessage({ action: 'get-report-top-sites', days: reportDays, limit: 10 }),
     sendMessage({ action: 'get-report-categories', days: reportDays }),
     sendMessage({ action: 'get-hourly-heatmap', days: reportDays }),
     sendMessage({ action: 'get-weekly-trend' }),
     sendMessage({ action: 'get-privacy-summary', days: reportDays }),
+    sendMessage({ action: 'get-applied-rules-diagnostics', limit: 12 }),
   ]);
 
   // Privacy Summary
@@ -574,6 +575,49 @@ async function loadReports() {
 
   // Tracker database
   renderTrackerDatabase(topSites || []);
+
+  // Applied selectors/scriptlets diagnostics
+  renderAppliedRulesDiagnostics(appliedDiagnostics);
+}
+
+function renderAppliedRulesDiagnostics(diag) {
+  const list = $('#applied-rules-diag-list');
+  const summary = $('#applied-rules-diag-summary');
+  if (!list || !summary) return;
+
+  const entries = Array.isArray(diag?.entries) ? diag.entries : [];
+  const totalEvents = Number(diag?.totalEvents) || 0;
+  const totalTabHosts = Number(diag?.totalTabHosts) || 0;
+
+  summary.textContent = `${formatNumber(totalEvents)} events · ${formatNumber(totalTabHosts)} tab+host`;
+
+  if (entries.length === 0) {
+    list.innerHTML = '<p class="text-sm text-tertiary">No data yet.</p>';
+    return;
+  }
+
+  list.innerHTML = '';
+  for (const entry of entries) {
+    const selectorsLabel = `${formatNumber(entry.selectorCount || 0)} selectors`;
+    const scriptletsLabel = `${formatNumber(entry.scriptletCount || 0)} scriptlets`;
+    const samples = [
+      ...(entry.selectorsSample || []).slice(0, 3),
+      ...(entry.scriptletsSample || []).slice(0, 3),
+    ].slice(0, 5);
+
+    const row = document.createElement('div');
+    row.className = 'diag-item';
+    row.innerHTML =
+      `<div class="diag-item-main">` +
+        `<div class="diag-host">${escapeHtml(entry.hostname || 'unknown-host')}</div>` +
+        `<div class="diag-meta">tab ${entry.tabId >= 0 ? entry.tabId : '?'} · ${formatNumber(entry.eventCount || 0)} events · ${selectorsLabel} · ${scriptletsLabel}</div>` +
+      `</div>` +
+      `<div class="diag-last-seen">${entry.lastSeenAt ? getTimeAgo(new Date(entry.lastSeenAt)) : 'No timestamp'}</div>` +
+      (samples.length > 0
+        ? `<div class="diag-samples">${samples.map(s => `<span class="diag-sample-pill">${escapeHtml(s)}</span>`).join('')}</div>`
+        : '');
+    list.appendChild(row);
+  }
 }
 
 function renderPrivacySummary(summary) {

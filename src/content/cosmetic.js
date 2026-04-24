@@ -21,8 +21,23 @@
 
   const COLLAPSE_CSS = 'display:none!important;height:0!important;min-height:0!important;max-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;border:0!important;opacity:0!important;pointer-events:none!important;';
   const ATTR_COLLAPSED = 'data-midori-c';
+  const APPLIED_RULES_DEBOUNCE_MS = 1200;
+  const MAX_APPLIED_SELECTOR_SAMPLES = 24;
+  const MAX_APPLIED_SCRIPTLET_SAMPLES = 24;
+  const SELECTOR_SAMPLE_RATE = 0.12;
+  const SCRIPTLET_SAMPLE_RATE = 0.2;
   let appliedStyle = null;
   let globalAdStyle = null;
+  let appliedRulesFlushTimer = null;
+  const appliedRulesBuffer = {
+    selectorCount: 0,
+    scriptletCount: 0,
+    selectorsSample: [],
+    scriptletsSample: [],
+    selectorSet: new Set(),
+    scriptletSet: new Set(),
+    sources: Object.create(null),
+  };
 
   // ── Cross-browser sendMessage wrapper ────────────────────────────────────
   // Firefox MV2: browser.runtime.sendMessage returns a Promise.
@@ -50,6 +65,102 @@
       hostname,
       durationMs,
     }).catch(() => {});
+  }
+
+  function sanitizeSampleToken(raw) {
+    const token = String(raw || '').trim();
+    if (!token) return '';
+    return token.slice(0, 120);
+  }
+
+  function maybePushSample(list, dedupeSet, token, maxSize, sampleRate) {
+    const value = sanitizeSampleToken(token);
+    if (!value || dedupeSet.has(value) || list.length >= maxSize) return;
+    if (list.length >= 4 && Math.random() > sampleRate) return;
+    dedupeSet.add(value);
+    list.push(value);
+  }
+
+  function scheduleAppliedRulesFlush() {
+    if (appliedRulesFlushTimer) return;
+    appliedRulesFlushTimer = setTimeout(() => {
+      appliedRulesFlushTimer = null;
+      flushAppliedRulesTelemetry();
+    }, APPLIED_RULES_DEBOUNCE_MS);
+  }
+
+  function queueAppliedSelectors(selectors, source) {
+    if (!Array.isArray(selectors) || selectors.length === 0) return;
+    appliedRulesBuffer.selectorCount += selectors.length;
+    appliedRulesBuffer.sources[source] = (appliedRulesBuffer.sources[source] || 0) + selectors.length;
+
+    for (const sel of selectors) {
+      maybePushSample(
+        appliedRulesBuffer.selectorsSample,
+        appliedRulesBuffer.selectorSet,
+        sel,
+        MAX_APPLIED_SELECTOR_SAMPLES,
+        SELECTOR_SAMPLE_RATE,
+      );
+    }
+    scheduleAppliedRulesFlush();
+  }
+
+  function queueAppliedScriptlets(scriptlets, source) {
+    if (!Array.isArray(scriptlets) || scriptlets.length === 0) return;
+    appliedRulesBuffer.scriptletCount += scriptlets.length;
+    appliedRulesBuffer.sources[source] = (appliedRulesBuffer.sources[source] || 0) + scriptlets.length;
+
+    for (const item of scriptlets) {
+      const name = typeof item === 'string' ? item : item?.name;
+      maybePushSample(
+        appliedRulesBuffer.scriptletsSample,
+        appliedRulesBuffer.scriptletSet,
+        name,
+        MAX_APPLIED_SCRIPTLET_SAMPLES,
+        SCRIPTLET_SAMPLE_RATE,
+      );
+    }
+    scheduleAppliedRulesFlush();
+  }
+
+  function queueCompiledScriptlets(count, source) {
+    const numeric = Number(count) || 0;
+    if (numeric <= 0) return;
+    appliedRulesBuffer.scriptletCount += numeric;
+    appliedRulesBuffer.sources[source] = (appliedRulesBuffer.sources[source] || 0) + numeric;
+    maybePushSample(
+      appliedRulesBuffer.scriptletsSample,
+      appliedRulesBuffer.scriptletSet,
+      'compiled-scriptlet',
+      MAX_APPLIED_SCRIPTLET_SAMPLES,
+      1,
+    );
+    scheduleAppliedRulesFlush();
+  }
+
+  function flushAppliedRulesTelemetry() {
+    if (!appliedRulesBuffer.selectorCount && !appliedRulesBuffer.scriptletCount) return;
+
+    const payload = {
+      action: 'record-applied-rules-event',
+      hostname: window.location.hostname || '',
+      selectorCount: appliedRulesBuffer.selectorCount,
+      scriptletCount: appliedRulesBuffer.scriptletCount,
+      selectorsSample: appliedRulesBuffer.selectorsSample.slice(0, MAX_APPLIED_SELECTOR_SAMPLES),
+      scriptletsSample: appliedRulesBuffer.scriptletsSample.slice(0, MAX_APPLIED_SCRIPTLET_SAMPLES),
+      sources: { ...appliedRulesBuffer.sources },
+    };
+
+    appliedRulesBuffer.selectorCount = 0;
+    appliedRulesBuffer.scriptletCount = 0;
+    appliedRulesBuffer.selectorsSample.length = 0;
+    appliedRulesBuffer.scriptletsSample.length = 0;
+    appliedRulesBuffer.selectorSet.clear();
+    appliedRulesBuffer.scriptletSet.clear();
+    appliedRulesBuffer.sources = Object.create(null);
+
+    sendMsg(payload).catch(() => {});
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -369,6 +480,8 @@ iframe[name*="google_ads"],
     style.textContent = cssRules.join('\n');
     (document.head || document.documentElement).appendChild(style);
     appliedStyle = style;
+
+    queueAppliedSelectors(cssRules.map(rule => rule.slice(0, rule.indexOf(' {'))), 'cosmetic-selectors');
   }
 
   function getBuiltinSelectors(hostname) {
@@ -573,6 +686,7 @@ iframe[name*="google_ads"],
 
   function forwardScriptletsToPage(scriptlets) {
     if (!scriptlets || scriptlets.length === 0) return;
+    queueAppliedScriptlets(scriptlets, 'scriptlet-rules');
     window.postMessage({
       type: 'midori-scriptlets',
       scriptlets: scriptlets,
@@ -775,6 +889,7 @@ iframe[name*="google_ads"],
     if (msg.action === 'apply-compiled-scriptlets' && msg.scripts) {
       const validScripts = msg.scripts.filter(c => c && typeof c === 'string');
       if (validScripts.length > 0) {
+        queueCompiledScriptlets(validScripts.length, 'compiled-scriptlets');
         window.postMessage({ type: 'midori-compiled-scriptlet-batch', scripts: validScripts }, '*');
       }
     }
@@ -807,6 +922,7 @@ iframe[name*="google_ads"],
     if (response?.compiledScripts?.length > 0) {
       const validScripts = response.compiledScripts.filter(c => c && typeof c === 'string');
       if (validScripts.length > 0) {
+        queueCompiledScriptlets(validScripts.length, 'compiled-scriptlets');
         window.postMessage({ type: 'midori-compiled-scriptlet-batch', scripts: validScripts }, '*');
       }
     }
@@ -1015,6 +1131,7 @@ iframe[name*="google_ads"],
   startSPAObserver();
 
   setTimeout(() => {
+    flushAppliedRulesTelemetry();
     reportContentCost(performance.now() - scriptStart);
   }, 0);
 

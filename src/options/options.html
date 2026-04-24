@@ -607,6 +607,20 @@ example.com##+js(abort-on-property-read, adBlockDetected)
           </div>
         </div>
 
+        <!-- Applied Rules Diagnostics -->
+        <div class="option-card mb-3">
+          <div class="p-3">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold">Applied Rules Diagnostics</h3>
+              <span class="text-xs text-tertiary" id="applied-rules-diag-summary">No data yet</span>
+            </div>
+            <p class="text-xs text-tertiary mb-2">Lightweight sampled view of selectors/scriptlets applied by tab and host.</p>
+            <div id="applied-rules-diag-list">
+              <p class="text-sm text-tertiary">No data yet.</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Export buttons -->
         <div class="flex gap-2">
           <button type="button" class="btn btn-outline" id="btn-export-report">

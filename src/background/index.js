@@ -10,7 +10,7 @@ import { FilterEngine, extractDomain, categorizeRequest } from './filter-engine.
 import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
 import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
-import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, exportReport } from './report-generator.js';
+import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, getAppliedRulesDiagnostics, exportReport } from './report-generator.js';
 import {
   evaluateRequestPolicy,
   getPopupDefenseConfig,
@@ -159,6 +159,7 @@ function normalizeTelemetry(raw) {
   const contentScriptCostMs = t.contentScriptCostMs || {};
   const falsePositiveReports = t.falsePositiveReports || {};
   const iaShield = t.iaShield || {};
+  const appliedRulesDiagnostics = t.appliedRulesDiagnostics || {};
   return {
     enabled: t.enabled !== false,
     version: 1,
@@ -189,6 +190,13 @@ function normalizeTelemetry(raw) {
       byType: { ...(iaShield.byType || {}) },
       byHostname: { ...(iaShield.byHostname || {}) },
       lastEventAt: iaShield.lastEventAt || 0,
+    },
+    appliedRulesDiagnostics: {
+      totalEvents: 0,
+      updatedAt: 0,
+      byTabHost: {
+        ...(appliedRulesDiagnostics.byTabHost || {}),
+      },
     },
   };
 }
@@ -331,6 +339,85 @@ function recordIaShieldRiskEvent(event) {
 
   bucket.lastEventAt = Number(event.timestamp) || Date.now();
   telemetryState.iaShield = bucket;
+  markTelemetryDirty();
+}
+
+function pushUniqueSamples(target, incoming, maxItems) {
+  if (!Array.isArray(target) || !Array.isArray(incoming)) return;
+  const seen = new Set(target);
+  for (const raw of incoming) {
+    const value = String(raw || '').trim().slice(0, 120);
+    if (!value || seen.has(value)) continue;
+    target.push(value);
+    seen.add(value);
+    if (target.length >= maxItems) break;
+  }
+}
+
+function recordAppliedRulesEvent(msg, sender) {
+  if (!telemetryState?.enabled) return;
+
+  const tabId = Number.isInteger(sender?.tab?.id) ? sender.tab.id : -1;
+  const hostname = String(msg?.hostname || '').trim().toLowerCase().slice(0, 255);
+  if (!hostname) return;
+
+  const selectorCount = Math.max(0, Number(msg?.selectorCount) || 0);
+  const scriptletCount = Math.max(0, Number(msg?.scriptletCount) || 0);
+  if (selectorCount === 0 && scriptletCount === 0) return;
+
+  const diag = telemetryState.appliedRulesDiagnostics || {
+    totalEvents: 0,
+    updatedAt: 0,
+    byTabHost: {},
+  };
+
+  const byTabHost = diag.byTabHost || {};
+  const key = `${tabId}|${hostname}`;
+  const entry = byTabHost[key] || {
+    tabId,
+    hostname,
+    eventCount: 0,
+    selectorCount: 0,
+    scriptletCount: 0,
+    selectorsSample: [],
+    scriptletsSample: [],
+    sources: {},
+    firstSeenAt: Date.now(),
+    lastSeenAt: 0,
+  };
+
+  entry.eventCount += 1;
+  entry.selectorCount += selectorCount;
+  entry.scriptletCount += scriptletCount;
+  entry.lastSeenAt = Date.now();
+
+  pushUniqueSamples(entry.selectorsSample, msg?.selectorsSample || [], 24);
+  pushUniqueSamples(entry.scriptletsSample, msg?.scriptletsSample || [], 24);
+
+  const sources = msg?.sources && typeof msg.sources === 'object' ? msg.sources : {};
+  for (const [source, value] of Object.entries(sources)) {
+    const n = Math.max(0, Number(value) || 0);
+    if (!n) continue;
+    entry.sources[source] = (entry.sources[source] || 0) + n;
+  }
+
+  byTabHost[key] = entry;
+
+  const keys = Object.keys(byTabHost);
+  if (keys.length > 180) {
+    keys
+      .sort((left, right) => (byTabHost[left]?.lastSeenAt || 0) - (byTabHost[right]?.lastSeenAt || 0))
+      .slice(0, keys.length - 180)
+      .forEach((oldKey) => {
+        delete byTabHost[oldKey];
+      });
+  }
+
+  diag.totalEvents = (diag.totalEvents || 0) + 1;
+  diag.updatedAt = Date.now();
+  diag.byTabHost = byTabHost;
+  telemetryState.appliedRulesDiagnostics = diag;
+
   markTelemetryDirty();
 }
 
@@ -1385,6 +1472,9 @@ async function handleMessage(msg, sender) {
     case 'get-privacy-summary':
       return await getPrivacySummary(msg.days || 30);
 
+    case 'get-applied-rules-diagnostics':
+      return await getAppliedRulesDiagnostics(msg.limit || 20);
+
     case 'export-report':
       return await exportReport();
 
@@ -1711,6 +1801,11 @@ async function handleMessage(msg, sender) {
 
     case 'record-content-script-kpi': {
       recordContentScriptCost(msg.script, msg.hostname, msg.durationMs);
+      return { success: true };
+    }
+
+    case 'record-applied-rules-event': {
+      recordAppliedRulesEvent(msg, sender);
       return { success: true };
     }
 

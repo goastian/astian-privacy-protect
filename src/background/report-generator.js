@@ -225,6 +225,55 @@ export async function getPrivacySummary(days = 30) {
 }
 
 /**
+ * Get lightweight diagnostics for applied selectors/scriptlets by tab+host.
+ */
+export async function getAppliedRulesDiagnostics(limit = 20) {
+  const options = await getOptions();
+  const telemetry = options.localTelemetry || {};
+  const diag = telemetry.appliedRulesDiagnostics || {};
+  const byTabHost = diag.byTabHost && typeof diag.byTabHost === 'object'
+    ? diag.byTabHost
+    : {};
+
+  const safeLimit = Math.max(1, Math.min(50, Number(limit) || 20));
+
+  const entries = Object.values(byTabHost)
+    .filter(entry => entry && typeof entry === 'object')
+    .sort((left, right) => (right.lastSeenAt || 0) - (left.lastSeenAt || 0))
+    .slice(0, safeLimit)
+    .map(entry => ({
+      tabId: Number.isInteger(entry.tabId) ? entry.tabId : -1,
+      hostname: String(entry.hostname || ''),
+      eventCount: Number(entry.eventCount) || 0,
+      selectorCount: Number(entry.selectorCount) || 0,
+      scriptletCount: Number(entry.scriptletCount) || 0,
+      lastSeenAt: Number(entry.lastSeenAt) || 0,
+      selectorsSample: Array.isArray(entry.selectorsSample) ? entry.selectorsSample.slice(0, 12) : [],
+      scriptletsSample: Array.isArray(entry.scriptletsSample) ? entry.scriptletsSample.slice(0, 12) : [],
+      sources: entry.sources && typeof entry.sources === 'object' ? entry.sources : {},
+    }));
+
+  const hostTotals = Object.create(null);
+  for (const entry of entries) {
+    if (!entry.hostname) continue;
+    hostTotals[entry.hostname] = (hostTotals[entry.hostname] || 0) + entry.eventCount;
+  }
+
+  const topHosts = Object.entries(hostTotals)
+    .map(([hostname, eventCount]) => ({ hostname, eventCount }))
+    .sort((left, right) => right.eventCount - left.eventCount)
+    .slice(0, 8);
+
+  return {
+    updatedAt: Number(diag.updatedAt) || Number(telemetry.updatedAt) || 0,
+    totalEvents: Number(diag.totalEvents) || 0,
+    totalTabHosts: Object.keys(byTabHost).length,
+    entries,
+    topHosts,
+  };
+}
+
+/**
  * Export full report as JSON
  */
 export async function exportReport() {

@@ -509,6 +509,64 @@ body {
   white-space: nowrap;
 }
 
+.diag-item {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.diag-item:last-child {
+  margin-bottom: 0;
+}
+
+.diag-item-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.diag-host {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.diag-meta {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.diag-last-seen {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--color-text-tertiary);
+}
+
+.diag-samples {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.diag-sample-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  border-radius: 99px;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  color: var(--color-text-secondary);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ─── Nav group labels ─────────────────────────────────────────────────── */
 .nav-group-label {
   font-size: 0.6rem;
