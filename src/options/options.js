@@ -13,6 +13,7 @@ const FILTER_LIST_GROUPS = {
   'Core': {
     'easylist': { name: 'EasyList', desc: 'Primary ad blocking list' },
     'easyprivacy': { name: 'EasyPrivacy', desc: 'Tracker blocking list' },
+    'ddg-tds': { name: 'DuckDuckGo Tracker Blocklist', desc: 'Curated tracker list with high signal-to-noise ratio' },
     'ublock-filters': { name: 'uBlock Filters', desc: 'Complementary filters by uBlock Origin' },
     'ublock-privacy': { name: 'uBlock Privacy', desc: 'Extra privacy filters' },
     'ublock-unbreak': { name: 'uBlock Unbreak', desc: 'Fixes for sites broken by blocking' },

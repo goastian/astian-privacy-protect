@@ -23,6 +23,11 @@ const LISTS = {
   'peter-lowe': 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext',
 };
 
+// DuckDuckGo Tracker Detection Schema (TDS) — curated tracker list with better signal/noise than EasyPrivacy
+const TDS_LISTS = {
+  'ddg-tds': 'https://raw.githubusercontent.com/duckduckgo/tracker-blocklists/main/web/v6/extension-mv3-tds.json',
+};
+
 // Chrome DNR limits
 const MAX_RULES_PER_LIST = 60000;
 
@@ -269,6 +274,70 @@ function allResourceTypes() {
   ];
 }
 
+/**
+ * Convert DuckDuckGo TDS JSON to Chrome DNR rules.
+ * Only trackers with default:'block' are converted; rules with action:'ignore' become allow rules.
+ * All rules are scoped to third-party context since TDS only tracks cross-site trackers.
+ */
+function parseTDStoDNR(tds, startId = 1) {
+  const rules = [];
+  let ruleId = startId;
+
+  for (const [domain, tracker] of Object.entries(tds.trackers || {})) {
+    if (ruleId > MAX_RULES_PER_LIST) break;
+
+    const urlFilter = `||${domain}^`;
+
+    // Skip patterns that would dangerously block major sites
+    if (DANGEROUS_PATTERNS.includes(urlFilter)) continue;
+    const criticalDomain = targetsCriticalDomain(urlFilter);
+    if (criticalDomain) continue;
+
+    const defaultAction = tracker.default || 'block';
+    const trackerRules = tracker.rules || [];
+
+    if (defaultAction === 'block') {
+      // Emit allow rules for sub-patterns with action:'ignore' (exception overrides)
+      for (const r of trackerRules) {
+        if (ruleId > MAX_RULES_PER_LIST) break;
+        if (r.action !== 'ignore') continue;
+        if (!r.rule) continue;
+        // Convert the regex pattern to a DNR urlFilter via anchored regex
+        try {
+          // Validate regex is usable
+          new RegExp(r.rule); // eslint-disable-line no-new
+          rules.push({
+            id: ruleId++,
+            priority: 3, // Higher than block rule so allow wins
+            action: { type: 'allow' },
+            condition: {
+              regexFilter: r.rule,
+              resourceTypes: allResourceTypes(),
+              domainType: 'thirdParty',
+            },
+          });
+        } catch (_) {
+          // Malformed regex – skip
+        }
+      }
+
+      // Emit the block rule for the whole domain (third-party)
+      rules.push({
+        id: ruleId++,
+        priority: 1,
+        action: { type: 'block' },
+        condition: {
+          urlFilter,
+          resourceTypes: allResourceTypes(),
+          domainType: 'thirdParty',
+        },
+      });
+    }
+  }
+
+  return rules;
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -307,6 +376,33 @@ async function main() {
 
       writeFileSync(outputPath, JSON.stringify(rules, null, 0));
       console.log(` ${rules.length} rules. Done.`);
+    } catch (e) {
+      console.error(` FAILED: ${e.message}`);
+    }
+  }
+
+  // ── DuckDuckGo TDS JSON lists ────────────────────────────────────────────
+  for (const [name, url] of Object.entries(TDS_LISTS)) {
+    const outputPath = resolve(RULES_DIR, `${name}.json`);
+
+    if (existsSync(outputPath)) {
+      console.log(`[skip] ${name}.json already exists`);
+      continue;
+    }
+
+    process.stdout.write(`Downloading ${name} (TDS JSON)...`);
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const tds = await response.json();
+      const trackerCount = Object.keys(tds.trackers || {}).length;
+
+      process.stdout.write(` ${trackerCount} trackers. Converting...`);
+
+      const rules = parseTDStoDNR(tds);
+      writeFileSync(outputPath, JSON.stringify(rules, null, 0));
+      console.log(` ${rules.length} DNR rules. Done.`);
     } catch (e) {
       console.error(` FAILED: ${e.message}`);
     }

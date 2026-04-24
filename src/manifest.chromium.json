@@ -67,6 +67,11 @@
         "id": "peter-lowe",
         "enabled": true,
         "path": "rules/peter-lowe.json"
+      },
+      {
+        "id": "ddg-tds",
+        "enabled": true,
+        "path": "rules/ddg-tds.json"
       }
     ]
   },
