@@ -1846,27 +1846,33 @@
     })();`;
   }
 
-  // ── Immediate YouTube scriptlet injection ─────────────────────────────────
-  // Inject YouTube ad-skip scriptlet immediately at document_start (MAIN world)
-  // without waiting for postMessage from cosmetic.js. This ensures the
-  // MutationObserver and setInterval are active as early as possible.
-
+  // ── Runtime state gate ────────────────────────────────────────────────────
+  // Keep all scriptlet-side behavior disabled when protection is disabled
+  // globally or bypassed for this host.
   var hn = '';
   try { hn = window.location.hostname; } catch(e) {}
-  installPopupGestureBridge();
-  sendRuntimeMessage({ action: 'get-ia-shield-config', hostname: hn }).then(function(response) {
-    if (response && response.config && response.config.enabled) {
-      installIaShieldRuntime(response.config);
+  var siteProtectionEnabled = true;
+
+  sendRuntimeMessage({ action: 'get-site-protection-state', hostname: hn }).then(function(state) {
+    siteProtectionEnabled = state && state.enabled === false ? false : true;
+    if (!siteProtectionEnabled) return;
+
+    installPopupGestureBridge();
+    sendRuntimeMessage({ action: 'get-ia-shield-config', hostname: hn }).then(function(response) {
+      if (response && response.config && response.config.enabled) {
+        installIaShieldRuntime(response.config);
+      }
+    });
+    sendRuntimeMessage({ action: 'get-popup-defense-config', hostname: hn }).then(function(response) {
+      if (response && response.config) {
+        injectCode(buildPopupDefenseCode(response.config));
+      }
+    });
+    if (hn === 'www.youtube.com' || hn === 'youtube.com' || hn === 'm.youtube.com') {
+      applyScriptlets([{ name: 'yt-ad-pruner', args: [] }]);
+      _appliedScriptlets['yt-ad-pruner:'] = true;
     }
-  });
-  sendRuntimeMessage({ action: 'get-popup-defense-config', hostname: hn }).then(function(response) {
-    if (response && response.config) {
-      injectCode(buildPopupDefenseCode(response.config));
-    }
-  });
-  if (hn === 'www.youtube.com' || hn === 'youtube.com' || hn === 'm.youtube.com') {
-    applyScriptlets([{ name: 'yt-ad-pruner', args: [] }]);
-  }
+  }).catch(function() {});
 
   // ── Communication Bridge ──────────────────────────────────────────────────
   // This script runs in MAIN world (page context).
@@ -1881,6 +1887,7 @@
     if (event.source !== window) return;
     if (event.origin !== location.origin) return;
     if (!event.data) return;
+    if (!siteProtectionEnabled) return;
 
     // Legacy scriptlet rules (parsed by our engine)
     if (event.data.type === 'midori-scriptlets' && event.data.scriptlets) {
@@ -1915,11 +1922,6 @@
       });
     }
   });
-
-  // Mark YouTube scriptlet as already applied (prevent duplicate from postMessage)
-  if (hn === 'www.youtube.com' || hn === 'youtube.com' || hn === 'm.youtube.com') {
-    _appliedScriptlets['yt-ad-pruner:'] = true;
-  }
 
   setTimeout(function() {
     reportContentCost(performance.now() - scriptStart);

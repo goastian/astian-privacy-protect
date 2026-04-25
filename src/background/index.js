@@ -80,6 +80,25 @@ function hostnameMatches(hostname, pattern) {
   return hostname === pattern || hostname.endsWith(`.${pattern}`);
 }
 
+function isHostnameWhitelisted(hostname, whitelist = whitelistCache) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host || !whitelist || typeof whitelist !== 'object') return false;
+  if (whitelist[host]) return true;
+
+  const parts = host.split('.');
+  for (let i = 1; i < parts.length - 1; i++) {
+    const parent = parts.slice(i).join('.');
+    if (whitelist[parent]) return true;
+  }
+
+  return false;
+}
+
+function isProtectionBypassedForHost(hostname, options = getRuntimeOptions()) {
+  if (options?.enabled === false) return true;
+  return isHostnameWhitelisted(hostname, options?.whitelist || {});
+}
+
 // ── Notify popup of stats changes (8.1 optimization: event-driven) ──────────
 async function notifyPopupStatsChange(tabId) {
   if (!tabId) return;
@@ -931,7 +950,7 @@ function isWhitelistedSync(hostname) {
       whitelistCache = opts.whitelist || {};
     });
   }
-  return !!whitelistCache[hostname];
+  return isHostnameWhitelisted(hostname, whitelistCache);
 }
 
 const pendingSaveTabsFirefox = new Set();
@@ -1335,8 +1354,41 @@ if (chrome.runtime.onMessageExternal) {
 
 async function handleMessage(msg, sender) {
   switch (msg.action) {
-    case 'get-popup-defense-config':
-      return { config: getPopupDefenseConfig(msg.hostname || '', getRuntimeOptions()) };
+    case 'get-popup-defense-config': {
+      const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
+      const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
+      const runtime = getRuntimeOptions();
+      if (isProtectionBypassedForHost(hostname, runtime)) {
+        return {
+          config: {
+            enabled: false,
+            defense: 'relaxed',
+            gestureWindowMs: 0,
+            evaluationDelayMs: 0,
+            burstWindowMs: 5000,
+            maxBurstWithoutGesture: 99,
+            redirectHopThreshold: 99,
+            closeTabsWithoutGesture: false,
+            vertical: 'general',
+          },
+        };
+      }
+      return { config: getPopupDefenseConfig(hostname, runtime) };
+    }
+
+    case 'get-site-protection-state': {
+      const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
+      const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
+      const runtime = getRuntimeOptions();
+      const globalEnabled = runtime?.enabled !== false;
+      const whitelisted = isHostnameWhitelisted(hostname, runtime?.whitelist || {});
+      return {
+        hostname,
+        globalEnabled,
+        whitelisted,
+        enabled: globalEnabled && !whitelisted,
+      };
+    }
 
     case 'popup-guard-user-gesture': {
       const tabId = sender?.tab?.id ?? msg.tabId;
@@ -1407,6 +1459,20 @@ async function handleMessage(msg, sender) {
       const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
       const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
       const opts = await getOptions();
+      if (isProtectionBypassedForHost(hostname, opts)) {
+        return {
+          config: {
+            enabled: false,
+            strict: false,
+            sanitizeOnPaste: false,
+            monitor: { paste: false, input: false, dom: false },
+            isolate: { enabled: false, mode: 'warn' },
+            vertical: 'general',
+            matchedOverrideDomain: '',
+            reason: opts?.enabled === false ? 'disabled' : 'site-whitelisted',
+          },
+        };
+      }
       return { config: buildIaShieldConfig(opts, hostname) };
     }
 
@@ -1547,6 +1613,10 @@ async function handleMessage(msg, sender) {
 
     case 'get-cosmetics': {
       const hostname = msg.hostname || '';
+      const runtime = getRuntimeOptions();
+      if (isProtectionBypassedForHost(hostname, runtime)) {
+        return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
+      }
       const siteContext = resolveSiteProfile(hostname, getRuntimeOptions());
       const cosmeticsEnabled = siteContext.profile?.cosmeticsEnabled !== false;
       if (!cosmeticsEnabled) {
@@ -1571,10 +1641,23 @@ async function handleMessage(msg, sender) {
     }
 
     case 'get-scriptlets': {
-      return { scriptlets: engine.getScriptletRules(msg.hostname || '').slice(0, 100) };
+      const hostname = msg.hostname || '';
+      const runtime = getRuntimeOptions();
+      if (isProtectionBypassedForHost(hostname, runtime)) {
+        return { enabled: false, scriptlets: [] };
+      }
+      return {
+        enabled: true,
+        scriptlets: engine.getScriptletRules(hostname).slice(0, 100),
+      };
     }
 
     case 'get-anti-fingerprint': {
+      const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
+      const runtime = getRuntimeOptions();
+      if (isProtectionBypassedForHost(tabHostname, runtime)) {
+        return { enabled: false };
+      }
       const afOpts = await getOptions();
       return { enabled: afOpts.antiFingerprint !== false };
     }
@@ -1583,6 +1666,10 @@ async function handleMessage(msg, sender) {
       const tabId = sender?.tab?.id;
       if (!Number.isInteger(tabId) || tabId < 0) {
         return { success: false, reason: 'invalid_tab' };
+      }
+      const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
+      if (isProtectionBypassedForHost(tabHostname, getRuntimeOptions())) {
+        return { success: false, reason: 'disabled' };
       }
       return await handleAutoConsentRequest(tabId);
     }

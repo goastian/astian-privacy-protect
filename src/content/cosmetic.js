@@ -914,49 +914,57 @@ iframe[name*="google_ads"],
   const hostname = window.location.hostname;
   if (!hostname) return;
 
-  // ── Step 1: Inject global ad-collapse CSS immediately ──
-  injectGlobalAdCSS();
-
-  // ── Step 2: Apply site-specific + filter-list cosmetic selectors ──
-  const builtin = getBuiltinSelectors(hostname);
-
-  sendMsg({ action: 'get-cosmetics', hostname }).then(response => {
-    cosmeticsRuntimeEnabled = response?.enabled !== false;
-    if (!cosmeticsRuntimeEnabled) return;
-
-    const all = [...builtin, ...(response?.selectors || [])];
-    applySelectors(all);
-    if (response?.styles) {
-      if (ghosteryStyle && ghosteryStyle.parentNode) {
-        ghosteryStyle.parentNode.removeChild(ghosteryStyle);
-      }
-      ghosteryStyle = document.createElement('style');
-      ghosteryStyle.setAttribute('data-midori-privacy', 'ghostery-cosmetic');
-      ghosteryStyle.textContent = response.styles;
-      (document.head || document.documentElement).appendChild(ghosteryStyle);
+  async function initSiteProtection() {
+    const state = await sendMsg({ action: 'get-site-protection-state', hostname });
+    const siteProtectionEnabled = state?.enabled !== false;
+    if (!siteProtectionEnabled) {
+      cosmeticsRuntimeEnabled = false;
+      return;
     }
-    if (response?.compiledScripts?.length > 0) {
-      const validScripts = response.compiledScripts.filter(c => c && typeof c === 'string');
-      if (validScripts.length > 0) {
-        queueCompiledScriptlets(validScripts.length, 'compiled-scriptlets');
-        window.postMessage({ type: 'midori-compiled-scriptlet-batch', scripts: validScripts }, '*');
+
+    // ── Step 1: Inject global ad-collapse CSS ──
+    injectGlobalAdCSS();
+
+    // ── Step 2: Apply site-specific + filter-list cosmetic selectors ──
+    const builtin = getBuiltinSelectors(hostname);
+    const cosmeticsResponse = await sendMsg({ action: 'get-cosmetics', hostname });
+    cosmeticsRuntimeEnabled = cosmeticsResponse?.enabled !== false;
+    if (cosmeticsRuntimeEnabled) {
+      const all = [...builtin, ...(cosmeticsResponse?.selectors || [])];
+      applySelectors(all);
+      if (cosmeticsResponse?.styles) {
+        if (ghosteryStyle && ghosteryStyle.parentNode) {
+          ghosteryStyle.parentNode.removeChild(ghosteryStyle);
+        }
+        ghosteryStyle = document.createElement('style');
+        ghosteryStyle.setAttribute('data-midori-privacy', 'ghostery-cosmetic');
+        ghosteryStyle.textContent = cosmeticsResponse.styles;
+        (document.head || document.documentElement).appendChild(ghosteryStyle);
+      }
+      if (cosmeticsResponse?.compiledScripts?.length > 0) {
+        const validScripts = cosmeticsResponse.compiledScripts.filter(c => c && typeof c === 'string');
+        if (validScripts.length > 0) {
+          queueCompiledScriptlets(validScripts.length, 'compiled-scriptlets');
+          window.postMessage({ type: 'midori-compiled-scriptlet-batch', scripts: validScripts }, '*');
+        }
       }
     }
-  });
 
-  // ── Step 3: Inject scriptlets ──
-  const builtinScriptlets = getBuiltinScriptlets(hostname);
-  if (builtinScriptlets.length > 0) {
-    forwardScriptletsToPage(builtinScriptlets);
-  }
+    // ── Step 3: Inject scriptlets ──
+    const builtinScriptlets = getBuiltinScriptlets(hostname);
+    const scriptletsResponse = await sendMsg({ action: 'get-scriptlets', hostname });
+    if (scriptletsResponse?.enabled !== false) {
+      if (builtinScriptlets.length > 0) {
+        forwardScriptletsToPage(builtinScriptlets);
+      }
+      if (scriptletsResponse?.scriptlets?.length > 0) {
+        forwardScriptletsToPage(scriptletsResponse.scriptlets);
+      }
+    }
 
-  sendMsg({ action: 'get-scriptlets', hostname }).then(response => {
-    if (response?.scriptlets?.length > 0) forwardScriptletsToPage(response.scriptlets);
-  });
-
-  // ── Step 3b: Anti-fingerprinting protection ──
-  sendMsg({ action: 'get-anti-fingerprint' }).then(response => {
-    if (response?.enabled) {
+    // ── Step 3b: Anti-fingerprinting protection ──
+    const antiFpResponse = await sendMsg({ action: 'get-anti-fingerprint' });
+    if (antiFpResponse?.enabled) {
       const fpScriptlets = [
         { name: 'canvas-fingerprint-protect', args: [] },
         { name: 'webgl-fingerprint-protect', args: [] },
@@ -966,185 +974,185 @@ iframe[name*="google_ads"],
       ];
       forwardScriptletsToPage(fpScriptlets);
     }
-  });
 
-  // ── Step 4: Run initial JS-based ad scan ──
-  // Skip heuristic scanning on sites with complex UIs where generic patterns
-  // cause false positives (YouTube, etc.). These sites rely solely on their
-  // BUILTIN_COSMETICS selectors.
-  const skipHeuristicScan = shouldExcludeGlobalCSS(hostname);
+    // ── Step 4: Run initial JS-based ad scan ──
+    // Skip heuristic scanning on sites with complex UIs where generic patterns
+    // cause false positives (YouTube, etc.). These sites rely solely on their
+    // BUILTIN_COSMETICS selectors.
+    const skipHeuristicScan = shouldExcludeGlobalCSS(hostname);
 
-  // Never-Consent: skip on YouTube (excluded from consent handling)
-  const NEVER_CONSENT_EXCLUDE = [
-    'youtube.com', 'youtu.be', 'youtube-nocookie.com',
-  ];
-  function isNeverConsentExcluded() {
-    for (const domain of NEVER_CONSENT_EXCLUDE) {
-      if (hostname === domain || hostname.endsWith('.' + domain)) return true;
-    }
-    return false;
-  }
-  const skipNeverConsent = isNeverConsentExcluded();
-
-  function initialScan() {
-    if (skipHeuristicScan) return;
-    scanAndCollapse(document.body || document.documentElement, true);
-    // AutoConsent: skip if YouTube is excluded
-    if (!skipNeverConsent) {
-      setTimeout(() => { handleAutoConsent().catch(() => {}); }, 500);
-      setTimeout(() => { handleAutoConsent().catch(() => {}); }, 2000);
-    }
-  }
-
-  if (!skipHeuristicScan) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initialScan, { once: true });
-    } else {
-      initialScan();
-    }
-
-    // Also scan after full load (catches lazy-loaded ads)
-    window.addEventListener('load', () => {
-      setTimeout(initialScan, 500);
-      setTimeout(initialScan, 3000);
-    }, { once: true });
-  }
-
-  // ── Step 5: Universal MutationObserver — watches for dynamically inserted ads ──
-  // Skip on excluded sites to avoid false positives and performance overhead.
-  // Optimization 8.2: Early exit for sites that don't need dynamic monitoring
-  // fix: Use Set for O(1) lookup + unified isObserverSkipHost() check
-  const OBSERVER_SKIP_DOMAINS = new Set([
-    'youtube.com', 'youtu.be', 'youtube-nocookie.com', // YouTube has native ads, skip observer
-    'reddit.com', 'twitch.tv', // High-traffic sites: CSS-only hiding, no JS observer
-  ]);
-
-  function isObserverSkipHost(host) {
-    if (OBSERVER_SKIP_DOMAINS.has(host)) return true;
-    // Check parent domains (www.reddit.com → .reddit.com)
-    for (const domain of OBSERVER_SKIP_DOMAINS) {
-      if (host.endsWith('.' + domain)) return true;
-    }
-    return false;
-  }
-
-  // Cache the result once per page load for zero-cost reuse
-  const _isSkippedHost = isObserverSkipHost(hostname);
-
-  function shouldSkipObserver() {
-    return skipHeuristicScan || _isSkippedHost;
-  }
-  
-  let observerTimer = null;
-  let observerFrameThrottle = 0;
-  const OBSERVER_THROTTLE_MS = 500; // Max frame rate for observer callbacks
-
-  function startUniversalObserver() {
-    if (shouldSkipObserver()) return;
-    const target = document.body || document.documentElement;
-    if (!target) {
-      document.addEventListener('DOMContentLoaded', startUniversalObserver, { once: true });
-      return;
-    }
-
-    let pendingMutations = [];
-    let mutationCount = 0;
-    const MAX_MUTATIONS_PER_BATCH = 100; // Process max 100 mutations per batch (8.2 optimization: aggressive batching)
-    
-    const observer = new MutationObserver((mutations) => {
-      // Optimization 8.2: Early exit if too many mutations (likely noise)
-      if (mutations.length > 200) {
-        return; // Skip batch to avoid performance degradation
+    // Never-Consent: skip on YouTube (excluded from consent handling)
+    const NEVER_CONSENT_EXCLUDE = [
+      'youtube.com', 'youtu.be', 'youtube-nocookie.com',
+    ];
+    function isNeverConsentExcluded() {
+      for (const domain of NEVER_CONSENT_EXCLUDE) {
+        if (hostname === domain || hostname.endsWith('.' + domain)) return true;
       }
-      
-      // Batch mutations via rAF for lower overhead than setTimeout
-      pendingMutations.push(...mutations.slice(0, MAX_MUTATIONS_PER_BATCH));
-      mutationCount += mutations.length;
-      
-      if (observerTimer) return;
-      observerTimer = requestAnimationFrame(() => {
-        observerTimer = null;
-        const batch = pendingMutations;
-        const count = mutationCount;
-        pendingMutations = [];
-        mutationCount = 0;
-        scanMutations(batch);
-        
-        // Report performance KPI if too many mutations
-        if (count > 50) {
-          reportContentCost(0); // Signal high mutation activity
+      return false;
+    }
+    const skipNeverConsent = isNeverConsentExcluded();
+
+    function initialScan() {
+      if (skipHeuristicScan) return;
+      scanAndCollapse(document.body || document.documentElement, true);
+      // AutoConsent: skip if YouTube is excluded
+      if (!skipNeverConsent) {
+        setTimeout(() => { handleAutoConsent().catch(() => {}); }, 500);
+        setTimeout(() => { handleAutoConsent().catch(() => {}); }, 2000);
+      }
+    }
+
+    if (!skipHeuristicScan) {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initialScan, { once: true });
+      } else {
+        initialScan();
+      }
+
+      // Also scan after full load (catches lazy-loaded ads)
+      window.addEventListener('load', () => {
+        setTimeout(initialScan, 500);
+        setTimeout(initialScan, 3000);
+      }, { once: true });
+    }
+
+    // ── Step 5: Universal MutationObserver — watches for dynamically inserted ads ──
+    // Skip on excluded sites to avoid false positives and performance overhead.
+    // Optimization 8.2: Early exit for sites that don't need dynamic monitoring
+    // fix: Use Set for O(1) lookup + unified isObserverSkipHost() check
+    const OBSERVER_SKIP_DOMAINS = new Set([
+      'youtube.com', 'youtu.be', 'youtube-nocookie.com', // YouTube has native ads, skip observer
+      'reddit.com', 'twitch.tv', // High-traffic sites: CSS-only hiding, no JS observer
+    ]);
+
+    function isObserverSkipHost(host) {
+      if (OBSERVER_SKIP_DOMAINS.has(host)) return true;
+      // Check parent domains (www.reddit.com → .reddit.com)
+      for (const domain of OBSERVER_SKIP_DOMAINS) {
+        if (host.endsWith('.' + domain)) return true;
+      }
+      return false;
+    }
+
+    // Cache the result once per page load for zero-cost reuse
+    const _isSkippedHost = isObserverSkipHost(hostname);
+
+    function shouldSkipObserver() {
+      return skipHeuristicScan || _isSkippedHost;
+    }
+
+    let observerTimer = null;
+
+    function startUniversalObserver() {
+      if (shouldSkipObserver()) return;
+      const target = document.body || document.documentElement;
+      if (!target) {
+        document.addEventListener('DOMContentLoaded', startUniversalObserver, { once: true });
+        return;
+      }
+
+      let pendingMutations = [];
+      let mutationCount = 0;
+      const MAX_MUTATIONS_PER_BATCH = 100; // Process max 100 mutations per batch (8.2 optimization: aggressive batching)
+
+      const observer = new MutationObserver((mutations) => {
+        // Optimization 8.2: Early exit if too many mutations (likely noise)
+        if (mutations.length > 200) {
+          return; // Skip batch to avoid performance degradation
+        }
+
+        // Batch mutations via rAF for lower overhead than setTimeout
+        pendingMutations.push(...mutations.slice(0, MAX_MUTATIONS_PER_BATCH));
+        mutationCount += mutations.length;
+
+        if (observerTimer) return;
+        observerTimer = requestAnimationFrame(() => {
+          observerTimer = null;
+          const batch = pendingMutations;
+          const count = mutationCount;
+          pendingMutations = [];
+          mutationCount = 0;
+          scanMutations(batch);
+
+          // Report performance KPI if too many mutations
+          if (count > 50) {
+            reportContentCost(0); // Signal high mutation activity
+          }
+        });
+      });
+
+      // Optimization 8.2: Limit observer scope to main content areas only (not entire subtree)
+      observer.observe(target, {
+        childList: true,
+        subtree: true
+        // Don't observe attributes to reduce callback frequency
+      });
+    }
+
+    startUniversalObserver();
+
+    // ── Step 6: SPA navigation handler (YouTube, etc.) ──
+    let lastUrl = location.href;
+    function checkSPANavigation() {
+      if (location.href !== lastUrl) {
+        lastUrl = location.href;
+
+        // Re-apply cosmetics
+        if (builtin.length > 0 && !appliedStyle?.parentNode) {
+          applySelectors(builtin);
+        }
+
+        // Re-inject scriptlets
+        if (builtinScriptlets.length > 0) {
+          forwardScriptletsToPage(builtinScriptlets);
+        }
+
+        // Skip heavy heuristic rescan on observer-skipped sites
+        // (Reddit, Twitch, YouTube) — rely on CSS selectors only
+        if (!_isSkippedHost && !skipHeuristicScan) {
+          setTimeout(initialScan, 300);
+          setTimeout(initialScan, 1500);
+        }
+      }
+    }
+
+    // Use both popstate and MutationObserver for SPA detection
+    window.addEventListener('popstate', checkSPANavigation);
+
+    // YouTube-specific: listen for yt-navigate-finish (native SPA event)
+    if (hostname.endsWith('youtube.com')) {
+      document.addEventListener('yt-navigate-finish', () => {
+        lastUrl = location.href;
+        // Re-apply cosmetics only — scriptlets (Response.prototype.json hook,
+        // MutationObserver, setInterval) persist across SPA navigations.
+        // Re-injecting them creates duplicate hooks that multiply latency.
+        if (builtin.length > 0) {
+          applySelectors(builtin);
         }
       });
-    });
-
-    // Optimization 8.2: Limit observer scope to main content areas only (not entire subtree)
-    observer.observe(target, { 
-      childList: true, 
-      subtree: true 
-      // Don't observe attributes to reduce callback frequency
-    });
-  }
-
-  startUniversalObserver();
-
-  // ── Step 6: SPA navigation handler (YouTube, etc.) ──
-  let lastUrl = location.href;
-  function checkSPANavigation() {
-    if (location.href !== lastUrl) {
-      lastUrl = location.href;
-
-      // Re-apply cosmetics
-      if (builtin.length > 0 && !appliedStyle?.parentNode) {
-        applySelectors(builtin);
-      }
-
-      // Re-inject scriptlets
-      if (builtinScriptlets.length > 0) {
-        forwardScriptletsToPage(builtinScriptlets);
-      }
-
-      // Skip heavy heuristic rescan on observer-skipped sites
-      // (Reddit, Twitch, YouTube) — rely on CSS selectors only
-      if (!_isSkippedHost && !skipHeuristicScan) {
-        setTimeout(initialScan, 300);
-        setTimeout(initialScan, 1500);
-      }
     }
-  }
 
-  // Use both popstate and MutationObserver for SPA detection
-  window.addEventListener('popstate', checkSPANavigation);
-
-  // YouTube-specific: listen for yt-navigate-finish (native SPA event)
-  if (hostname.endsWith('youtube.com')) {
-    document.addEventListener('yt-navigate-finish', () => {
-      lastUrl = location.href;
-      // Re-apply cosmetics only — scriptlets (Response.prototype.json hook,
-      // MutationObserver, setInterval) persist across SPA navigations.
-      // Re-injecting them creates duplicate hooks that multiply latency.
-      if (builtin.length > 0) {
-        applySelectors(builtin);
+    // For pushState/replaceState SPAs (non-YouTube sites)
+    // Skip on sites that already have their own SPA event handlers (e.g. YouTube
+    // uses yt-navigate-finish above) to avoid redundant MutationObservers.
+    function startSPAObserver() {
+      // Phase 6 fix: Use cached skip result for guaranteed consistency
+      if (_isSkippedHost) return;
+      const target = document.body || document.documentElement;
+      if (!target) {
+        document.addEventListener('DOMContentLoaded', startSPAObserver, { once: true });
+        return;
       }
-    });
+      const spaObserver = new MutationObserver(checkSPANavigation);
+      spaObserver.observe(document.querySelector('title') || target, {
+        childList: true, subtree: false, characterData: true,
+      });
+    }
+    startSPAObserver();
   }
 
-  // For pushState/replaceState SPAs (non-YouTube sites)
-  // Skip on sites that already have their own SPA event handlers (e.g. YouTube
-  // uses yt-navigate-finish above) to avoid redundant MutationObservers.
-  function startSPAObserver() {
-    // Phase 6 fix: Use cached skip result for guaranteed consistency
-    if (_isSkippedHost) return;
-    const target = document.body || document.documentElement;
-    if (!target) {
-      document.addEventListener('DOMContentLoaded', startSPAObserver, { once: true });
-      return;
-    }
-    const spaObserver = new MutationObserver(checkSPANavigation);
-    spaObserver.observe(document.querySelector('title') || target, {
-      childList: true, subtree: false, characterData: true,
-    });
-  }
-  startSPAObserver();
+  initSiteProtection().catch(() => {});
 
   setTimeout(() => {
     flushAppliedRulesTelemetry();

@@ -862,6 +862,14 @@ function setupListeners() {
 
     isWhitelisted = result?.whitelisted || false;
     updateStatusUI();
+
+    if (currentTabId) {
+      try {
+        await api.tabs.reload(currentTabId);
+      } catch (err) {
+        // Ignore reload failures (tab closed/navigated)
+      }
+    }
   });
 
   // Protection level buttons
