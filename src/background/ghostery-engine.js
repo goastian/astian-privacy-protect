@@ -21,6 +21,9 @@ import { extractDomain, categorizeRequest } from './filter-utils.js';
 const IDB_NAME = 'midori-privacy';
 const IDB_STORE = 'engine-cache';
 const IDB_KEY = 'ghostery-engine-v1';
+const IDB_PROFILE_PREFIX = 'ghostery-engine-profile:';
+const IDB_PROFILE_INDEX_KEY = 'ghostery-engine-profile-index';
+const MAX_PROFILE_SNAPSHOTS = 8;
 
 // Optimization 8.5: LRU cache for matching results
 class LRUCache {
@@ -98,6 +101,21 @@ async function idbSet(key, value) {
   }
 }
 
+async function idbDelete(key) {
+  try {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.delete(key);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    console.warn('[ghostery-engine] IDB delete failed:', e);
+  }
+}
+
 // ── GhosteryEngine adapter ──────────────────────────────────────────────────
 
 export class GhosteryEngine {
@@ -145,6 +163,65 @@ export class GhosteryEngine {
       console.log(`[ghostery-engine] Persisted to cache (${(serialized.byteLength / 1024).toFixed(0)} KB)`);
     } catch (e) {
       console.warn('[ghostery-engine] Cache persist failed:', e);
+    }
+  }
+
+  /**
+   * Restore an engine snapshot for a specific list/profile fingerprint.
+   * @param {string} profileKey
+   * @returns {Promise<boolean>}
+   */
+  async restoreProfileFromCache(profileKey) {
+    if (!profileKey) return false;
+    const key = `${IDB_PROFILE_PREFIX}${profileKey}`;
+    try {
+      const cached = await idbGet(key);
+      if (!cached || !(cached instanceof Uint8Array)) return false;
+      this._engine = FiltersEngine.deserialize(cached);
+      this._updateStats();
+      console.log(`[ghostery-engine] Restored profile cache: ${profileKey} (${this.rulesCount} rules)`);
+      return true;
+    } catch (e) {
+      console.warn('[ghostery-engine] Profile cache restore failed:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Persist current engine under a specific profile fingerprint and maintain
+   * a small LRU index of snapshots to bound storage growth.
+   * @param {string} profileKey
+   */
+  async persistProfileToCache(profileKey) {
+    if (!this._engine || !profileKey) return;
+    const key = `${IDB_PROFILE_PREFIX}${profileKey}`;
+    try {
+      const serialized = this._engine.serialize();
+      await idbSet(key, serialized);
+
+      const now = Date.now();
+      const currentIndex = await idbGet(IDB_PROFILE_INDEX_KEY);
+      const index = Array.isArray(currentIndex) ? currentIndex : [];
+
+      const nextIndex = index.filter(entry => entry?.key !== key);
+      nextIndex.push({ key, at: now });
+
+      if (nextIndex.length > MAX_PROFILE_SNAPSHOTS) {
+        const overflow = nextIndex
+          .slice()
+          .sort((a, b) => (a.at || 0) - (b.at || 0))
+          .slice(0, nextIndex.length - MAX_PROFILE_SNAPSHOTS);
+        for (const old of overflow) {
+          await idbDelete(old.key);
+        }
+      }
+
+      const finalIndex = nextIndex
+        .sort((a, b) => (b.at || 0) - (a.at || 0))
+        .slice(0, MAX_PROFILE_SNAPSHOTS);
+      await idbSet(IDB_PROFILE_INDEX_KEY, finalIndex);
+    } catch (e) {
+      console.warn('[ghostery-engine] Profile cache persist failed:', e);
     }
   }
 
