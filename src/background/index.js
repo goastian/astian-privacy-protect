@@ -8,7 +8,7 @@
 import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock } from './storage.js';
 import { extractDomain, categorizeRequest } from './filter-utils.js';
 import { GhosteryEngine } from './ghostery-engine.js';
-import { downloadAllListsWithStatus, getCachedLists, scheduleUpdates } from './lists-manager.js';
+import { downloadAllListsWithStatus, getCachedLists, getEnabledListsFingerprint, scheduleUpdates } from './lists-manager.js';
 import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, getAppliedRulesDiagnostics, exportReport } from './report-generator.js';
 import {
@@ -829,8 +829,15 @@ async function initialize() {
     console.warn('[midori] Ghostery cache restore failed:', e);
   }
 
-  // ── Step 2: Fallback to raw-text cache only when serialized engine is unavailable ──
+  // ── Step 2: Restore profile snapshot or fallback to raw-text cache if needed ──
   if (!ghosteryRestored) {
+    if (!IS_CHROMIUM) {
+      ghosteryRestored = await tryRestoreFirefoxEngineProfile(options, 'startup-profile');
+    }
+
+    if (ghosteryRestored) {
+      // Startup profile snapshot restored successfully.
+    } else {
     const cached = await getCachedLists();
     if (Object.keys(cached).length > 0) {
       if (IS_CHROMIUM) {
@@ -844,6 +851,7 @@ async function initialize() {
         await loadEngine(cached);
         console.log(`[midori] Loaded from list cache in ${Date.now() - t0}ms`);
       }
+    }
     }
   }
 
@@ -919,10 +927,53 @@ async function loadEngine(lists) {
       console.warn('[midori] Failed to persist Ghostery engine:', e);
     });
 
+    // Firefox engine-first: keep a few profile snapshots so list/profile switches
+    // can often restore without reparsing raw list text.
+    if (!IS_CHROMIUM) {
+      try {
+        const profileKey = await getEnabledListsFingerprint(options);
+        await ghosteryEngine.persistProfileToCache(profileKey);
+      } catch (e) {
+        console.warn('[midori] Failed to persist Firefox profile snapshot:', e);
+      }
+    }
+
     return;
   } catch (e) {
     console.error('[midori] Ghostery engine failed to load lists:', e);
   }
+}
+
+async function tryRestoreFirefoxEngineProfile(options, reason = 'runtime') {
+  if (IS_CHROMIUM) return false;
+  try {
+    const profileKey = await getEnabledListsFingerprint(options);
+    const restored = await ghosteryEngine.restoreProfileFromCache(profileKey);
+    if (restored) {
+      engine = ghosteryEngine;
+      console.log(`[midori] Firefox profile restored (${reason}): ${engine.rulesCount} rules`);
+      return true;
+    }
+  } catch (e) {
+    console.warn(`[midori] Firefox profile restore failed (${reason}):`, e);
+  }
+  return false;
+}
+
+async function reloadFirefoxEngineForOptions(options, reason = 'config-change') {
+  if (IS_CHROMIUM) return true;
+
+  if (await tryRestoreFirefoxEngineProfile(options, reason)) {
+    return true;
+  }
+
+  const freshLists = await getCachedLists();
+  if (Object.keys(freshLists).length > 0) {
+    await loadEngine(freshLists);
+    return true;
+  }
+
+  return false;
 }
 
 // ── Firefox: webRequest blocking ────────────────────────────────────────────
@@ -1674,11 +1725,9 @@ async function handleMessage(msg, sender) {
     }
 
     case 'save-user-filters': {
-      await setOptions({ userFilters: msg.userFilters || '' });
-      // Reload engine with user filters
-      const cached = await getCachedLists();
-      if (Object.keys(cached).length > 0) {
-        await loadEngine(cached);
+      const updatedOptions = await setOptions({ userFilters: msg.userFilters || '' });
+      if (!IS_CHROMIUM) {
+        await reloadFirefoxEngineForOptions(updatedOptions, 'save-user-filters');
       }
       return { success: true, rulesCount: engine.rulesCount };
     }
@@ -1741,10 +1790,12 @@ async function handleMessage(msg, sender) {
       // Firefox: reload engine
       if (!IS_CHROMIUM) {
         try {
-          const freshLists = await getCachedLists();
-          if (Object.keys(freshLists).length > 0) {
-            await loadEngine(freshLists);
-          }
+          await reloadFirefoxEngineForOptions({
+            ...opts,
+            protectionLevel: level,
+            antiFingerprint: preset.antiFingerprint,
+            lists,
+          }, 'change-protection-level');
         } catch (e) {
           console.warn('[midori] Failed to reload engine:', e);
         }
@@ -1790,10 +1841,7 @@ async function handleMessage(msg, sender) {
       // Reload engine for Firefox
       if (!IS_CHROMIUM) {
         try {
-          const freshLists = await getCachedLists();
-          if (Object.keys(freshLists).length > 0) {
-            await loadEngine(freshLists);
-          }
+          await reloadFirefoxEngineForOptions(nextOptions, 'save-setup');
         } catch (e) {
           console.warn('[midori] Failed to reload engine from setup:', e);
         }
@@ -1870,8 +1918,7 @@ async function handleMessage(msg, sender) {
       // Firefox: reload engine
       if (!IS_CHROMIUM) {
         try {
-          const freshLists = await getCachedLists();
-          if (Object.keys(freshLists).length > 0) await loadEngine(freshLists);
+          await reloadFirefoxEngineForOptions({ ...opts, ...savePayload }, 'toggle-category');
         } catch (e) {}
       }
 
