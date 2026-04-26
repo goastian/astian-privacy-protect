@@ -74,6 +74,15 @@ if (target === 'chromium') {
   copyDir(resolve(SRC, 'rules'), resolve(DIST, 'rules'));
 }
 
+// Copy AutoConsent CMP rules as runtime-loaded assets (kept out of the JS bundle
+// so the service-worker cold-start doesn't pay the ~628 KB parse cost on every wake).
+const autoconsentDest = resolve(DIST, 'autoconsent');
+mkdirSync(autoconsentDest, { recursive: true });
+for (const file of ['rules.json', 'consentomatic.json']) {
+  const src = resolve(ROOT, 'node_modules/@duckduckgo/autoconsent/rules', file);
+  if (existsSync(src)) cpSync(src, resolve(autoconsentDest, file));
+}
+
 // Build JS entry points
 const entryPoints = [
   resolve(SRC, 'background/index.js'),
