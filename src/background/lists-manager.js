@@ -8,8 +8,63 @@
 import { getOptions, setOptions, storageLocal } from './storage.js';
 
 const LIST_CACHE_KEY = 'filter_lists_cache';
+const LIST_STATS_KEY = 'filter_lists_stats';
 const FETCH_TIMEOUT_MS = 30000;
 const RETRY_DELAYS = [5000, 15000, 30000]; // 3 retries with backoff
+
+function fastHash(input) {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+function countLinesFast(text) {
+  if (!text) return 0;
+  let lines = 1;
+  for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) === 10) lines++;
+  }
+  return lines;
+}
+
+function countRulesFast(text) {
+  if (!text) return 0;
+  let count = 0;
+  let start = 0;
+
+  for (let i = 0; i <= text.length; i++) {
+    const isEnd = i === text.length;
+    if (!isEnd && text.charCodeAt(i) !== 10) continue;
+
+    const line = text.slice(start, i).trim();
+    if (line && !line.startsWith('!') && !line.startsWith('[')) count++;
+    start = i + 1;
+  }
+
+  return count;
+}
+
+async function writeListStats(id, text, meta = {}) {
+  try {
+    const statsData = await storageLocal.get(LIST_STATS_KEY);
+    const stats = statsData[LIST_STATS_KEY] || {};
+    stats[id] = {
+      bytes: text?.length || 0,
+      lines: countLinesFast(text),
+      rulesCount: countRulesFast(text),
+      fetchedAt: meta.fetchedAt || Date.now(),
+      etag: meta.etag || '',
+      format: meta.format || 'abp',
+      changedAt: meta.changedAt || Date.now(),
+    };
+    await storageLocal.set({ [LIST_STATS_KEY]: stats });
+  } catch (e) {
+    console.warn(`[lists] Failed to write stats for ${id}:`, e?.message || e);
+  }
+}
 
 /**
  * Convert DuckDuckGo TDS JSON object to ABP filter text.
@@ -88,10 +143,12 @@ async function fetchList(id, url) {
       }
 
       // Save to cache
-      cache[id] = { etag, text, fetchedAt: Date.now() };
+      const fetchedAt = Date.now();
+      cache[id] = { etag, text, fetchedAt };
       await storageLocal.set({ [LIST_CACHE_KEY]: cache });
+      await writeListStats(id, text, { etag, fetchedAt, format: 'abp', changedAt: fetchedAt });
 
-      console.log(`[lists] ${id}: downloaded (${text.split('\n').length} lines)`);
+      console.log(`[lists] ${id}: downloaded (${countLinesFast(text)} lines)`);
       return text;
     } catch (e) {
       lastError = e;
@@ -150,8 +207,10 @@ async function fetchListWithStatus(id, url) {
         return { text: cached.text, changed: false };
       }
 
-      cache[id] = { etag, text, fetchedAt: Date.now() };
+      const fetchedAt = Date.now();
+      cache[id] = { etag, text, fetchedAt };
       await storageLocal.set({ [LIST_CACHE_KEY]: cache });
+      await writeListStats(id, text, { etag, fetchedAt, format: 'abp', changedAt: fetchedAt });
       return { text, changed: true };
     } catch (e) {
       lastError = e;
@@ -201,11 +260,13 @@ async function fetchTDSList(id, url) {
       const text = convertTDStoABP(tds);
       const etag = response.headers.get('ETag') || '';
 
-      cache[id] = { etag, text, fetchedAt: Date.now() };
+      const fetchedAt = Date.now();
+      cache[id] = { etag, text, fetchedAt };
       await storageLocal.set({ [LIST_CACHE_KEY]: cache });
+      await writeListStats(id, text, { etag, fetchedAt, format: 'tds', changedAt: fetchedAt });
 
       const trackerCount = Object.keys(tds.trackers || {}).length;
-      console.log(`[lists] ${id}: downloaded TDS (${trackerCount} trackers → ${text.split('\n').length} rules)`);
+      console.log(`[lists] ${id}: downloaded TDS (${trackerCount} trackers → ${countLinesFast(text)} rules)`);
       return text;
     } catch (e) {
       lastError = e;
@@ -260,8 +321,10 @@ async function fetchTDSListWithStatus(id, url) {
         return { text: cached.text, changed: false };
       }
 
-      cache[id] = { etag, text, fetchedAt: Date.now() };
+      const fetchedAt = Date.now();
+      cache[id] = { etag, text, fetchedAt };
       await storageLocal.set({ [LIST_CACHE_KEY]: cache });
+      await writeListStats(id, text, { etag, fetchedAt, format: 'tds', changedAt: fetchedAt });
       return { text, changed: true };
     } catch (e) {
       lastError = e;
@@ -390,15 +453,60 @@ export async function getCachedLists() {
  * Get the count of rules for a specific list from cache
  */
 export async function getListRulesCount(id) {
+  const statsData = await storageLocal.get(LIST_STATS_KEY);
+  const stats = statsData[LIST_STATS_KEY] || {};
+  const stat = stats[id];
+  if (typeof stat?.rulesCount === 'number') return stat.rulesCount;
+
   const cacheData = await storageLocal.get(LIST_CACHE_KEY);
   const cache = cacheData[LIST_CACHE_KEY] || {};
   const entry = cache[id];
   if (!entry?.text) return 0;
 
-  return entry.text.split('\n').filter(l => {
-    const line = l.trim();
-    return line && !line.startsWith('!') && !line.startsWith('[');
-  }).length;
+  const computed = countRulesFast(entry.text);
+  await writeListStats(id, entry.text, {
+    etag: entry.etag || '',
+    fetchedAt: entry.fetchedAt || Date.now(),
+    format: 'abp',
+    changedAt: entry.fetchedAt || Date.now(),
+  });
+  return computed;
+}
+
+/**
+ * Build a compact fingerprint for the enabled-list set + list versions.
+ * Used by Firefox engine-first profile snapshots to avoid raw-text reparsing
+ * across configuration switches when nothing changed semantically.
+ */
+export async function getEnabledListsFingerprint(optionsOverride = null) {
+  const options = optionsOverride || await getOptions();
+  const data = await storageLocal.get([LIST_CACHE_KEY, LIST_STATS_KEY]);
+  const cache = data[LIST_CACHE_KEY] || {};
+  const stats = data[LIST_STATS_KEY] || {};
+
+  const enabledLists = Object.entries(options.lists || {})
+    .filter(([, cfg]) => cfg?.enabled)
+    .map(([id]) => id)
+    .sort();
+
+  const parts = [];
+  for (const id of enabledLists) {
+    const cached = cache[id];
+    const stat = stats[id];
+    const version = cached?.etag || String(cached?.fetchedAt || 0);
+    const bytes = stat?.bytes ?? cached?.text?.length ?? 0;
+    const rulesCount = stat?.rulesCount ?? 0;
+    parts.push(`${id}:${version}:${bytes}:${rulesCount}`);
+  }
+
+  const customLists = (options.customLists || []).map(url => String(url || '').trim()).sort();
+  for (const url of customLists) {
+    parts.push(`custom:${fastHash(url)}`);
+  }
+
+  const userFiltersHash = fastHash(String(options.userFilters || ''));
+  const payload = `${parts.join('|')}|uf:${userFiltersHash}`;
+  return `v1_${fastHash(payload)}`;
 }
 
 /**
