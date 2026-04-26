@@ -75,32 +75,16 @@ if (target === 'chromium') {
   copyDir(resolve(SRC, 'rules'), resolve(DIST, 'rules'));
 }
 
-// Copy AutoConsent CMP rules as runtime-loaded assets (kept out of the JS bundle
-// so the service-worker cold-start doesn't pay the ~628 KB parse cost on every wake).
-const autoconsentDest = resolve(DIST, 'autoconsent');
-mkdirSync(autoconsentDest, { recursive: true });
-for (const file of ['rules.json', 'consentomatic.json']) {
-  const src = resolve(ROOT, 'node_modules/@duckduckgo/autoconsent/rules', file);
-  if (existsSync(src)) cpSync(src, resolve(autoconsentDest, file));
-}
-
-// Build JS entry points
-const entryPoints = [
-  resolve(SRC, 'background/index.js'),
-  resolve(SRC, 'popup/popup.js'),
-  resolve(SRC, 'options/options.js'),
-  resolve(SRC, 'content/cosmetic.js'),
-];
-
-const buildOptions = {
-  entryPoints,
+const isChromium = target === 'chromium';
+const commonBuildOptions = {
   bundle: true,
-  outdir: DIST,
-  outbase: SRC,
-  format: 'esm',
   target: 'esnext',
   minify: !watch,
+  treeShaking: true,
+  drop: watch ? [] : ['console', 'debugger'],
+  legalComments: watch ? 'inline' : 'none',
   sourcemap: watch ? 'inline' : false,
+  metafile: !watch,
   define: {
     '__PLATFORM__': JSON.stringify(target),
   },
@@ -110,16 +94,10 @@ const buildOptions = {
 // Content scripts need IIFE format
 const contentBuildOptions = {
   entryPoints: [resolve(SRC, 'content/cosmetic.js'), resolve(SRC, 'content/scriptlets.js')],
-  bundle: true,
+  ...commonBuildOptions,
   outdir: resolve(DIST, 'content'),
   format: 'iife',
-  target: 'esnext',
-  minify: !watch,
-  sourcemap: watch ? 'inline' : false,
-  define: {
-    '__PLATFORM__': JSON.stringify(target),
-  },
-  logLevel: 'info',
+  splitting: false,
 };
 
 // Firefox MV2 background scripts don't support ES modules,
@@ -129,16 +107,10 @@ const bgFormat = target === 'firefox' ? 'iife' : 'esm';
 // Background build (separate because Firefox needs IIFE)
 const bgBuildOptions = {
   entryPoints: [resolve(SRC, 'background/index.js')],
-  bundle: true,
+  ...commonBuildOptions,
   outdir: resolve(DIST, 'background'),
   format: bgFormat,
-  target: 'esnext',
-  minify: !watch,
-  sourcemap: watch ? 'inline' : false,
-  define: {
-    '__PLATFORM__': JSON.stringify(target),
-  },
-  logLevel: 'info',
+  splitting: false,
 };
 
 // Popup, Options & Setup build
@@ -148,17 +120,12 @@ const pagesBuildOptions = {
     resolve(SRC, 'options/options.js'),
     resolve(SRC, 'setup/setup.js'),
   ],
-  bundle: true,
+  ...commonBuildOptions,
   outdir: DIST,
   outbase: SRC,
   format: bgFormat,  // IIFE for Firefox, ESM for Chromium
-  target: 'esnext',
-  minify: !watch,
-  sourcemap: watch ? 'inline' : false,
-  define: {
-    '__PLATFORM__': JSON.stringify(target),
-  },
-  logLevel: 'info',
+  splitting: isChromium,
+  chunkNames: isChromium ? 'chunks/[name]-[hash]' : undefined,
 };
 
 if (watch) {
