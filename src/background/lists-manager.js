@@ -437,13 +437,26 @@ export async function downloadAllLists(force = false) {
 /**
  * Get cached lists without downloading
  */
-export async function getCachedLists() {
+export async function getCachedLists(optionsOverride = null) {
+  const options = optionsOverride || await getOptions();
   const cacheData = await storageLocal.get(LIST_CACHE_KEY);
   const cache = cacheData[LIST_CACHE_KEY] || {};
   const results = {};
 
-  for (const [id, entry] of Object.entries(cache)) {
-    if (entry.text) results[id] = entry.text;
+  const enabledBuiltInIds = Object.entries(options?.lists || {})
+    .filter(([, config]) => config?.enabled)
+    .map(([id]) => id);
+
+  for (const id of enabledBuiltInIds) {
+    const entry = cache[id];
+    if (entry?.text) results[id] = entry.text;
+  }
+
+  const customLists = Array.isArray(options?.customLists) ? options.customLists : [];
+  for (let i = 0; i < customLists.length; i++) {
+    const customId = `custom-${i}`;
+    const entry = cache[customId];
+    if (entry?.text) results[customId] = entry.text;
   }
 
   return results;
