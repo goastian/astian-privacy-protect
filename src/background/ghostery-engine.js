@@ -1,14 +1,15 @@
 /**
  * Midori Privacy Blocker
- * Ghostery Engine Adapter — wraps @ghostery/adblocker to expose
- * the same interface as the legacy FilterEngine.
+ * Ghostery Engine Adapter — wraps @ghostery/adblocker-webextension
+ * for Midori's background runtime integration.
  * Provides ~10x faster matching via reverse index + bloom filters,
  * and supports $csp=, $redirect=, $removeparam, procedural cosmetics.
  *
  * Copyright 2024-present Astian Inc. All rights reserved.
  * License: MPL-2.0
  *
- * This file uses @ghostery/adblocker which is licensed under MPL-2.0
+ * This file uses @ghostery/adblocker-webextension (and @ghostery/adblocker)
+ * which are licensed under MPL-2.0.
  * Copyright (c) 2017-present Ghostery GmbH.
  */
 
@@ -106,7 +107,7 @@ export class GhosteryEngine {
     this.rulesCount = 0;
     this._listsLoaded = new Set();
 
-    // Legacy compat — expose empty sets so index.js diagnostics don't crash
+    // Keep these structural fields for diagnostics and internal observability.
     this.blockedDomains = new Set();
     this.exceptionDomains = new Set();
     this.domainRulesWithOptions = [];
@@ -217,7 +218,6 @@ export class GhosteryEngine {
 
   /**
    * Check if a URL should be blocked.
-   * Compatible with legacy FilterEngine.shouldBlock() signature.
    * @param {string} url - Request URL
    * @param {string} pageHostname - Page hostname
    * @param {string} [resourceType] - webRequest resource type
@@ -268,8 +268,7 @@ export class GhosteryEngine {
   // ── Cosmetic selectors ───────────────────────────────────────────────────
 
   /**
-   * Get CSS selectors to hide ad elements on a hostname.
-   * Compatible with legacy FilterEngine.getCosmeticSelectors().
+  * Get CSS selectors to hide ad elements on a hostname.
    * @param {string} hostname
    * @returns {string[]}
    */
@@ -351,20 +350,16 @@ export class GhosteryEngine {
 
   /**
    * Get scriptlet rules for a hostname.
-   * Compatible with legacy FilterEngine.getScriptletRules().
    *
    * NOTE: Ghostery engine returns compiled scriptlet code via getCosmeticsFilters.scripts.
-   * For our custom scriptlet system, we return the Ghostery scripts as pre-compiled code,
-   * plus our legacy scriptlet rules are handled separately in index.js.
+   * Midori injects those via getFullCosmetics() / getCompiledScriptlets().
    *
    * @param {string} hostname
    * @returns {Array<{name: string, args: string[]}>}
    */
   getScriptletRules(hostname) {
-    // Ghostery handles scriptlets internally via getCosmeticsFilters().scripts
-    // We return empty here; the scriptlets from Ghostery will be injected
-    // via getFullCosmetics().scripts in the integration layer.
-    // Legacy custom scriptlets (YouTube, etc.) are still handled by the old system.
+    // Ghostery handles scriptlets internally via getCosmeticsFilters().scripts.
+    // We return an empty rule list here and use compiled scripts from getFullCosmetics().
     return [];
   }
 
@@ -463,5 +458,5 @@ export class GhosteryEngine {
   }
 }
 
-// Re-export utilities for backward compatibility
+// Re-export commonly used URL helpers for convenience.
 export { extractDomain, categorizeRequest };
