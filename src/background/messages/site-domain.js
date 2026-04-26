@@ -1,0 +1,179 @@
+export function createSiteDomainHandlers(ctx) {
+  return {
+    'get-popup-defense-config': async (msg, sender) => {
+      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
+      const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
+      const runtime = ctx.getRuntimeOptions();
+      if (ctx.isProtectionBypassedForHost(hostname, runtime)) {
+        return {
+          config: {
+            enabled: false,
+            defense: 'relaxed',
+            gestureWindowMs: 0,
+            evaluationDelayMs: 0,
+            burstWindowMs: 5000,
+            maxBurstWithoutGesture: 99,
+            redirectHopThreshold: 99,
+            closeTabsWithoutGesture: false,
+            vertical: 'general',
+          },
+        };
+      }
+      return { config: ctx.getPopupDefenseConfig(hostname, runtime) };
+    },
+
+    'get-site-protection-state': async (msg, sender) => {
+      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
+      const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
+      const runtime = ctx.getRuntimeOptions();
+      const globalEnabled = runtime?.enabled !== false;
+      const whitelisted = ctx.isHostnameWhitelisted(hostname, runtime?.whitelist || {});
+      return {
+        hostname,
+        globalEnabled,
+        whitelisted,
+        enabled: globalEnabled && !whitelisted,
+      };
+    },
+
+    'popup-guard-user-gesture': async (msg, sender) => {
+      const tabId = sender?.tab?.id ?? msg.tabId;
+      if (Number.isInteger(tabId) && tabId >= 0) {
+        ctx.recordUserGesture(tabId, msg);
+      }
+      return { success: true };
+    },
+
+    'popup-guard-blocked': async () => ({ success: true }),
+
+    'get-tab-stats': async (msg) => {
+      const runtimeOptions = ctx.getRuntimeOptions();
+      const rollout = ctx.getEffectiveRolloutFlags(runtimeOptions);
+
+      if (ctx.IS_CHROMIUM) {
+        const stats = await ctx.getChromiumTabStats(msg.tabId);
+        const eco = ctx.getEcoStats(msg.tabId);
+        stats.groups = ctx.getGroupedRequestsEnriched(msg.tabId);
+        stats.entityControl = rollout.entityBlocking
+          ? ctx.getEntityControlForGroups(stats.groups, runtimeOptions)
+          : null;
+        stats.blockedByCategory = ctx.getBlockedByCategory(msg.tabId);
+        return { ...stats, ...eco };
+      }
+
+      const tab = ctx.getTab(msg.tabId);
+      const groups = ctx.getGroupedRequestsEnriched(msg.tabId);
+      const eco = ctx.getEcoStats(msg.tabId);
+      return {
+        hostname: tab?.hostname || '',
+        blocked: tab?.blocked || 0,
+        blockedByCategory: ctx.getBlockedByCategory(msg.tabId),
+        dataSaved: ctx.getDataSaved(msg.tabId),
+        groups,
+        entityControl: rollout.entityBlocking
+          ? ctx.getEntityControlForGroups(groups, runtimeOptions)
+          : null,
+        recentRequests: ctx.getRecentRequests(msg.tabId, 10),
+        ...eco,
+      };
+    },
+
+    'get-site-profile': async (msg, sender) => {
+      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
+      const host = String(msg.hostname || tabHostname || '').toLowerCase();
+      if (!host) return { vertical: 'general', profile: null };
+      const siteContext = ctx.resolveSiteProfile(host, ctx.getRuntimeOptions());
+      return {
+        hostname: siteContext.hostname,
+        vertical: siteContext.vertical,
+        profile: siteContext.profile,
+      };
+    },
+
+    'get-ia-shield-config': async (msg, sender) => {
+      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
+      const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
+      const opts = await ctx.getOptions();
+      if (ctx.isProtectionBypassedForHost(hostname, opts)) {
+        return {
+          config: {
+            enabled: false,
+            strict: false,
+            sanitizeOnPaste: false,
+            monitor: { paste: false, input: false, dom: false },
+            isolate: { enabled: false, mode: 'warn' },
+            vertical: 'general',
+            matchedOverrideDomain: '',
+            reason: opts?.enabled === false ? 'disabled' : 'site-whitelisted',
+          },
+        };
+      }
+      return { config: ctx.buildIaShieldConfig(opts, hostname) };
+    },
+
+    'ia-shield-risk-event': async (msg, sender) => {
+      const opts = await ctx.getOptions();
+      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
+      const event = ctx.normalizeIaRiskEvent(msg.event || null, msg.hostname || tabHostname || '');
+      if (!event) {
+        return { success: false, error: 'invalid-event' };
+      }
+
+      const iaRiskEvents = ctx.appendIaRiskEvent(opts.iaRiskEvents, event, 300);
+      await ctx.setOptions({ iaRiskEvents });
+      ctx.refreshRuntimeOptions({ ...opts, iaRiskEvents });
+      ctx.recordIaShieldRiskEvent(event);
+      return { success: true };
+    },
+
+    'get-ia-risk-events': async (msg) => {
+      const opts = await ctx.getOptions();
+      const days = Math.max(1, Math.min(365, Number(msg.days) || 30));
+      const limit = Math.max(1, Math.min(500, Number(msg.limit) || 100));
+      return ctx.summarizeIaRiskEvents(opts.iaRiskEvents || [], days, limit);
+    },
+
+    'get-cosmetics': async (msg) => {
+      const hostname = msg.hostname || '';
+      const runtime = ctx.getRuntimeOptions();
+      if (ctx.isProtectionBypassedForHost(hostname, runtime)) {
+        return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
+      }
+      const siteContext = ctx.resolveSiteProfile(hostname, ctx.getRuntimeOptions());
+      const cosmeticsEnabled = siteContext.profile?.cosmeticsEnabled !== false;
+      if (!cosmeticsEnabled) {
+        return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
+      }
+
+      const cosmetics = ctx.ghosteryEngine.getFullCosmetics(hostname);
+      return {
+        enabled: true,
+        selectors: [],
+        styles: cosmetics.styles || '',
+        compiledScripts: (cosmetics.scripts || []).slice(0, 100),
+      };
+    },
+
+    'get-scriptlets': async (msg) => {
+      const hostname = msg.hostname || '';
+      const runtime = ctx.getRuntimeOptions();
+      if (ctx.isProtectionBypassedForHost(hostname, runtime)) {
+        return { enabled: false, scriptlets: [] };
+      }
+      return {
+        enabled: true,
+        scriptlets: ctx.getEngine().getScriptletRules(hostname).slice(0, 100),
+      };
+    },
+
+    'get-anti-fingerprint': async (_msg, sender) => {
+      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
+      const runtime = ctx.getRuntimeOptions();
+      if (ctx.isProtectionBypassedForHost(tabHostname, runtime)) {
+        return { enabled: false };
+      }
+      const afOpts = await ctx.getOptions();
+      return { enabled: afOpts.antiFingerprint !== false };
+    },
+  };
+}
