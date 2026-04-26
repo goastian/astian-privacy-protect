@@ -20,6 +20,40 @@ body {
   overflow: hidden;
 }
 
+/* Initial skeleton loading while async stats arrive */
+.popup-loading #hostname,
+.popup-loading #donut-total,
+.popup-loading #oa-blocked-count,
+.popup-loading #blocked-count,
+.popup-loading #saved-size,
+.popup-loading #eco-energy {
+  color: transparent !important;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--color-bg-secondary) 20%, var(--color-border) 50%, var(--color-bg-secondary) 80%);
+  background-size: 200% 100%;
+  animation: popup-skeleton-shimmer 1.2s linear infinite;
+}
+
+.popup-loading #hostname {
+  min-width: 180px;
+  min-height: 12px;
+}
+
+.popup-loading #donut-total,
+.popup-loading #oa-blocked-count,
+.popup-loading #blocked-count,
+.popup-loading #saved-size,
+.popup-loading #eco-energy {
+  min-width: 28px;
+  min-height: 16px;
+  display: inline-block;
+}
+
+@keyframes popup-skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
 /* ── Header ── */
 .popup-header {
   display: flex;

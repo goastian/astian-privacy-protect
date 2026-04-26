@@ -10,6 +10,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 // Cross-browser API: Firefox browser.* returns Promises, Chrome chrome.* returns Promises in MV3
 const api = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
+const IS_CHROMIUM = typeof browser === 'undefined';
 
 let currentTabId = null;
 let currentHostname = '';
@@ -35,6 +36,24 @@ let refreshDebounceTimer = null;
 const SMART_REFRESH_DEBOUNCE_MS = 300; // Debounce rapid updates
 let pollbackTimer = null;
 const POLLBACK_INTERVAL_MS = 5000; // Fallback polling every 5s if no events
+let firstStatsPaintDone = false;
+
+function finishInitialLoading() {
+  if (firstStatsPaintDone) return;
+  firstStatsPaintDone = true;
+  document.body.classList.remove('popup-loading');
+}
+
+async function getSessionTabStats(tabId) {
+  if (!IS_CHROMIUM || !chrome.storage?.session?.get) return null;
+
+  try {
+    const data = await chrome.storage.session.get(`tab_${tabId}`);
+    return data?.[`tab_${tabId}`] || null;
+  } catch (e) {
+    return null;
+  }
+}
 
 function getGroupCount(groups, key) {
   const arr = groups?.[key];
@@ -106,9 +125,14 @@ function setupMessageListener() {
   api.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'popup-stats-update') {
       const tabId = request.tabId;
-      if (tabId === currentTabId && request.data) {
-        // Debounced smart refresh
-        scheduleSmartRefresh(request.data);
+      if (tabId === currentTabId) {
+        if (IS_CHROMIUM) {
+          // Chromium popup reads stats directly from storage.session.
+          loadTabStats().catch(() => {});
+        } else if (request.data) {
+          // Firefox path keeps push payload from background.
+          scheduleSmartRefresh(request.data);
+        }
       }
       sendResponse({ ok: true });
       return true;
@@ -187,11 +211,28 @@ async function init() {
 async function loadTabStats() {
   if (!currentTabId) return;
 
+  if (IS_CHROMIUM) {
+    const sessionData = await getSessionTabStats(currentTabId);
+    if (sessionData) {
+      if (hasDataChanged(sessionData)) {
+        renderTabStats(sessionData);
+      } else {
+        finishInitialLoading();
+      }
+      return;
+    }
+  }
+
   const data = await sendMessage({ action: 'get-tab-stats', tabId: currentTabId });
-  if (!data) return;
+  if (!data) {
+    finishInitialLoading();
+    return;
+  }
   // Smart refresh: only render if data changed
   if (hasDataChanged(data)) {
     renderTabStats(data);
+  } else {
+    finishInitialLoading();
   }
 }
 
@@ -199,6 +240,7 @@ async function loadTabStats() {
 
 function renderTabStats(data) {
   if (!data) return;
+  finishInitialLoading();
   lastRenderedData = { ...data }; // Save for next diff
     // Update counter
   const blocked = data.blocked || 0;
