@@ -86,12 +86,8 @@
       <!-- chart + category list -->
       <div class="oa-body" id="oa-chart-view">
         <!-- Donut -->
-        <div class="oa-donut-wrap">
-          <svg id="donut-svg" class="oa-donut" viewBox="0 0 100 100">
-            <circle class="donut-track" cx="50" cy="50" r="36" />
-            <!-- segments injected by JS -->
-            <g id="donut-segs"></g>
-          </svg>
+        <div class="oa-donut-wrap" id="oa-donut-wrap">
+          <div class="oa-donut" id="oa-donut" aria-hidden="true"></div>
           <div class="donut-center" id="donut-center">
             <span class="donut-total" id="donut-total">0</span>
             <span class="donut-label">blocked</span>

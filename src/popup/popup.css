@@ -642,6 +642,9 @@ body {
 
 /* ── Donut SVG wrapper ── */
 .oa-donut-wrap {
+  --oa-ads-angle: 0deg;
+  --oa-trackers-angle: 0deg;
+  --oa-other-angle: 0deg;
   position: relative;
   width: 70px;
   height: 70px;
@@ -649,16 +652,27 @@ body {
 }
 
 .oa-donut {
+  position: relative;
   width: 70px;
   height: 70px;
-  transform: rotate(-90deg);
-  overflow: visible;
+  border-radius: 50%;
+  background:
+    conic-gradient(
+      from -90deg,
+      var(--color-danger) 0deg var(--oa-ads-angle),
+      var(--color-warning) var(--oa-ads-angle) calc(var(--oa-ads-angle) + var(--oa-trackers-angle)),
+      #34dbc2 calc(var(--oa-ads-angle) + var(--oa-trackers-angle)) calc(var(--oa-ads-angle) + var(--oa-trackers-angle) + var(--oa-other-angle)),
+      var(--color-border) calc(var(--oa-ads-angle) + var(--oa-trackers-angle) + var(--oa-other-angle)) 360deg
+    );
+  transition: background 180ms ease-out;
 }
 
-.donut-track {
-  fill: none;
-  stroke: var(--color-border);
-  stroke-width: 10;
+.oa-donut::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: var(--color-bg);
 }
 
 .donut-center {
@@ -703,6 +717,9 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 0.82rem;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 140ms ease-out, transform 140ms ease-out;
 }
 
 .oa-cat-dot {

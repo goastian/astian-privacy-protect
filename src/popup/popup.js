@@ -471,9 +471,6 @@ const OA_LABELS = {
   other:    'Other',
 };
 
-const OA_R = 36;
-const OA_C = 2 * Math.PI * OA_R; // ≈ 226.195
-
 let lastDonutCounts = null;
 
 function updateOAPanel(groups, blocked, blockedByCategory) {
@@ -499,15 +496,15 @@ function updateOAPanel(groups, blocked, blockedByCategory) {
   const totalEl = $('#donut-total');
   if (totalEl) totalEl.textContent = blocked;
 
-  // Segmentos SVG — skip si counts idénticos
-  const segsEl = $('#donut-segs');
-  if (segsEl) {
+  // Donut CSS vars — skip si counts idénticos
+  const donutEl = $('#oa-donut-wrap');
+  if (donutEl) {
     const countsChanged = !lastDonutCounts ||
       lastDonutCounts.ads !== counts.ads ||
       lastDonutCounts.trackers !== counts.trackers ||
       lastDonutCounts.other !== counts.other;
     if (countsChanged) {
-      renderDonut(segsEl, counts, total);
+      renderDonut(donutEl, counts, total);
       lastDonutCounts = { ...counts };
     }
   }
@@ -552,27 +549,13 @@ function updateOAPanel(groups, blocked, blockedByCategory) {
 }
 
 function renderDonut(container, counts, total) {
-  container.innerHTML = '';
-  if (total === 0) return;
+  const adsAngle = total > 0 ? (counts.ads || 0) / total * 360 : 0;
+  const trackersAngle = total > 0 ? (counts.trackers || 0) / total * 360 : 0;
+  const otherAngle = total > 0 ? (counts.other || 0) / total * 360 : 0;
 
-  let cumLen = 0;
-  for (const cat of ['ads', 'trackers', 'other']) {
-    const count = counts[cat] || 0;
-    if (count === 0) continue;
-    const segLen = (count / total) * OA_C;
-    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('cx', '50');
-    circle.setAttribute('cy', '50');
-    circle.setAttribute('r', String(OA_R));
-    circle.setAttribute('fill', 'none');
-    circle.setAttribute('stroke', OA_COLORS[cat]);
-    circle.setAttribute('stroke-width', '10');
-    circle.setAttribute('stroke-linecap', 'butt');
-    circle.setAttribute('stroke-dasharray', `${segLen} ${OA_C}`);
-    circle.setAttribute('stroke-dashoffset', String(-cumLen));
-    container.appendChild(circle);
-    cumLen += segLen;
-  }
+  container.style.setProperty('--oa-ads-angle', `${adsAngle}deg`);
+  container.style.setProperty('--oa-trackers-angle', `${trackersAngle}deg`);
+  container.style.setProperty('--oa-other-angle', `${otherAngle}deg`);
 }
 
 function renderOACats(counts, total) {
