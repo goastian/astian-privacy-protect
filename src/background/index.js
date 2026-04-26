@@ -102,9 +102,7 @@ async function notifyPopupStatsChange(tabId) {
   if (!tabId) return;
 
   // Clear existing timer for this tab
-  if (popupUpdateTimers.has(tabId)) {
-    clearTimeout(popupUpdateTimers.get(tabId));
-  }
+  clearPopupUpdateTimer(tabId);
 
   // Schedule debounced notification
   const timer = setTimeout(async () => {
@@ -145,6 +143,14 @@ async function notifyPopupStatsChange(tabId) {
   }, POPUP_UPDATE_DEBOUNCE_MS);
 
   popupUpdateTimers.set(tabId, timer);
+}
+
+function clearPopupUpdateTimer(tabId) {
+  const timer = popupUpdateTimers.get(tabId);
+  if (timer) {
+    clearTimeout(timer);
+    popupUpdateTimers.delete(tabId);
+  }
 }
 
 function bufferHourlyBlock(count) {
@@ -1318,12 +1324,14 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
       }
     }
     pendingSaveTabsFirefox.delete(tabId);
-    removeTab(tabId);
   }
 
   // Chromium: clean up tracking
+  pendingSaveTabsFirefox.delete(tabId);
+  removeTab(tabId);
   chromiumTabTrackers.delete(tabId);
   lastCollectTime.delete(tabId);
+  clearPopupUpdateTimer(tabId);
   clearPopupTracking(tabId);
   popupBurstState.delete(tabId);
 });
