@@ -110,6 +110,63 @@ async function fetchList(id, url) {
 }
 
 /**
+ * Status-aware variant of fetchList().
+ * Returns both text and whether content changed vs cache.
+ */
+async function fetchListWithStatus(id, url) {
+  const cacheData = await storageLocal.get(LIST_CACHE_KEY);
+  const cache = cacheData[LIST_CACHE_KEY] || {};
+  const cached = cache[id];
+
+  const headers = {};
+  if (cached?.etag) {
+    headers['If-None-Match'] = cached.etag;
+  }
+
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+    if (attempt > 0) {
+      const waitMs = RETRY_DELAYS[attempt - 1];
+      await delay(waitMs);
+    }
+
+    try {
+      const response = await fetchWithTimeout(url, { headers, cache: 'no-cache' });
+
+      if (response.status === 304 && cached?.text) {
+        return { text: cached.text, changed: false };
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const text = await response.text();
+      const etag = response.headers.get('ETag') || '';
+
+      // Server without ETag: treat identical payload as unchanged.
+      if (!etag && cached?.text && text === cached.text) {
+        return { text: cached.text, changed: false };
+      }
+
+      cache[id] = { etag, text, fetchedAt: Date.now() };
+      await storageLocal.set({ [LIST_CACHE_KEY]: cache });
+      return { text, changed: true };
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  if (cached?.text) {
+    return { text: cached.text, changed: false };
+  }
+
+  console.error(`[lists] Failed to fetch ${id} after ${RETRY_DELAYS.length + 1} attempts:`, lastError?.message);
+  return { text: null, changed: false };
+}
+
+/**
  * Download a TDS JSON list, convert to ABP filter text, and cache it.
  * Used for lists with format:'tds' (e.g. DuckDuckGo tracker-blocklists).
  */
@@ -163,6 +220,110 @@ async function fetchTDSList(id, url) {
     return cached.text;
   }
   return null;
+}
+
+/**
+ * Status-aware variant of fetchTDSList().
+ * Returns both converted ABP text and whether content changed vs cache.
+ */
+async function fetchTDSListWithStatus(id, url) {
+  const cacheData = await storageLocal.get(LIST_CACHE_KEY);
+  const cache = cacheData[LIST_CACHE_KEY] || {};
+  const cached = cache[id];
+
+  const headers = {};
+  if (cached?.etag) {
+    headers['If-None-Match'] = cached.etag;
+  }
+
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+    if (attempt > 0) {
+      await delay(RETRY_DELAYS[attempt - 1]);
+    }
+
+    try {
+      const response = await fetchWithTimeout(url, { headers, cache: 'no-cache' });
+
+      if (response.status === 304 && cached?.text) {
+        return { text: cached.text, changed: false };
+      }
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const tds = await response.json();
+      const text = convertTDStoABP(tds);
+      const etag = response.headers.get('ETag') || '';
+
+      if (!etag && cached?.text && text === cached.text) {
+        return { text: cached.text, changed: false };
+      }
+
+      cache[id] = { etag, text, fetchedAt: Date.now() };
+      await storageLocal.set({ [LIST_CACHE_KEY]: cache });
+      return { text, changed: true };
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  if (cached?.text) {
+    return { text: cached.text, changed: false };
+  }
+
+  console.error(`[lists] Failed to fetch TDS ${id} after ${RETRY_DELAYS.length + 1} attempts:`, lastError?.message);
+  return { text: null, changed: false };
+}
+
+/**
+ * Download all enabled filter lists and report change status.
+ * Useful for engine-first flows to skip unnecessary reparsing.
+ *
+ * @param {boolean} [force=false]
+ * @returns {{ lists: Object<string,string>, changedCount: number, changedIds: string[] }}
+ */
+export async function downloadAllListsWithStatus(force = false) {
+  if (force) {
+    console.log('[lists] Force update: clearing ETag cache');
+    const cacheData = await storageLocal.get(LIST_CACHE_KEY);
+    const cache = cacheData[LIST_CACHE_KEY] || {};
+    for (const id of Object.keys(cache)) {
+      if (cache[id]) cache[id].etag = '';
+    }
+    await storageLocal.set({ [LIST_CACHE_KEY]: cache });
+  }
+
+  const options = await getOptions();
+  const lists = {};
+  const changedIds = [];
+
+  const enabledLists = Object.entries(options.lists)
+    .filter(([, config]) => config.enabled);
+
+  const customLists = (options.customLists || [])
+    .map((url, i) => [`custom-${i}`, { enabled: true, url }]);
+
+  const allLists = [...enabledLists, ...customLists];
+
+  await Promise.all(allLists.map(async ([id, config]) => {
+    const out = config.format === 'tds'
+      ? await fetchTDSListWithStatus(id, config.url)
+      : await fetchListWithStatus(id, config.url);
+
+    if (out.text) {
+      lists[id] = out.text;
+      if (out.changed) changedIds.push(id);
+    }
+  }));
+
+  await setOptions({ lastUpdated: Date.now() });
+
+  return {
+    lists,
+    changedCount: changedIds.length,
+    changedIds,
+  };
 }
 
 /**
