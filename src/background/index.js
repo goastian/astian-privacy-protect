@@ -34,10 +34,6 @@ import {
   appendIaRiskEvent,
   summarizeIaRiskEvents,
 } from './ia-shield.js';
-import {
-  handleAutoConsentRequest,
-  handleAutoConsentPageMessage,
-} from './autoconsent.js';
 
 // ── Single engine: Ghostery (primary and only runtime engine) ──
 const ghosteryEngine = new GhosteryEngine();
@@ -74,6 +70,11 @@ const ADULT_POPUNDER_DOMAINS = [
 const popupUpdateTimers = new Map();
 const POPUP_UPDATE_DEBOUNCE_MS = 200; // Batch updates every 200ms
 
+// Chromium popup stats in chrome.storage.session (read directly by popup)
+const pendingSessionStats = new Map();
+let sessionStatsFlushTimer = null;
+const SESSION_STATS_FLUSH_MS = 500; // max 2 writes/s
+
 function hostnameMatches(hostname, pattern) {
   return hostname === pattern || hostname.endsWith(`.${pattern}`);
 }
@@ -97,6 +98,36 @@ function isProtectionBypassedForHost(hostname, options = getRuntimeOptions()) {
   return isHostnameWhitelisted(hostname, options?.whitelist || {});
 }
 
+function queueSessionStatsWrite(tabId, statsData) {
+  if (!IS_CHROMIUM) return;
+  if (!Number.isInteger(tabId) || tabId < 0) return;
+  if (!chrome.storage?.session?.set) return;
+
+  pendingSessionStats.set(`tab_${tabId}`, statsData);
+  if (!sessionStatsFlushTimer) {
+    sessionStatsFlushTimer = setTimeout(() => {
+      flushSessionStatsWrites().catch(() => {});
+    }, SESSION_STATS_FLUSH_MS);
+  }
+}
+
+async function flushSessionStatsWrites() {
+  if (sessionStatsFlushTimer) {
+    clearTimeout(sessionStatsFlushTimer);
+    sessionStatsFlushTimer = null;
+  }
+  if (!IS_CHROMIUM || !chrome.storage?.session?.set || pendingSessionStats.size === 0) return;
+
+  const payload = Object.fromEntries(pendingSessionStats.entries());
+  pendingSessionStats.clear();
+
+  try {
+    await chrome.storage.session.set(payload);
+  } catch (e) {
+    // Ignore transient storage.session failures in hot path.
+  }
+}
+
 // ── Notify popup of stats changes (8.1 optimization: event-driven) ──────────
 async function notifyPopupStatsChange(tabId) {
   if (!tabId) return;
@@ -115,6 +146,7 @@ async function notifyPopupStatsChange(tabId) {
         const stats = await getChromiumTabStats(tabId);
         const eco = getEcoStats(tabId);
         statsData = { ...stats, ...eco };
+        queueSessionStatsWrite(tabId, statsData);
       } else {
         const tab = getTab(tabId);
         const groups = getGroupedRequests(tabId);
@@ -848,7 +880,7 @@ async function initialize() {
     if (ghosteryRestored) {
       // Startup profile snapshot restored successfully.
     } else {
-    const cached = await getCachedLists();
+    const cached = await getCachedLists(options);
     if (Object.keys(cached).length > 0) {
       if (IS_CHROMIUM) {
         // Engine-first startup: defer heavy text parsing out of the hot path.
@@ -987,7 +1019,7 @@ async function reloadFirefoxEngineForOptions(options, reason = 'config-change') 
     return true;
   }
 
-  const freshLists = await getCachedLists();
+  const freshLists = await getCachedLists(options);
   if (Object.keys(freshLists).length > 0) {
     await loadEngine(freshLists);
     if (telemetryState?.firefoxEngineReloads) {
@@ -1256,7 +1288,7 @@ async function getChromiumTabStats(tabId) {
   }
 
   // Use stats-collector groups as primary source (properly categorized)
-  let groups = getGroupedRequests(tabId);
+  let groups = getGroupedRequestsEnriched(tabId);
 
   // Fallback: if stats-collector is empty but debug buffer has domains, use those
   const hasGroups = groups.trackers.length + groups.ads.length + groups.other.length > 0;
@@ -1277,8 +1309,9 @@ async function getChromiumTabStats(tabId) {
 
   // Also calculate dataSaved
   const dataSaved = getDataSaved(tabId);
+  const blockedByCategory = getBlockedByCategory(tabId);
 
-  return { hostname, blocked, groups, dataSaved, recentRequests: getRecentRequests(tabId, 10) };
+  return { hostname, blocked, groups, blockedByCategory, dataSaved, recentRequests: getRecentRequests(tabId, 10) };
 }
 
 // ── Tab lifecycle ───────────────────────────────────────────────────────────
@@ -1334,6 +1367,14 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   clearPopupUpdateTimer(tabId);
   clearPopupTracking(tabId);
   popupBurstState.delete(tabId);
+
+  if (IS_CHROMIUM && chrome.storage?.session?.remove) {
+    try {
+      await chrome.storage.session.remove(`tab_${tabId}`);
+    } catch (e) {
+      // Ignore storage cleanup errors.
+    }
+  }
 });
 
 // ── Alarm handler ────────────────────────────────────────────────────────────
@@ -1723,26 +1764,6 @@ async function handleMessage(msg, sender) {
       }
       const afOpts = await getOptions();
       return { enabled: afOpts.antiFingerprint !== false };
-    }
-
-    case 'handle-autoconsent': {
-      const tabId = sender?.tab?.id;
-      if (!Number.isInteger(tabId) || tabId < 0) {
-        return { success: false, reason: 'invalid_tab' };
-      }
-      const tabHostname = sender?.tab?.url ? extractDomain(sender.tab.url) : '';
-      if (isProtectionBypassedForHost(tabHostname, getRuntimeOptions())) {
-        return { success: false, reason: 'disabled' };
-      }
-      return await handleAutoConsentRequest(tabId);
-    }
-
-    case 'autoconsent-bg-message': {
-      const tabId = sender?.tab?.id;
-      if (!Number.isInteger(tabId) || tabId < 0) {
-        return { result: null };
-      }
-      return handleAutoConsentPageMessage(tabId, msg.payload);
     }
 
     case 'get-user-filters': {
