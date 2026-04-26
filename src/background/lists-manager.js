@@ -510,6 +510,31 @@ export async function getEnabledListsFingerprint(optionsOverride = null) {
 }
 
 /**
+ * Remove compact stats entries for list IDs that are no longer enabled.
+ * Call this after a config change or after a full list download to keep
+ * storage clean. enabledIds is an iterable of currently-enabled list IDs.
+ */
+export async function cleanupOrphanedListStats(enabledIds) {
+  try {
+    const statsData = await storageLocal.get(LIST_STATS_KEY);
+    const stats = statsData[LIST_STATS_KEY];
+    if (!stats || typeof stats !== 'object') return 0;
+
+    const enabledSet = new Set(enabledIds);
+    const orphans = Object.keys(stats).filter(id => !enabledSet.has(id));
+    if (orphans.length === 0) return 0;
+
+    for (const id of orphans) delete stats[id];
+    await storageLocal.set({ [LIST_STATS_KEY]: stats });
+    console.log(`[midori] Cleaned up ${orphans.length} orphaned list stats:`, orphans);
+    return orphans.length;
+  } catch (e) {
+    console.warn('[midori] cleanupOrphanedListStats error:', e);
+    return 0;
+  }
+}
+
+/**
  * Schedule periodic list updates using chrome.alarms
  */
 export function scheduleUpdates() {

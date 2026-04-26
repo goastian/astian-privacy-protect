@@ -194,6 +194,10 @@ const DEFAULTS = {
       byHostname: {},
       lastEventAt: 0,
     },
+    firefoxEngineReloads: {
+      snapshotHits: 0,
+      rawParseCount: 0,
+    },
   },
 };
 
@@ -249,6 +253,10 @@ function mergeOptionsWithDefaults(options = {}) {
           ...DEFAULTS.localTelemetry.falsePositiveReports.byCategory,
           ...(options.localTelemetry?.falsePositiveReports?.byCategory || {}),
         },
+      },
+      firefoxEngineReloads: {
+        ...DEFAULTS.localTelemetry.firefoxEngineReloads,
+        ...(options.localTelemetry?.firefoxEngineReloads || {}),
       },
     },
   };

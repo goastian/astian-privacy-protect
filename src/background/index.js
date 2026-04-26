@@ -8,7 +8,7 @@
 import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock } from './storage.js';
 import { extractDomain, categorizeRequest } from './filter-utils.js';
 import { GhosteryEngine } from './ghostery-engine.js';
-import { downloadAllListsWithStatus, getCachedLists, getEnabledListsFingerprint, scheduleUpdates } from './lists-manager.js';
+import { downloadAllListsWithStatus, getCachedLists, getEnabledListsFingerprint, cleanupOrphanedListStats, scheduleUpdates } from './lists-manager.js';
 import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, getAppliedRulesDiagnostics, exportReport } from './report-generator.js';
 import {
@@ -214,6 +214,10 @@ function normalizeTelemetry(raw) {
       byTabHost: {
         ...(appliedRulesDiagnostics.byTabHost || {}),
       },
+    },
+    firefoxEngineReloads: {
+      snapshotHits: (t.firefoxEngineReloads?.snapshotHits || 0),
+      rawParseCount: (t.firefoxEngineReloads?.rawParseCount || 0),
     },
   };
 }
@@ -869,6 +873,12 @@ async function initialize() {
       } else {
         console.log('[midori] Warmup skipped: serialized engine is current');
       }
+
+      // Cleanup orphaned list stats (lists that are no longer enabled)
+      const enabledIds = Object.keys(lists);
+      cleanupOrphanedListStats(enabledIds).catch(e =>
+        console.warn('[midori] Orphaned stats cleanup failed:', e)
+      );
     }).catch(e => console.warn('[midori] Warmup download failed:', e));
   }, 3000);
 
@@ -952,6 +962,10 @@ async function tryRestoreFirefoxEngineProfile(options, reason = 'runtime') {
     if (restored) {
       engine = ghosteryEngine;
       console.log(`[midori] Firefox profile restored (${reason}): ${engine.rulesCount} rules`);
+      if (telemetryState?.firefoxEngineReloads) {
+        telemetryState.firefoxEngineReloads.snapshotHits++;
+        markTelemetryDirty();
+      }
       return true;
     }
   } catch (e) {
@@ -970,6 +984,10 @@ async function reloadFirefoxEngineForOptions(options, reason = 'config-change') 
   const freshLists = await getCachedLists();
   if (Object.keys(freshLists).length > 0) {
     await loadEngine(freshLists);
+    if (telemetryState?.firefoxEngineReloads) {
+      telemetryState.firefoxEngineReloads.rawParseCount++;
+      markTelemetryDirty();
+    }
     return true;
   }
 
