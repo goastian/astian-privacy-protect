@@ -87,7 +87,7 @@ body {
   height: 34px;
   border-radius: var(--radius-sm);
   color: var(--color-text-tertiary);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .icon-btn:hover {
@@ -99,7 +99,7 @@ body {
 .popup-status {
   padding: 8px 12px;
   border-bottom: 1px solid var(--color-border);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
   background: var(--color-bg);
 }
 
@@ -207,7 +207,7 @@ body {
   font-size: 0.74rem;
   font-weight: 800;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast);
 }
 
 .entity-action-btn:hover:not(:disabled) {
@@ -241,7 +241,7 @@ body {
   border: none;
   background: transparent;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-text-tertiary);
@@ -276,7 +276,7 @@ body {
   border: 1px solid var(--color-border);
   background: var(--color-bg);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-text-tertiary);
@@ -586,7 +586,7 @@ body {
   font-weight: 700;
   padding: 4px 6px;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
   flex: 1;
   justify-content: center;
 }

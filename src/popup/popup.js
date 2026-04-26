@@ -37,6 +37,10 @@ const SMART_REFRESH_DEBOUNCE_MS = 300; // Debounce rapid updates
 let pollbackTimer = null;
 const POLLBACK_INTERVAL_MS = 5000; // Fallback polling every 5s if no events
 let firstStatsPaintDone = false;
+let tabStatsLoadTimer = null;
+let tabStatsLoadInFlight = false;
+let tabStatsLoadQueued = false;
+const TAB_STATS_LOAD_DEBOUNCE_MS = 120;
 
 function finishInitialLoading() {
   if (firstStatsPaintDone) return;
@@ -128,7 +132,8 @@ function setupMessageListener() {
       if (tabId === currentTabId) {
         if (IS_CHROMIUM) {
           // Chromium popup reads stats directly from storage.session.
-          loadTabStats().catch(() => {});
+          // Debounce burst events and coalesce concurrent loads to avoid UI jitter.
+          scheduleTabStatsLoad();
         } else if (request.data) {
           // Firefox path keeps push payload from background.
           scheduleSmartRefresh(request.data);
@@ -138,6 +143,14 @@ function setupMessageListener() {
       return true;
     }
   });
+}
+
+function scheduleTabStatsLoad() {
+  if (tabStatsLoadTimer) clearTimeout(tabStatsLoadTimer);
+  tabStatsLoadTimer = setTimeout(() => {
+    tabStatsLoadTimer = null;
+    loadTabStats().catch(() => {});
+  }, TAB_STATS_LOAD_DEBOUNCE_MS);
 }
 
 // ── Initialize ──────────────────────────────────────────────────────────────
@@ -203,7 +216,9 @@ async function init() {
   setupListeners();
 
   // Fallback polling every 5 seconds (only if background stops sending updates)
-  pollbackTimer = setInterval(loadTabStats, POLLBACK_INTERVAL_MS);
+  pollbackTimer = setInterval(() => {
+    scheduleTabStatsLoad();
+  }, POLLBACK_INTERVAL_MS);
 }
 
 // ── Load tab stats ──────────────────────────────────────────────────────────
@@ -211,28 +226,42 @@ async function init() {
 async function loadTabStats() {
   if (!currentTabId) return;
 
-  if (IS_CHROMIUM) {
-    const sessionData = await getSessionTabStats(currentTabId);
-    if (sessionData) {
-      if (hasDataChanged(sessionData)) {
-        renderTabStats(sessionData);
-      } else {
-        finishInitialLoading();
-      }
-      return;
-    }
-  }
-
-  const data = await sendMessage({ action: 'get-tab-stats', tabId: currentTabId });
-  if (!data) {
-    finishInitialLoading();
+  if (tabStatsLoadInFlight) {
+    tabStatsLoadQueued = true;
     return;
   }
-  // Smart refresh: only render if data changed
-  if (hasDataChanged(data)) {
-    renderTabStats(data);
-  } else {
-    finishInitialLoading();
+  tabStatsLoadInFlight = true;
+
+  try {
+    if (IS_CHROMIUM) {
+      const sessionData = await getSessionTabStats(currentTabId);
+      if (sessionData) {
+        if (hasDataChanged(sessionData)) {
+          renderTabStats(sessionData);
+        } else {
+          finishInitialLoading();
+        }
+        return;
+      }
+    }
+
+    const data = await sendMessage({ action: 'get-tab-stats', tabId: currentTabId });
+    if (!data) {
+      finishInitialLoading();
+      return;
+    }
+    // Smart refresh: only render if data changed
+    if (hasDataChanged(data)) {
+      renderTabStats(data);
+    } else {
+      finishInitialLoading();
+    }
+  } finally {
+    tabStatsLoadInFlight = false;
+    if (tabStatsLoadQueued) {
+      tabStatsLoadQueued = false;
+      scheduleTabStatsLoad();
+    }
   }
 }
 
@@ -270,15 +299,20 @@ function renderTabStats(data) {
   lastGroups = groups;
   currentEntityControl = resolveEntityControl(data);
 
-  renderGroup('trackers', groups.trackers);
-  renderGroup('ads', groups.ads);
-  renderGroup('other', groups.other);
+  const compatListVisible = !$('#requests-list')?.classList.contains('hidden');
+  if (compatListVisible) {
+    renderGroup('trackers', groups.trackers);
+    renderGroup('ads', groups.ads);
+    renderGroup('other', groups.other);
+  }
   updateEntityActionUI();
 
   // Show/hide empty state (hidden compat list)
-  const hasItems = groups.trackers.length + groups.ads.length + groups.other.length > 0;
-  const emptyStateEl = $('#empty-state');
-  if (emptyStateEl) emptyStateEl.classList.toggle('hidden', hasItems);
+  if (compatListVisible) {
+    const hasItems = groups.trackers.length + groups.ads.length + groups.other.length > 0;
+    const emptyStateEl = $('#empty-state');
+    if (emptyStateEl) emptyStateEl.classList.toggle('hidden', hasItems);
+  }
 
   // OA Panel — dona + categorías
   updateOAPanel(groups, blocked, data.blockedByCategory || null);
@@ -514,6 +548,7 @@ const OA_LABELS = {
 };
 
 let lastDonutCounts = null;
+let lastOACatsKey = '';
 
 function updateOAPanel(groups, blocked, blockedByCategory) {
   // Domain-unique counts (used only for donut segments proportions + domain list)
@@ -554,39 +589,48 @@ function updateOAPanel(groups, blocked, blockedByCategory) {
   // Filas de categorías
   renderOACats(counts, total);
 
-  // Lista plana (vista lista) — usa dominios únicos para no repetir entradas
+  // Lista plana: solo renderizar cuando la vista lista está visible.
+  const oaListViewVisible = !$('#oa-list-view')?.classList.contains('hidden');
+  if (oaListViewVisible) {
+    renderOAFlatList(groups);
+  }
+}
+
+function renderOAFlatList(groups) {
   const flatList = $('#flat-list');
-  if (flatList) {
-    const all = [
-      ...(groups.ads      || []).map(d => ({ d, cat: 'ads' })),
-      ...(groups.trackers || []).map(d => ({ d, cat: 'trackers' })),
-      ...(groups.other    || []).map(d => ({ d, cat: 'other' })),
-    ];
-    const newKey = all.map(({ d, cat }) => {
-      const { domain, owner, reason, confidence, fingerprinting } = normalizeTrackerItem(d);
-      return `${cat}:${domain}:${owner}:${reason}:${confidence}:${fingerprinting}`;
-    }).join(',');
-    if (flatList.dataset.key !== newKey) {
-      flatList.dataset.key = newKey;
-      flatList.innerHTML = '';
-      for (const { d, cat } of all.slice(0, 50)) {
-        const tracker = normalizeTrackerItem(d);
-        const { domain, owner } = tracker;
-        const primary = owner && owner !== domain ? owner : domain;
-        const secondary = owner && owner !== domain ? domain : OA_LABELS[cat] || cat;
-        const meta = buildTrackerMetaLine({ ...tracker, category: cat });
-        const el = document.createElement('div');
-        el.className = 'flat-entry';
-        el.innerHTML =
-          `<span class="flat-entry-dot" style="background:${OA_COLORS[cat]}"></span>` +
-          `<span class="flat-entry-body">` +
-            `<span class="flat-entry-domain" title="${escapeHtml(domain)}">${escapeHtml(primary)}</span>` +
-            `<span class="flat-entry-subtitle">${escapeHtml(secondary)}</span>` +
-          `</span>` +
-          `<span class="flat-entry-meta">${meta}</span>`;
-        flatList.appendChild(el);
-      }
-    }
+  if (!flatList) return;
+
+  const all = [
+    ...(groups.ads || []).map(d => ({ d, cat: 'ads' })),
+    ...(groups.trackers || []).map(d => ({ d, cat: 'trackers' })),
+    ...(groups.other || []).map(d => ({ d, cat: 'other' })),
+  ];
+
+  const newKey = all.map(({ d, cat }) => {
+    const { domain, owner, reason, confidence, fingerprinting } = normalizeTrackerItem(d);
+    return `${cat}:${domain}:${owner}:${reason}:${confidence}:${fingerprinting}`;
+  }).join(',');
+
+  if (flatList.dataset.key === newKey) return;
+  flatList.dataset.key = newKey;
+  flatList.innerHTML = '';
+
+  for (const { d, cat } of all.slice(0, 50)) {
+    const tracker = normalizeTrackerItem(d);
+    const { domain, owner } = tracker;
+    const primary = owner && owner !== domain ? owner : domain;
+    const secondary = owner && owner !== domain ? domain : OA_LABELS[cat] || cat;
+    const meta = buildTrackerMetaLine({ ...tracker, category: cat });
+    const el = document.createElement('div');
+    el.className = 'flat-entry';
+    el.innerHTML =
+      `<span class="flat-entry-dot" style="background:${OA_COLORS[cat]}"></span>` +
+      `<span class="flat-entry-body">` +
+        `<span class="flat-entry-domain" title="${escapeHtml(domain)}">${escapeHtml(primary)}</span>` +
+        `<span class="flat-entry-subtitle">${escapeHtml(secondary)}</span>` +
+      `</span>` +
+      `<span class="flat-entry-meta">${meta}</span>`;
+    flatList.appendChild(el);
   }
 }
 
@@ -604,6 +648,10 @@ function renderOACats(counts, total) {
   const catsEl = $('#oa-cats');
   if (!catsEl) return;
   const emptyEl = $('#oa-empty');
+
+  const renderKey = `${total}|${counts.ads || 0}|${counts.trackers || 0}|${counts.other || 0}`;
+  if (lastOACatsKey === renderKey) return;
+  lastOACatsKey = renderKey;
 
   // Elimina filas anteriores
   for (const el of [...catsEl.querySelectorAll('.oa-cat-row')]) el.remove();
@@ -987,6 +1035,7 @@ function setupListeners() {
     $('#oa-list-view')?.classList.remove('hidden');
     $('#view-chart')?.classList.remove('active');
     $('#view-list')?.classList.add('active');
+    renderOAFlatList(lastGroups);
   });
 
   // Module card toggles
