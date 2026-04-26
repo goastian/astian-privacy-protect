@@ -12,7 +12,7 @@
  * Copyright (c) 2017-present Ghostery GmbH.
  */
 
-import { FiltersEngine, Request, parseFilters, Resources } from '@ghostery/adblocker';
+import { FiltersEngine, Request, parseFilters } from '@ghostery/adblocker-webextension';
 import { extractDomain, categorizeRequest } from './filter-engine.js';
 
 // ── IndexedDB helpers for engine serialization ──────────────────────────────
