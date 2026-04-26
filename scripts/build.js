@@ -48,6 +48,7 @@ const htmlFiles = [
   'popup/popup.css',
   'options/options.html',
   'options/options.css',
+  'options/options-loader.js',
   'setup/setup.html',
   'setup/setup.css',
   'shared/styles.css',
