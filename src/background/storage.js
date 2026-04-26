@@ -116,7 +116,6 @@ const DEFAULTS = {
   customLists: [],
   userFilters: '',
   antiFingerprint: true,
-  autoconsentEnabled: true,
   updateInterval: 4,
   lastUpdated: 0,
   // TrackerDB data-layer settings (Phase 1)

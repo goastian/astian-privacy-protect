@@ -26,7 +26,6 @@
   },
   "license": "MPL-2.0",
   "dependencies": {
-    "@duckduckgo/autoconsent": "^14.75.0",
     "@ghostery/adblocker": "^2.14.1",
     "@ghostery/adblocker-webextension": "^2.14.1"
   }

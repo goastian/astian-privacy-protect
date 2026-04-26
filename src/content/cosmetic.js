@@ -743,90 +743,21 @@ iframe[name*="google_ads"],
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // LAYER 6 — AutoConsent (Cookie Banner Auto-Reject via DuckDuckGo rules)
-  // Falls back to simpler heuristic if AutoConsent fails
-  // Optimized: debounce, skip list, aggressive timeout
+  // LAYER 6 — Never-Consent fallback (local heuristic)
   // ══════════════════════════════════════════════════════════════════════════
-
-  const COOKIE_BANNER_PATTERNS = [
-    'cookie', 'consent', 'privacy-policy', 'gdpr', 'banner', 'notice'
-  ];
 
   const REJECT_BUTTON_TEXTS = [
     'reject', 'decline', 'deny', 'refuse', 'disagree', 'no thanks',
     'rechazar', 'denegar', 'no aceptar', 'configurar'
   ];
 
-  // Sites where AutoConsent typically doesn't work well or is not needed
-  const AUTOCONSENT_SKIP_HOSTS = [
-    'youtube.com', 'youtu.be', 'reddit.com', 'instagram.com', 'facebook.com',
-    'twitter.com', 'x.com', 'tiktok.com', 'github.com', 'stackoverflow.com'
-  ];
-
-  let autoconsentPending = false;
-  let autoconsentHandled = false;
-
-  function isAutoconsentSkipped(host) {
-    for (const domain of AUTOCONSENT_SKIP_HOSTS) {
-      if (host === domain || host.endsWith('.' + domain)) return true;
-    }
-    return false;
-  }
+  let neverConsentHandled = false;
 
   /**
-   * Request AutoConsent handling from background script
-   * Uses DuckDuckGo's AutoConsent library for broader CMP support
-   * Optimization: early exit if already handled, debounce, aggressive timeout
+   * Local consent handling via visible dialog/button heuristics.
    */
-  function handleAutoConsent_Request() {
-    return new Promise((resolve) => {
-      // Optimization: don't process if already handled or pending
-      if (autoconsentHandled || autoconsentPending) {
-        resolve({ success: false, reason: 'already_handled' });
-        return;
-      }
-
-      autoconsentPending = true;
-
-      try {
-        const p = chrome.runtime.sendMessage({ action: 'handle-autoconsent' });
-        if (p && typeof p.then === 'function') {
-          // Aggressive 3s timeout for background response
-          const timeoutId = setTimeout(() => {
-            autoconsentPending = false;
-            resolve({ success: false, reason: 'timeout' });
-          }, 3000);
-          
-          p.then((result) => {
-            clearTimeout(timeoutId);
-            autoconsentPending = false;
-            if (result?.success || result?.handled) {
-              autoconsentHandled = true;
-            }
-            resolve(result || { success: false });
-          }).catch(() => {
-            clearTimeout(timeoutId);
-            autoconsentPending = false;
-            resolve({ success: false });
-          });
-        } else {
-          autoconsentPending = false;
-          resolve({ success: false });
-        }
-      } catch (e) {
-        autoconsentPending = false;
-        resolve({ success: false });
-      }
-    });
-  }
-
-  /**
-   * Fallback: handle consent manually if AutoConsent fails or returns no_cmp
-   * This is the legacy handleNeverConsent logic, but improved
-   * Optimization: early exit if already handled
-   */
-  function handleConsent_Fallback() {
-    if (autoconsentHandled) return false;
+  function handleNeverConsentFallback() {
+    if (neverConsentHandled) return false;
 
     // 1. Look for common banner containers
     const banners = document.querySelectorAll('[id*="cookie" i], [class*="cookie" i], [id*="consent" i], [class*="consent" i], [role="dialog"], [role="alertdialog"]');
@@ -844,10 +775,10 @@ iframe[name*="google_ads"],
         if (REJECT_BUTTON_TEXTS.some(t => text.includes(t))) {
           try {
             btn.click();
-            console.log('[midori] Fallback: Auto-rejected cookie banner');
+            console.log('[midori] Never-Consent: rejected cookie banner');
             // Hide the banner just in case clicking doesn't close it immediately
             banner.style.display = 'none';
-            autoconsentHandled = true;
+            neverConsentHandled = true;
             return true;
           } catch (e) {}
         }
@@ -856,23 +787,8 @@ iframe[name*="google_ads"],
     return false;
   }
 
-  /**
-   * Main entry point: try AutoConsent first, then fallback
-   * Optimization: skip on certain sites for better performance
-   */
-  async function handleAutoConsent() {
-    // Skip AutoConsent on certain sites (YouTube, Reddit, etc.)
-    if (isAutoconsentSkipped(hostname)) {
-      handleConsent_Fallback(); // Still try fallback for basic cases
-      return;
-    }
-
-    const result = await handleAutoConsent_Request();
-    
-    // If AutoConsent succeeded or failed to detect CMP, try fallback anyway as extra layer
-    if (!result.success || result.reason === 'no_cmp') {
-      handleConsent_Fallback();
-    }
+  function handleNeverConsent() {
+    handleNeverConsentFallback();
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -996,10 +912,10 @@ iframe[name*="google_ads"],
     function initialScan() {
       if (skipHeuristicScan) return;
       scanAndCollapse(document.body || document.documentElement, true);
-      // AutoConsent: skip if YouTube is excluded
+      // Never-Consent: skip if YouTube is excluded
       if (!skipNeverConsent) {
-        setTimeout(() => { handleAutoConsent().catch(() => {}); }, 500);
-        setTimeout(() => { handleAutoConsent().catch(() => {}); }, 2000);
+        setTimeout(() => { handleNeverConsent(); }, 500);
+        setTimeout(() => { handleNeverConsent(); }, 2000);
       }
     }
 

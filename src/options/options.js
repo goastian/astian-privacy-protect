@@ -330,7 +330,6 @@ function renderGeneral() {
   $('#opt-block-annoyances').checked = lists['ublock-annoyances-cookies']?.enabled === true;
   $('#opt-block-social').checked = lists['fanboy-social']?.enabled === true;
   $('#opt-anti-fingerprint').checked = currentOptions.antiFingerprint !== false;
-  $('#opt-autoconsent').checked = currentOptions.autoconsentEnabled !== false;
   $('#opt-local-telemetry').checked = telemetry.enabled !== false;
   const serpToggle = $('#exp-serp-bar') || $('#ds-serp-bar');
   if (serpToggle) serpToggle.checked = experiments.serpBar === true;
@@ -2122,10 +2121,6 @@ function setupListeners() {
 
   $('#opt-anti-fingerprint').addEventListener('change', async (e) => {
     currentOptions = await saveOptions({ antiFingerprint: e.target.checked });
-  });
-
-  $('#opt-autoconsent').addEventListener('change', async (e) => {
-    currentOptions = await saveOptions({ autoconsentEnabled: e.target.checked });
   });
 
   $('#opt-local-telemetry').addEventListener('change', async (e) => {
