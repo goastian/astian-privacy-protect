@@ -6,8 +6,6 @@
  */
 
 import AutoConsent from '@duckduckgo/autoconsent';
-import autoconsentRulesJson from '@duckduckgo/autoconsent/rules/rules.json' assert { type: 'json' };
-import consentomaticJson from '@duckduckgo/autoconsent/rules/consentomatic.json' assert { type: 'json' };
 import { getOptions } from './storage.js';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -19,19 +17,51 @@ const autoconsentInstances = new Map();
 const AUTOCONSENT_TIMEOUT = 5000; // 5s max execution time per tab
 const INSTANCE_CACHE_TTL = 60000; // 1m TTL for instances
 
-// Extract rules from JSON imports
-const autoconsentRulesCache = {
-  autoconsent: autoconsentRulesJson.autoconsent || autoconsentRulesJson,
-  consentomatic: consentomaticJson.consentomatic || consentomaticJson
-};
+// CMP rules are loaded lazily from packaged JSON assets to keep the SW cold-start small.
+// Rules total ~628 KB; inlining them as ESM JSON imports inflates the background bundle by
+// the same amount and forces a full re-parse on every service-worker wake. Loading them via
+// fetch() defers the cost to the first time AutoConsent is actually used on a tab.
+let autoconsentRulesCache = null;
+let autoconsentRulesPromise = null;
+
+async function loadAutoconsentRules() {
+  if (autoconsentRulesCache) return autoconsentRulesCache;
+  if (autoconsentRulesPromise) return autoconsentRulesPromise;
+
+  autoconsentRulesPromise = (async () => {
+    try {
+      const [rulesRes, consentomaticRes] = await Promise.all([
+        fetch(chrome.runtime.getURL('autoconsent/rules.json')),
+        fetch(chrome.runtime.getURL('autoconsent/consentomatic.json')),
+      ]);
+      const [rulesJson, consentomaticJson] = await Promise.all([
+        rulesRes.json(),
+        consentomaticRes.json(),
+      ]);
+      autoconsentRulesCache = {
+        autoconsent: rulesJson.autoconsent || rulesJson,
+        consentomatic: consentomaticJson.consentomatic || consentomaticJson,
+      };
+      return autoconsentRulesCache;
+    } catch (e) {
+      console.error('[midori] AutoConsent rules load failed:', e);
+      autoconsentRulesPromise = null;
+      return null;
+    }
+  })();
+
+  return autoconsentRulesPromise;
+}
 
 /**
- * Initialize AutoConsent for a specific tab
+ * Initialize AutoConsent for a specific tab.
+ * Returns null when CMP rules are not yet loaded — callers must await loadAutoconsentRules() first.
  */
 function getOrCreateAutoConsent(tabId) {
   if (autoconsentInstances.has(tabId)) {
     return autoconsentInstances.get(tabId);
   }
+  if (!autoconsentRulesCache) return null;
 
   try {
     const instance = new AutoConsent(
@@ -78,6 +108,12 @@ export async function handleAutoConsentRequest(tabId) {
   // Check if AutoConsent is enabled in options
   if (options.autoconsentEnabled === false) {
     return { success: false, reason: 'disabled' };
+  }
+
+  // Lazy-load CMP rules on first use (saves ~628 KB from SW cold-start parse).
+  if (!autoconsentRulesCache) {
+    const loaded = await loadAutoconsentRules();
+    if (!loaded) return { success: false, reason: 'rules_unavailable' };
   }
 
   const instance = getOrCreateAutoConsent(tabId);
