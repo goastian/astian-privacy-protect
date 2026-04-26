@@ -8,7 +8,7 @@
 import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock } from './storage.js';
 import { extractDomain, categorizeRequest } from './filter-utils.js';
 import { GhosteryEngine } from './ghostery-engine.js';
-import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
+import { downloadAllListsWithStatus, getCachedLists, scheduleUpdates } from './lists-manager.js';
 import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, getAppliedRulesDiagnostics, exportReport } from './report-generator.js';
 import {
@@ -829,21 +829,37 @@ async function initialize() {
     console.warn('[midori] Ghostery cache restore failed:', e);
   }
 
-  // ── Step 2: Load from filter list text cache (fallback if no serialized engine) ──
+  // ── Step 2: Fallback to raw-text cache only when serialized engine is unavailable ──
   if (!ghosteryRestored) {
     const cached = await getCachedLists();
     if (Object.keys(cached).length > 0) {
-      await loadEngine(cached);
-      console.log(`[midori] Loaded from list cache in ${Date.now() - t0}ms`);
+      if (IS_CHROMIUM) {
+        // Engine-first startup: defer heavy text parsing out of the hot path.
+        setTimeout(() => {
+          loadEngine(cached)
+            .then(() => console.log(`[midori] Deferred cache rebuild complete in ${Date.now() - t0}ms`))
+            .catch(e => console.warn('[midori] Deferred cache rebuild failed:', e));
+        }, 500);
+      } else {
+        await loadEngine(cached);
+        console.log(`[midori] Loaded from list cache in ${Date.now() - t0}ms`);
+      }
     }
   }
 
   // ── Step 3: Queue fresh list download for later (8.4 optimization: incremental warmup) ──
   // Don't block startup on download — schedule for after 3 seconds
   setTimeout(() => {
-    downloadAllLists().then(lists => {
-      if (Object.keys(lists).length > 0) {
+    downloadAllListsWithStatus().then(({ lists, changedCount }) => {
+      if (Object.keys(lists).length === 0) return;
+
+      // Engine-first policy:
+      // - If engine has no rules yet, we must build from raw text once.
+      // - If engine is already restored/loaded, only rebuild when remote lists changed.
+      if (engine.rulesCount === 0 || changedCount > 0) {
         loadEngine(lists).catch(e => console.error('[midori] Warmup load failed:', e));
+      } else {
+        console.log('[midori] Warmup skipped: serialized engine is current');
       }
     }).catch(e => console.warn('[midori] Warmup download failed:', e));
   }, 3000);
@@ -1249,10 +1265,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'update-lists') {
     console.log('[midori] Updating filter lists...');
     try {
-      const lists = await downloadAllLists();
-      if (Object.keys(lists).length > 0) {
+      const { lists, changedCount } = await downloadAllListsWithStatus();
+      if (Object.keys(lists).length > 0 && (engine.rulesCount === 0 || changedCount > 0)) {
         await loadEngine(lists);
         console.log(`[midori] Lists updated. ${engine.rulesCount} rules.`);
+      } else {
+        console.log('[midori] Lists unchanged. Engine rebuild skipped.');
       }
     } catch (e) {
       console.error('[midori] Update failed:', e);
@@ -1552,8 +1570,8 @@ async function handleMessage(msg, sender) {
       return await exportReport();
 
     case 'update-lists': {
-      const lists = await downloadAllLists();
-      if (Object.keys(lists).length > 0) {
+      const { lists, changedCount } = await downloadAllListsWithStatus();
+      if (Object.keys(lists).length > 0 && (engine.rulesCount === 0 || changedCount > 0)) {
         await loadEngine(lists);
       }
       return { rulesCount: engine.rulesCount, updatedAt: Date.now() };
@@ -1563,7 +1581,7 @@ async function handleMessage(msg, sender) {
       const results = { lists: false, trackerDb: false, errors: [] };
       // Force re-download all filter lists (ignore ETag cache)
       try {
-        const lists = await downloadAllLists(true);
+        const { lists } = await downloadAllListsWithStatus(true);
         if (Object.keys(lists).length > 0) {
           await loadEngine(lists);
           results.lists = true;
