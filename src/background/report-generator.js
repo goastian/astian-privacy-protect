@@ -7,7 +7,7 @@
  */
 
 import { getOptions } from './storage.js';
-import { categorizeRequest } from './filter-engine.js';
+import { categorizeRequest } from './filter-utils.js';
 import { isTrackerFingerprinter } from './trackerdb.js';
 
 // ── Known fingerprinting domains ─────────────────────────────────────────────

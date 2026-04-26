@@ -6,7 +6,7 @@
  */
 
 import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock } from './storage.js';
-import { FilterEngine, extractDomain, categorizeRequest } from './filter-engine.js';
+import { extractDomain, categorizeRequest } from './filter-utils.js';
 import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllLists, getCachedLists, scheduleUpdates } from './lists-manager.js';
 import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
@@ -39,11 +39,9 @@ import {
   handleAutoConsentPageMessage,
 } from './autoconsent.js';
 
-// ── Dual engine: Ghostery (primary, high-perf) + legacy FilterEngine (fallback) ──
-let ghosteryEngine = new GhosteryEngine();
-let legacyEngine = new FilterEngine();
-// Active engine reference — points to ghosteryEngine when available, else legacy
-let engine = legacyEngine;
+// ── Single engine: Ghostery (primary and only runtime engine) ──
+const ghosteryEngine = new GhosteryEngine();
+let engine = ghosteryEngine;
 let isEnabled = true;
 const IS_CHROMIUM = __PLATFORM__ === 'chromium';
 
@@ -879,15 +877,14 @@ async function initialize() {
     chrome.alarms.create('collect-stats', { periodInMinutes: 2 });
   }
 
-  const engineName = engine === ghosteryEngine ? 'Ghostery' : 'Legacy';
   const bootMs = Date.now() - t0;
-  console.log(`[midori] Ready in ${bootMs}ms. Engine: ${engineName}, ${engine.rulesCount} rules.`);
+  console.log(`[midori] Ready in ${bootMs}ms. Engine: Ghostery, ${engine.rulesCount} rules.`);
   recordStartupLatency(bootMs);
 
 }
 
 async function loadEngine(lists) {
-  // ── Primary: Ghostery engine (high performance) ──
+  // ── Ghostery engine (single engine path) ──
   try {
     ghosteryEngine.loadLists(lists);
     engine = ghosteryEngine;
@@ -908,28 +905,7 @@ async function loadEngine(lists) {
 
     return;
   } catch (e) {
-    console.error('[midori] Ghostery engine failed, falling back to legacy:', e);
-  }
-
-  // ── Fallback: legacy FilterEngine ──
-  const newEngine = new FilterEngine();
-  for (const [id, text] of Object.entries(lists)) {
-    newEngine.addList(text);
-  }
-  console.log(`[midori] Legacy engine loaded: ${newEngine.rulesCount} rules, ${newEngine.blockedDomains.size} domains`);
-  legacyEngine = newEngine;
-  engine = legacyEngine;
-
-  // Load user custom filters
-  try {
-    const options = await getOptions();
-    const userFilters = options.userFilters || '';
-    if (userFilters.trim()) {
-      newEngine.addUserRules(userFilters);
-      console.log('[midori] Loaded user custom filters (legacy)');
-    }
-  } catch (e) {
-    console.error('[midori] Failed to load user filters:', e);
+    console.error('[midori] Ghostery engine failed to load lists:', e);
   }
 }
 
@@ -1623,20 +1599,12 @@ async function handleMessage(msg, sender) {
         return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
       }
 
-      if (engine === ghosteryEngine) {
-        const cosmetics = ghosteryEngine.getFullCosmetics(hostname);
-        return {
-          enabled: true,
-          selectors: [],
-          styles: cosmetics.styles || '',
-          compiledScripts: (cosmetics.scripts || []).slice(0, 100),
-        };
-      }
+      const cosmetics = ghosteryEngine.getFullCosmetics(hostname);
       return {
         enabled: true,
-        selectors: engine.getCosmeticSelectors(hostname).slice(0, 500),
-        styles: '',
-        compiledScripts: [],
+        selectors: [],
+        styles: cosmetics.styles || '',
+        compiledScripts: (cosmetics.scripts || []).slice(0, 100),
       };
     }
 

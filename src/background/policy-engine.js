@@ -4,7 +4,7 @@
  * TrackerDB signals, site context, and user-selected protection level.
  */
 
-import { extractDomain, classifyRequestDetails } from './filter-engine.js';
+import { extractDomain, classifyRequestDetails } from './filter-utils.js';
 import { getTrackerCategory, getTrackerConfidence, isHighConfidenceTracker, getTrackerOwnerId } from './trackerdb.js';
 
 // ── Phase 8: First-Party Relaxation (entity matching) ──────────────────────

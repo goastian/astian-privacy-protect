@@ -13,7 +13,7 @@
  */
 
 import { FiltersEngine, Request, parseFilters } from '@ghostery/adblocker-webextension';
-import { extractDomain, categorizeRequest } from './filter-engine.js';
+import { extractDomain, categorizeRequest } from './filter-utils.js';
 
 // ── IndexedDB helpers for engine serialization ──────────────────────────────
 
@@ -463,5 +463,5 @@ export class GhosteryEngine {
   }
 }
 
-// Re-export utilities from the legacy engine for backward compatibility
+// Re-export utilities for backward compatibility
 export { extractDomain, categorizeRequest };

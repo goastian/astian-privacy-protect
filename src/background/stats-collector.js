@@ -5,7 +5,7 @@
  * License: MPL-2.0
  */
 
-import { categorizeRequest, extractDomain } from './filter-engine.js';
+import { categorizeRequest, extractDomain } from './filter-utils.js';
 import { enrichTrackerWithOwner } from './trackerdb.js';
 
 // In-memory per-tab stats (fast access, no async)
