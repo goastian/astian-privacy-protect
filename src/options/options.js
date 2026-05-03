@@ -2610,4 +2610,18 @@ function getTimeAgo(date) {
 
 // ── Start ───────────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', init);
+let hasInitialized = false;
+
+function startOptionsPage() {
+  if (hasInitialized) return;
+  hasInitialized = true;
+  init().catch((error) => {
+    console.error('[midori] options init failed', error);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startOptionsPage, { once: true });
+} else {
+  startOptionsPage();
+}
