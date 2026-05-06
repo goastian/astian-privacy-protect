@@ -260,6 +260,67 @@ function cacheSetSiteProfile(hostname, value) {
 
 export function invalidateSiteProfileCache() {
   siteProfileCache.clear();
+  invalidatePolicyCache();
+}
+
+// ── Phase D: short-lived LRU cache for evaluateRequestPolicy ───────────────
+// Pages typically request the same asset multiple times in <1s. Caching the
+// (engine match + policy decision) for a brief window slashes work in the
+// hot path. Cache is invalidated whenever options/whitelist change.
+const POLICY_CACHE_LIMIT = 256;
+const POLICY_CACHE_TTL_MS = 1500;
+const policyCache = new Map(); // key -> { value, expires }
+
+export function invalidatePolicyCache() {
+  policyCache.clear();
+}
+
+function policyCacheGet(key) {
+  const entry = policyCache.get(key);
+  if (!entry) return null;
+  if (entry.expires < Date.now()) {
+    policyCache.delete(key);
+    return null;
+  }
+  // LRU touch
+  policyCache.delete(key);
+  policyCache.set(key, entry);
+  return entry.value;
+}
+
+function policyCacheSet(key, value) {
+  if (policyCache.has(key)) {
+    policyCache.delete(key);
+  } else if (policyCache.size >= POLICY_CACHE_LIMIT) {
+    // Evict oldest
+    policyCache.delete(policyCache.keys().next().value);
+  }
+  policyCache.set(key, { value, expires: Date.now() + POLICY_CACHE_TTL_MS });
+}
+
+/**
+ * Cached variant of evaluateRequestPolicy keyed by (url|page|type).
+ * The caller should NOT pre-compute matchResult — this helper handles the
+ * engine match call lazily and caches the full decision for ~1.5s.
+ */
+export function evaluateRequestPolicyCached({ url, pageHostname, resourceType, options, engine }) {
+  const key = `${resourceType}|${pageHostname}|${url}`;
+  const cached = policyCacheGet(key);
+  if (cached) return cached;
+
+  const matchResult = engine?.matchRequest
+    ? engine.matchRequest(url, pageHostname, resourceType)
+    : null;
+  const policy = evaluateRequestPolicy({
+    url,
+    pageHostname,
+    resourceType,
+    options,
+    engine,
+    matchResult,
+  });
+  policyCacheSet(key, policy);
+  return policy;
 }
 
 function normalizeProtectionLevel(level) {

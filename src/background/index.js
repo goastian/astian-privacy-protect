@@ -13,6 +13,7 @@ import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests,
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, getAppliedRulesDiagnostics, exportReport } from './report-generator.js';
 import {
   evaluateRequestPolicy,
+  evaluateRequestPolicyCached,
   getPopupDefenseConfig,
   resolveSiteProfile,
   invalidateSiteProfileCache,
@@ -142,14 +143,24 @@ async function notifyPopupStatsChange(tabId) {
         };
       }
       
-      // Send to popup if it's listening
-      chrome.tabs.sendMessage(tabId, {
-        action: 'popup-stats-update',
-        tabId,
-        data: statsData,
-      }).catch(() => {
-        // Popup not listening or tab closed, ignore silently
-      });
+      // Send to popup if it's listening.
+      // Phase D: use runtime.sendMessage — the popup page is NOT a content
+      // script of `tabId`; tabs.sendMessage delivered the event into the page
+      // (where nothing handled it) and never reached the popup. runtime.sendMessage
+      // delivers to the extension page (popup) when it is open.
+      try {
+        const sendRuntime = (typeof browser !== 'undefined' && browser.runtime?.sendMessage)
+          ? browser.runtime.sendMessage.bind(browser.runtime)
+          : chrome.runtime.sendMessage.bind(chrome.runtime);
+        const result = sendRuntime({
+          action: 'popup-stats-update',
+          tabId,
+          data: statsData,
+        });
+        if (result && typeof result.then === 'function') result.catch(() => {});
+      } catch (e) {
+        // Popup not open or no listeners — ignore silently.
+      }
     } catch (e) {
       // Silently ignore errors (popup not open, etc.)
     }
@@ -200,6 +211,35 @@ function recordMatchingLatency(ms) {
 
 function recordBlockedCategory(category) {
   telemetry.recordBlockedCategory(category);
+}
+
+// ── Phase D: defer non-critical bookkeeping out of the sync hot path ───────
+// Firefox's webRequest.onBeforeRequest runs synchronously and any work here
+// adds to per-request network latency. We batch telemetry/heatmap/save work
+// and flush it via a microtask + setTimeout(0) so the network decision can
+// return immediately.
+const _deferredQueue = [];
+let _deferredScheduled = false;
+
+function _flushDeferred() {
+  _deferredScheduled = false;
+  const jobs = _deferredQueue.splice(0, _deferredQueue.length);
+  for (let i = 0; i < jobs.length; i++) {
+    try { jobs[i](); } catch (e) { /* swallow — deferred work must not crash hot path */ }
+  }
+}
+
+function deferHotPathWork(fn) {
+  _deferredQueue.push(fn);
+  if (_deferredScheduled) return;
+  _deferredScheduled = true;
+  // Prefer microtask for low-latency flush; fall back to setTimeout(0) so we
+  // never re-enter the same event loop tick that produced the request.
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(_flushDeferred);
+  } else {
+    setTimeout(_flushDeferred, 0);
+  }
 }
 
 function recordContentScriptCost(script, hostname, durationMs) {
@@ -477,21 +517,16 @@ function setupWebRequestBlocking() {
       if (pageHostname && isWhitelistedSync(pageHostname)) return WR_PASS;
 
       const tMatchStart = performance.now();
-      const matchResult = engine.matchRequest
-        ? engine.matchRequest(url, pageHostname, details.type)
-        : null;
-      const policy = evaluateRequestPolicy({
+      const policy = evaluateRequestPolicyCached({
         url,
         pageHostname,
         resourceType: details.type,
         options: getRuntimeOptions(),
         engine,
-        matchResult,
       });
-      recordMatchingLatency(performance.now() - tMatchStart);
+      const matchElapsed = performance.now() - tMatchStart;
 
       if (policy.shouldBlock) {
-        recordBlockedCategory(policy.category || categorizeRequest(url));
         recordBlock(details.tabId, url, {
           category: policy.category,
           reason: policy.reason,
@@ -500,22 +535,27 @@ function setupWebRequestBlocking() {
           fingerprinting: policy.taxonomy === 'fingerprinting' || policy.trackerCategory === 'fingerprinting',
         });
         updateBadge(details.tabId);
-        
-        // Notify popup of stats changes (8.1 optimization: event-driven)
-        notifyPopupStatsChange(details.tabId);
 
-        // Record hourly stats for heatmap (debounced)
-        bufferHourlyBlock(1);
-
-        // Debounced save for Firefox — Phase 6: reduced from 30s to 5s
-        pendingSaveTabsFirefox.add(details.tabId);
-        if (!firefoxSaveTimer) {
-          firefoxSaveTimer = setTimeout(flushFirefoxStats, 5000);
-        }
+        // Phase D: defer non-blocking telemetry/heatmap/save bookkeeping
+        // so the sync webRequest decision returns ASAP.
+        const blockedTabId = details.tabId;
+        const blockedCategory = policy.category || categorizeRequest(url);
+        deferHotPathWork(() => {
+          recordMatchingLatency(matchElapsed);
+          recordBlockedCategory(blockedCategory);
+          notifyPopupStatsChange(blockedTabId);
+          bufferHourlyBlock(1);
+          pendingSaveTabsFirefox.add(blockedTabId);
+          if (!firefoxSaveTimer) {
+            firefoxSaveTimer = setTimeout(flushFirefoxStats, 5000);
+          }
+        });
 
         return WR_BLOCK;
       }
 
+      // Pass-through: still record matching latency, but lazily.
+      deferHotPathWork(() => recordMatchingLatency(matchElapsed));
       return WR_PASS;
     },
     { urls: ['<all_urls>'] },
@@ -555,6 +595,23 @@ async function flushFirefoxStats() {
 // Per-tab tracker domain buffer (lightweight, capped)
 const chromiumTabTrackers = new Map(); // tabId -> { hostname, domains: Set, blocked: number }
 
+// Phase D: throttle per-tab recordBlock/updateBadge/notifyPopupStatsChange so
+// high-traffic pages can't drown the background in O(N) work. The DNR badge
+// is already kept fresh by the platform; we just cap our diagnostic capture.
+const DNR_RECORD_RATE_LIMIT_PER_TAB = 30; // events / sec / tab
+const dnrRateState = new Map(); // tabId -> { windowStart, count }
+
+function dnrRateLimited(tabId) {
+  const now = Date.now();
+  let s = dnrRateState.get(tabId);
+  if (!s || now - s.windowStart >= 1000) {
+    s = { windowStart: now, count: 0 };
+    dnrRateState.set(tabId, s);
+  }
+  s.count++;
+  return s.count > DNR_RECORD_RATE_LIMIT_PER_TAB;
+}
+
 if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
   chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
     const tabId = info.request?.tabId;
@@ -568,26 +625,27 @@ if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
 
     entry.blocked++;
 
-    // Capture tracker domain (cap at 200 unique domains per tab)
     const url = info.request?.url;
-    if (url) {
-      recordBlockedCategory(categorizeRequest(url));
+    const limited = dnrRateLimited(tabId);
+
+    // Phase D: defer telemetry; rate-limit the heavier per-event work.
+    if (url && !limited) {
+      deferHotPathWork(() => recordBlockedCategory(categorizeRequest(url)));
     }
-    if (entry.domains.size < 200 && url) {
+    if (!limited && entry.domains.size < 200 && url) {
       const d = extractDomain(url);
-      if (d) {
+      if (d && !entry.domains.has(d)) {
         entry.domains.add(d);
-        // Also record in stats-collector for proper categorization
         recordBlock(tabId, url, { reason: 'rule-match' });
         updateBadge(tabId);
-        
-        // Notify popup of stats changes (8.1 optimization: event-driven)
-        notifyPopupStatsChange(tabId);
+        deferHotPathWork(() => notifyPopupStatsChange(tabId));
       }
     }
 
-    // Record hourly stats (debounced)
-    bufferHourlyBlock(1);
+    // Hourly stats are already debounced internally; defer the call itself.
+    if (!limited) {
+      deferHotPathWork(() => bufferHourlyBlock(1));
+    }
 
     // Resolve tab hostname lazily
     if (!entry.hostname) {
