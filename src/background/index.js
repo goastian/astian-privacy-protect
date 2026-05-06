@@ -210,6 +210,10 @@ function recordFalsePositive(hostname, category) {
   telemetry.recordFalsePositive(hostname, category);
 }
 
+function recordGlobalCssFalsePositive(hostname, hits) {
+  telemetry.recordGlobalCssFalsePositive(hostname, hits);
+}
+
 function recordIaShieldRiskEvent(event) {
   telemetry.recordIaShieldRiskEvent(event);
 }
@@ -923,6 +927,7 @@ const dispatchMessage = createMessageDispatcher({
   recordContentScriptCost,
   recordAppliedRulesEvent,
   recordFalsePositive,
+  recordGlobalCssFalsePositive,
   getTopTrackedSites,
   getBlockingStats,
   getCategoryDistribution,

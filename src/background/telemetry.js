@@ -59,6 +59,11 @@ export function normalizeTelemetry(raw) {
       byCategory: { ads: 0, trackers: 0, other: 0, unknown: 0, ...(falsePositiveReports.byCategory || {}) },
       byHostname: { ...(falsePositiveReports.byHostname || {}) },
     },
+    globalCssFalsePositives: {
+      total: 0,
+      byHostname: { ...((t.globalCssFalsePositives || {}).byHostname || {}) },
+      lastReportAt: (t.globalCssFalsePositives || {}).lastReportAt || 0,
+    },
     iaShield: {
       totalEvents: 0,
       bySeverity: { low: 0, medium: 0, high: 0, critical: 0, ...(iaShield.bySeverity || {}) },
@@ -188,6 +193,44 @@ export function createTelemetryController() {
           for (const k of oldest) {
             delete fp.byHostname[k];
           }
+        }
+      }
+
+      markDirty();
+    },
+
+    recordGlobalCssFalsePositive(hostname, hits) {
+      if (!telemetryState?.enabled) return;
+      const host = String(hostname || '').toLowerCase();
+      const count = Number(hits) || 0;
+      if (!host || count <= 0) return;
+
+      const bucket = telemetryState.globalCssFalsePositives;
+      // Throttle: only record once per hostname per ~6h, and cap the
+      // running max so a single noisy host can't dominate the list.
+      const now = Date.now();
+      const prev = bucket.byHostname[host];
+      if (prev && (now - (prev.lastSeen || 0)) < 6 * 3600 * 1000) {
+        if (count > (prev.maxHits || 0)) prev.maxHits = count;
+        return;
+      }
+
+      bucket.total = (bucket.total || 0) + 1;
+      bucket.lastReportAt = now;
+      bucket.byHostname[host] = {
+        count: ((prev && prev.count) || 0) + 1,
+        maxHits: Math.max(count, (prev && prev.maxHits) || 0),
+        lastSeen: now,
+      };
+
+      const keys = Object.keys(bucket.byHostname);
+      if (keys.length > 250) {
+        const oldest = keys
+          .map((k) => ({ k, t: bucket.byHostname[k]?.lastSeen || 0 }))
+          .sort((a, b) => a.t - b.t)
+          .slice(0, keys.length - 250);
+        for (const { k } of oldest) {
+          delete bucket.byHostname[k];
         }
       }
 

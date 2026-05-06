@@ -29,6 +29,16 @@ export function createReportingDomainHandlers(ctx) {
       return { success: true };
     },
 
+    'record-global-css-fp': async (msg) => {
+      // Phase B: passive telemetry — content script reports hostnames where
+      // the global ad CSS matches an unusually high number of nodes. Used to
+      // iterate on selector tightening without breaking layouts.
+      if (typeof ctx.recordGlobalCssFalsePositive === 'function') {
+        ctx.recordGlobalCssFalsePositive(msg?.hostname, Number(msg?.hits) || 0);
+      }
+      return { success: true };
+    },
+
     'report-false-positive': async (msg) => {
       ctx.recordFalsePositive(msg.hostname, msg.category);
       return { success: true, total: ctx.telemetry.getFalsePositiveTotal() };

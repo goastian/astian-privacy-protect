@@ -182,118 +182,232 @@
   // ══════════════════════════════════════════════════════════════════════════
   // LAYER 1 — Global CSS rules (injected on EVERY page, zero JS overhead)
   // These target the most common ad container patterns across the web.
+  //
+  // Phase B (2026-05-06): hardened against false positives. Substring
+  // [class*="ad-X"] / [id^="ad-"] selectors were colliding with legitimate
+  // names (head-block, read-banner, thread-container, road-unit, …).
+  // Selectors below now require word-boundaries (delimiters `-`/`_`/space,
+  // explicit prefixes/suffixes, or :is/[class~=]) to avoid collateral hides.
+  // `pointer-events: none` was also removed: it left elements in the layout
+  // tree and blocked clicks on siblings due to z-index ordering.
   // ══════════════════════════════════════════════════════════════════════════
 
-  const GLOBAL_AD_CSS = `
-/* ── Google Ad Manager / GPT ── */
-[id^="div-gpt-ad"],
-[id^="google_ads_iframe"],
-[id^="google_ads_"],
-[data-google-query-id],
-[data-ad-slot],
-[data-ad-client],
-[data-adsbygoogle-status],
-ins.adsbygoogle,
-ins.adsbygoogle[data-ad-status="unfilled"],
-/* ── Generic ad containers by ID ── */
-[id^="ad-"],
-[id^="ad_"],
-[id$="-ad"],
-[id$="_ad"],
-[id^="ads-"],
-[id^="ads_"],
-[id*="-ad-"],
-[id*="_ad_"],
-[id*="AdSlot"],
-[id*="adslot"],
-[id*="ad-slot"],
-[id*="ad_slot"],
-[id*="ad-container"],
-[id*="ad_container"],
-[id*="adContainer"],
-/* ── Generic ad containers by class ── */
-[class*="ad-container"],
-[class*="ad_container"],
-[class*="adContainer"],
-[class*="ad-slot"],
-[class*="ad_slot"],
-[class*="adSlot"],
-[class*="ad-wrapper"],
-[class*="ad_wrapper"],
-[class*="adWrapper"],
-[class*="ad-banner"],
-[class*="ad_banner"],
-[class*="adBanner"],
-[class*="ad-unit"],
-[class*="ad_unit"],
-[class*="adUnit"],
-[class*="ad-placement"],
-[class*="ad_placement"],
-[class*="adPlacement"],
-[class*="ad-zone"],
-[class*="ad_zone"],
-[class*="adZone"],
-[class*="ad-block"],
-[class*="ad_block"],
-[class*="adBlock"],
-[class*="ad-leaderboard"],
-[class*="ad-rectangle"],
-[class*="ad-skyscraper"],
-[class*="ad-billboard"],
-[class*="ad-interstitial"],
-[class*="ad-native"],
-[class*="ad-sponsored"],
-[class*="sponsored-ad"],
-[class*="native-ad"],
-[class*="nativeAd"],
-/* ── Data attributes ── */
-[data-ad],
-[data-ad-id],
-[data-ad-ref],
-[data-ad-type],
-[data-ad-name],
-[data-ad-unit],
-[data-ad-zone],
-[data-advertisement],
-[data-dfp],
-[data-freestar-ad],
-[data-revive-zoneid],
-[data-ad-manager-id],
-/* ── Ad iframes ── */
-iframe[src*="doubleclick.net"],
-iframe[src*="googlesyndication.com"],
-iframe[src*="amazon-adsystem.com"],
-iframe[src*="adnxs.com"],
-iframe[src*="rubiconproject.com"],
-iframe[src*="openx.net"],
-iframe[src*="pubmatic.com"],
-iframe[src*="criteo."],
-iframe[src*="taboola.com"],
-iframe[src*="outbrain.com"],
-iframe[src*="mgid.com"],
-iframe[id*="google_ads"],
-iframe[id*="aswift_"],
-iframe[name*="google_ads"],
-/* ── Common ad labels / sponsored ── */
-[aria-label="Advertisement"],
-[aria-label="Publicidad"],
-[aria-label="Sponsored"],
-[aria-label="Anuncio"],
-[aria-label*="advertisement"],
-[aria-label*="sponsored"],
-[data-testid="ad"],
-[data-testid="advertisement"],
-/* ── Taboola / Outbrain / MGID widgets ── */
-[id^="taboola-"],
-[class*="taboola"],
-[id^="outbrain_widget"],
-[class*="outbrain"],
-[class*="OUTBRAIN"],
-[data-widget-id*="taboola"],
-[id*="mgid"],
-[class*="mgid"],
-{
-  /* Note: empty div selectors removed — high false-positive rate */
+  // Vendor / brand-specific selectors (never collide with legitimate names).
+  const GLOBAL_AD_VENDOR_SELECTORS = [
+    // Google Ad Manager / GPT / AdSense
+    '[id^="div-gpt-ad"]',
+    '[id^="google_ads_iframe"]',
+    '[id^="google_ads_"]',
+    '[data-google-query-id]',
+    '[data-ad-slot]',
+    '[data-ad-client]',
+    '[data-adsbygoogle-status]',
+    'ins.adsbygoogle',
+    'ins.adsbygoogle[data-ad-status="unfilled"]',
+    // Ad iframes (URL-based — safe)
+    'iframe[src*="doubleclick.net"]',
+    'iframe[src*="googlesyndication.com"]',
+    'iframe[src*="amazon-adsystem.com"]',
+    'iframe[src*="adnxs.com"]',
+    'iframe[src*="rubiconproject.com"]',
+    'iframe[src*="openx.net"]',
+    'iframe[src*="pubmatic.com"]',
+    'iframe[src*="criteo."]',
+    'iframe[src*="taboola.com"]',
+    'iframe[src*="outbrain.com"]',
+    'iframe[src*="mgid.com"]',
+    'iframe[id*="google_ads"]',
+    'iframe[id^="aswift_"]',
+    'iframe[name*="google_ads"]',
+    // Aria labels / data-testid
+    '[aria-label="Advertisement"]',
+    '[aria-label="Publicidad"]',
+    '[aria-label="Sponsored"]',
+    '[aria-label="Anuncio"]',
+    '[aria-label*="advertisement" i]',
+    '[aria-label*="sponsored" i]',
+    '[data-testid="ad"]',
+    '[data-testid="advertisement"]',
+    // Taboola / Outbrain / MGID widgets (vendor names — low FP risk)
+    '[id^="taboola-"]',
+    '[class~="taboola"]',
+    '[class^="taboola-"]',
+    '[class*=" taboola-"]',
+    '[id^="outbrain_widget"]',
+    '[class~="outbrain"]',
+    '[class*="OUTBRAIN"]',
+    '[data-widget-id*="taboola"]',
+    '[id^="mgid-"]',
+    '[id*="-mgid-"]',
+    '[class~="mgid"]',
+    '[class^="mgid-"]',
+    '[class*=" mgid-"]',
+    // Data attributes (require specificity to avoid generic [data-ad] FPs)
+    '[data-ad-id]',
+    '[data-ad-ref]',
+    '[data-ad-type]',
+    '[data-ad-name]',
+    '[data-ad-unit]',
+    '[data-ad-zone]',
+    '[data-advertisement]',
+    '[data-dfp]',
+    '[data-freestar-ad]',
+    '[data-revive-zoneid]',
+    '[data-ad-manager-id]',
+  ];
+
+  // Generic ID selectors — restricted to specific ad-related prefixes only
+  // (broad `[id^="ad-"]` was matching admin paneles, etc.).
+  const GLOBAL_AD_GENERIC_ID_SELECTORS = [
+    '[id^="ad-slot-"]',
+    '[id^="ad-banner-"]',
+    '[id^="ad-container-"]',
+    '[id^="ad-unit-"]',
+    '[id^="ad-zone-"]',
+    '[id^="ad-wrapper-"]',
+    '[id^="ad-placement-"]',
+    '[id^="ad-iframe-"]',
+    '[id^="ad-frame-"]',
+    '[id^="ad-leaderboard"]',
+    '[id^="ad-rectangle"]',
+    '[id^="ad-skyscraper"]',
+    '[id^="ad-billboard"]',
+    '[id^="ad-interstitial"]',
+    '[id^="ad-sidebar"]',
+    '[id^="ad-top"]',
+    '[id^="ad-bottom"]',
+    '[id^="ad-right"]',
+    '[id^="ad-left"]',
+    '[id^="ad-header"]',
+    '[id^="ad-footer"]',
+    '[id^="ad_slot_"]',
+    '[id^="ad_banner_"]',
+    '[id^="ad_container_"]',
+    '[id^="ad_unit_"]',
+    '[id^="ad_zone_"]',
+    '[id^="ad_wrapper_"]',
+    '[id^="ads-"]',
+    '[id^="ads_"]',
+    '[id^="adsbox"]',
+    '[id^="adsense"]',
+    '[id^="adContainer"]',
+    '[id^="adWrapper"]',
+    '[id^="adSlot"]',
+    '[id^="adBanner"]',
+    '[id^="adUnit"]',
+    '[id^="adZone"]',
+    '[id$="-adcontainer"]',
+    '[id$="-adslot"]',
+    '[id$="-adbanner"]',
+    '[id$="-adunit"]',
+    '[id$="-ad-slot"]',
+    '[id$="-ad-banner"]',
+    '[id$="-ad-container"]',
+    '[id$="-ad-unit"]',
+    '[id$="-ad-wrapper"]',
+    '[id*="-ad-slot-"]',
+    '[id*="-ad-banner-"]',
+    '[id*="-ad-container-"]',
+    '[id*="-ad-unit-"]',
+  ];
+
+  // Generic class selectors — every entry below requires either a delimiter
+  // (`-`, `_`, space) or anchored start/end to avoid substring collisions
+  // with legitimate names like head-block, road-unit, thread-container, …
+  const GLOBAL_AD_GENERIC_CLASS_SELECTORS = [
+    // Anchored prefixes (first class in attr starts with…)
+    '[class^="ad-"]',
+    '[class^="ad_"]',
+    '[class^="ads-"]',
+    '[class^="ads_"]',
+    '[class^="adv-"]',
+    '[class^="advert"]',
+    '[class^="adsbygoogle"]',
+    '[class^="adContainer"]',
+    '[class^="adWrapper"]',
+    '[class^="adSlot"]',
+    '[class^="adBanner"]',
+    '[class^="adUnit"]',
+    '[class^="adZone"]',
+    '[class^="adBlock"]',
+    '[class^="adPlacement"]',
+    // Anchored suffixes (last class in attr ends with…)
+    '[class$="-ad"]',
+    '[class$="-ads"]',
+    '[class$="-advert"]',
+    '[class$="-sponsored"]',
+    '[class$="-adcontainer"]',
+    '[class$="-adwrapper"]',
+    '[class$="-adslot"]',
+    '[class$="-adbanner"]',
+    '[class$="-adunit"]',
+    // Word-boundary (whole class name) — the `~=` selector matches when the
+    // attribute value contains exactly the given token between whitespace.
+    '[class~="ad"]',
+    '[class~="ads"]',
+    '[class~="advert"]',
+    '[class~="advertisement"]',
+    '[class~="sponsored"]',
+    '[class~="ad-banner"]',
+    '[class~="ad-slot"]',
+    '[class~="ad-container"]',
+    '[class~="ad-unit"]',
+    '[class~="ad-zone"]',
+    '[class~="ad-wrapper"]',
+    '[class~="ad-block"]',
+    '[class~="ad-placement"]',
+    '[class~="ad-leaderboard"]',
+    '[class~="ad-rectangle"]',
+    '[class~="ad-skyscraper"]',
+    '[class~="ad-billboard"]',
+    '[class~="ad-interstitial"]',
+    '[class~="ad-native"]',
+    '[class~="ad-sponsored"]',
+    '[class~="sponsored-ad"]',
+    '[class~="native-ad"]',
+    // Delimited mid-attribute matches (require a leading delimiter to
+    // prevent collisions like "thread-container" / "load-block").
+    '[class*=" ad-"]',
+    '[class*=" ads-"]',
+    '[class*=" adv-"]',
+    '[class*="-ad-banner"]',
+    '[class*="-ad-slot"]',
+    '[class*="-ad-container"]',
+    '[class*="-ad-unit"]',
+    '[class*="-ad-zone"]',
+    '[class*="-ad-wrapper"]',
+    '[class*="-ad-block"]',
+    '[class*="-ad-placement"]',
+    '[class*="-ad-leaderboard"]',
+    '[class*="-ad-rectangle"]',
+    '[class*="-ad-skyscraper"]',
+    '[class*="-ad-billboard"]',
+    '[class*="-ad-interstitial"]',
+    '[class*="-ad-native"]',
+    '[class*="-ad-sponsored"]',
+    '[class*="-sponsored-ad"]',
+    '[class*="-native-ad"]',
+    '[class*="_ad_banner"]',
+    '[class*="_ad_slot"]',
+    '[class*="_ad_container"]',
+    '[class*="_ad_unit"]',
+    '[class*="_ad_zone"]',
+    '[class*="_ad_wrapper"]',
+    '[class*="_ad_block"]',
+    '[class*="_sponsored_ad"]',
+    '[class*="_native_ad"]',
+  ];
+
+  const GLOBAL_AD_SELECTORS = [
+    ...GLOBAL_AD_VENDOR_SELECTORS,
+    ...GLOBAL_AD_GENERIC_ID_SELECTORS,
+    ...GLOBAL_AD_GENERIC_CLASS_SELECTORS,
+  ];
+
+  // Note: `pointer-events: none` deliberately removed — when used globally it
+  // leaves elements in the box tree and can intercept clicks on siblings via
+  // stacking context, breaking interaction on otherwise-visible UI.
+  const GLOBAL_AD_CSS = `${GLOBAL_AD_SELECTORS.join(',\n')} {
   display: none !important;
   height: 0 !important;
   min-height: 0 !important;
@@ -303,12 +417,36 @@ iframe[name*="google_ads"],
   padding: 0 !important;
   border: 0 !important;
   opacity: 0 !important;
-  pointer-events: none !important;
-}
-`;
+}`;
 
-  // Sites where generic ad CSS causes false positives (breaks UI)
-  const GLOBAL_CSS_EXCLUDE = new Set(['youtube.com', 'youtu.be', 'youtube-nocookie.com']);
+  // Sites where generic ad CSS causes false positives (breaks UI).
+  // Phase B: extended with sensitive sites where Reddit-style CSS class
+  // collisions historically caused layout breakage. Will be trimmed back as
+  // we gain confidence in the tightened selectors above.
+  const GLOBAL_CSS_EXCLUDE = new Set([
+    'youtube.com',
+    'youtu.be',
+    'youtube-nocookie.com',
+    // Phase B safety allowlist
+    'reddit.com',
+    'redditmedia.com',
+    'redditstatic.com',
+    'github.com',
+    'githubusercontent.com',
+    'gist.github.com',
+    'gitlab.com',
+    'bitbucket.org',
+    'x.com',
+    'twitter.com',
+    'linkedin.com',
+    'licdn.com',
+    'stackoverflow.com',
+    'stackexchange.com',
+    'serverfault.com',
+    'superuser.com',
+    'askubuntu.com',
+    'mathoverflow.net',
+  ]);
 
   function shouldExcludeGlobalCSS(host) {
     if (GLOBAL_CSS_EXCLUDE.has(host)) return true;
@@ -325,6 +463,54 @@ iframe[name*="google_ads"],
     globalAdStyle.setAttribute('data-midori-privacy', 'global-ad-collapse');
     globalAdStyle.textContent = GLOBAL_AD_CSS;
     (document.head || document.documentElement).appendChild(globalAdStyle);
+    scheduleGlobalCssFalsePositiveProbe();
+  }
+
+  // ── Passive false-positive telemetry for the global ad CSS ──
+  // After first paint, count how many DOM nodes the global selector list
+  // matches. If the count is unusually high we report the host once per page
+  // load so we can iterate on selector tightening without breaking layouts.
+  const GLOBAL_CSS_FP_THRESHOLD = 60;          // hits before we flag a host
+  const GLOBAL_CSS_FP_PROBE_DELAY_MS = 1500;   // wait for first paint to settle
+  let globalCssFpProbeScheduled = false;
+  const GLOBAL_AD_SELECTOR_LIST = GLOBAL_AD_SELECTORS.join(',');
+
+  function scheduleGlobalCssFalsePositiveProbe() {
+    if (globalCssFpProbeScheduled) return;
+    globalCssFpProbeScheduled = true;
+    const run = () => {
+      try {
+        runGlobalCssFalsePositiveProbe();
+      } catch {
+        /* noop */
+      }
+    };
+    const kickoff = () => {
+      // Defer until after first paint to avoid measuring during layout.
+      setTimeout(run, GLOBAL_CSS_FP_PROBE_DELAY_MS);
+    };
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      kickoff();
+    } else {
+      window.addEventListener('DOMContentLoaded', kickoff, { once: true });
+    }
+  }
+
+  function runGlobalCssFalsePositiveProbe() {
+    if (!GLOBAL_AD_SELECTOR_LIST) return;
+    let hits = 0;
+    try {
+      hits = document.querySelectorAll(GLOBAL_AD_SELECTOR_LIST).length;
+    } catch {
+      return;
+    }
+    if (hits < GLOBAL_CSS_FP_THRESHOLD) return;
+    sendMsg({
+      action: 'record-global-css-fp',
+      hostname: window.location.hostname || '',
+      hits,
+      threshold: GLOBAL_CSS_FP_THRESHOLD,
+    }).catch(() => {});
   }
 
   // ══════════════════════════════════════════════════════════════════════════
