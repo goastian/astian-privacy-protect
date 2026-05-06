@@ -20,6 +20,7 @@ export function createBackgroundOrchestrator({
   telemetry,
   applyTrackerDbDynamicRules,
   updateDnrEntityBlockRules,
+  applyFirstPartyCdnAllowRules,
   isTrackerDbAssistedEnabled,
 }) {
   async function loadEngine(lists) {
@@ -170,6 +171,11 @@ export function createBackgroundOrchestrator({
         updateDnrEntityBlockRules(options).catch((e) =>
           console.warn('[midori] Entity session rules (startup):', e)
         );
+        if (typeof applyFirstPartyCdnAllowRules === 'function') {
+          applyFirstPartyCdnAllowRules().catch((e) =>
+            console.warn('[midori] First-party CDN allow rules (startup):', e)
+          );
+        }
       }
       scheduleTrackerDbUpdates(options.trackerDbUpdateIntervalHours || 24);
     } catch (e) {

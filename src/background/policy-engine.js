@@ -34,12 +34,79 @@ function isFirstPartyRelaxable(requestDomain, pageHostname, resourceType) {
 }
 
 /**
+ * Curated map of CDN/static-asset domains to the first-party sites that own them.
+ * Used as a deterministic fallback when TrackerDB does not assign a shared
+ * `ownerId` to a CDN and its parent site (e.g. `redditstatic.com` ↔ `reddit.com`).
+ * Without this map, third-party blocklists (DDG TDS, EasyPrivacy) can incorrectly
+ * block legitimate first-party bundles served from a sibling CDN domain, breaking
+ * SPAs that import ES modules from the CDN.
+ *
+ * Keys and values are eTLD+1 (registry-level) domains, lowercase.
+ * Conservative by design: only well-known site→CDN pairs that ship the site's
+ * own bundles/assets, not third-party widgets.
+ */
+export const FIRST_PARTY_CDN_MAP = {
+  'redditstatic.com': ['reddit.com'],
+  'redditmedia.com': ['reddit.com'],
+  'redd.it': ['reddit.com'],
+  'twimg.com': ['twitter.com', 'x.com'],
+  'fbcdn.net': ['facebook.com', 'instagram.com', 'messenger.com'],
+  'cdninstagram.com': ['instagram.com'],
+  'licdn.com': ['linkedin.com'],
+  'ytimg.com': ['youtube.com', 'youtu.be'],
+  'googlevideo.com': ['youtube.com', 'youtu.be'],
+  'ggpht.com': ['youtube.com', 'youtu.be'],
+  'ttwstatic.com': ['twitch.tv'],
+  'jtvnw.net': ['twitch.tv'],
+  'ttvnw.net': ['twitch.tv'],
+  'tiktokcdn.com': ['tiktok.com'],
+  'tiktokcdn-us.com': ['tiktok.com'],
+  'pinimg.com': ['pinterest.com'],
+  'discordapp.net': ['discord.com'],
+  'discord-cdn.com': ['discord.com'],
+  'discordapp.com': ['discord.com'],
+  'githubusercontent.com': ['github.com'],
+  'githubassets.com': ['github.com'],
+  'wp.com': ['wordpress.com'],
+  'gravatar.com': ['wordpress.com'],
+  'imgur.com': ['imgur.com'],
+  'twitchcdn.net': ['twitch.tv'],
+  'redditinc.com': ['reddit.com'],
+  'wikimedia.org': ['wikipedia.org'],
+  'spotifycdn.com': ['spotify.com'],
+  'scdn.co': ['spotify.com'],
+  'sndcdn.com': ['soundcloud.com'],
+  'mzstatic.com': ['apple.com'],
+  'apple-mapkit.com': ['apple.com'],
+  'msecnd.net': ['microsoft.com'],
+  'live.com': ['microsoft.com'],
+  'bing.net': ['bing.com'],
+  'gitlab-static.net': ['gitlab.com'],
+  'shopifycdn.com': ['shopify.com', 'myshopify.com'],
+  'amazon-adsystem.com': [],
+  'media-amazon.com': ['amazon.com'],
+  'ssl-images-amazon.com': ['amazon.com'],
+  'paypalobjects.com': ['paypal.com'],
+};
+
+function getRegistryDomain(hostname) {
+  if (!hostname) return '';
+  const parts = String(hostname).toLowerCase().split('.');
+  if (parts.length <= 2) return parts.join('.');
+  return parts.slice(-2).join('.');
+}
+
+/**
  * Check if the request domain is owned by the same entity as the page hostname.
- * Uses TrackerDB entity information to match across different legal entities.
+ * Uses TrackerDB entity information to match across different legal entities,
+ * and falls back to a curated CDN→site map for well-known first-party CDNs
+ * that TrackerDB may not link to their parent site.
+ *
  * Example: analytics.google.com and doubleclick.net are both owned by "Alphabet Inc."
- * 
+ * Example: redditstatic.com is the first-party CDN for reddit.com (curated map).
+ *
  * Performance: ~O(1) with LRU caching in trackerdb.js
- * 
+ *
  * @param {string} requestDomain
  * @param {string} pageHostname
  * @returns {boolean} true if owned by same entity
@@ -54,7 +121,18 @@ function isOwnedByPageHost(requestDomain, pageHostname) {
   if (pageId && reqId && pageId === reqId) return true;
 
   // Fallback: exact domain match
-  return requestDomain === pageHostname;
+  if (requestDomain === pageHostname) return true;
+
+  // Curated CDN→site map fallback (registry-level comparison)
+  const reqReg = getRegistryDomain(requestDomain);
+  const pageReg = getRegistryDomain(pageHostname);
+  if (reqReg && pageReg) {
+    if (reqReg === pageReg) return true;
+    const owners = FIRST_PARTY_CDN_MAP[reqReg];
+    if (owners && owners.includes(pageReg)) return true;
+  }
+
+  return false;
 }
 
 export const VERTICALS = {
@@ -563,19 +641,35 @@ export function evaluateRequestPolicy({
   // the request domain is NOT classified as 'ads' in TrackerDB. This unblocks
   // SPAs like Reddit (own bundles served from sibling owned domains) without
   // opening the door to ad-tagged endpoints.
+  // Phase C2 (2026-05-06): same-entity non-ads requests also override engine
+  // matches (e.g. DDG TDS treating `redditstatic.com` as a generic third-party
+  // tracker). Without this, Reddit's own bundle CDN is blocked even though the
+  // user is browsing reddit.com. Curated CDN→site map in `FIRST_PARTY_CDN_MAP`
+  // is the source of truth for which third-party domains are allowed to
+  // shadow engine blocks.
   const ownedByPage = isOwnedByPageHost(requestDomain, pageHostname);
   const isSensitiveType = resourceType === 'script' || resourceType === 'xmlhttprequest';
   const sameEntityNonAds = ownedByPage && (
     !isSensitiveType ||
     getTrackerCategory(requestDomain) !== 'ads'
   );
-  const firstPartyRelaxation = !effectiveEngineBlocked && (
-    !isThirdParty ||
-    isFirstPartyRelaxable(requestDomain, pageHostname, resourceType) ||
-    sameEntityNonAds
-  );
 
-  const shouldBlock = (entityBlocked || effectiveEngineBlocked || effectiveHardThreatBlocked || effectiveTrackerSignalEligible) && !firstPartyRelaxation;
+  // Strong relaxation: overrides engine + heuristic blocks (but not user
+  // entity blocks). Reserved for verified first-party / same-owner contexts.
+  const firstPartyStrongRelaxation = sameEntityNonAds;
+
+  // Soft relaxation: only applied when no engine block is in effect.
+  const firstPartyRelaxation = firstPartyStrongRelaxation || (!effectiveEngineBlocked && (
+    !isThirdParty ||
+    isFirstPartyRelaxable(requestDomain, pageHostname, resourceType)
+  ));
+
+  const shouldBlock = (
+    entityBlocked ||
+    (effectiveEngineBlocked && !firstPartyStrongRelaxation) ||
+    (effectiveHardThreatBlocked && !firstPartyStrongRelaxation) ||
+    (effectiveTrackerSignalEligible && !firstPartyStrongRelaxation)
+  ) && !firstPartyRelaxation;
   const reason = firstPartyRelaxation ? 'first-party-relaxed'
     : entityBlocked
     ? 'entity-block'

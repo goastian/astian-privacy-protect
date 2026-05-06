@@ -17,6 +17,7 @@ import {
   getPopupDefenseConfig,
   resolveSiteProfile,
   invalidateSiteProfileCache,
+  FIRST_PARTY_CDN_MAP,
 } from './policy-engine.js';
 import {
   fetchAndUpdateTrackerDb,
@@ -467,6 +468,7 @@ const orchestrator = createBackgroundOrchestrator({
   telemetry,
   applyTrackerDbDynamicRules,
   updateDnrEntityBlockRules,
+  applyFirstPartyCdnAllowRules,
   isTrackerDbAssistedEnabled: () => isTrackerDbAssistedEnabled,
 });
 
@@ -1036,6 +1038,51 @@ async function updateDnrWhitelist() {
     removeRuleIds: removeIds,
     addRules,
   });
+}
+
+// ── Chromium: first-party CDN allow rules ───────────────────────────────────
+// Static DNR rulesets (DDG TDS, EasyPrivacy) match generic third-party
+// trackers and end up blocking legitimate same-owner CDNs (e.g.
+// `redditstatic.com` while the user is on `reddit.com`). We mirror the
+// curated `FIRST_PARTY_CDN_MAP` from policy-engine into session allow rules
+// with high priority so first-party bundles are never shadow-blocked by
+// the static rulesets. Mirrors the Firefox webRequest relaxation path.
+async function applyFirstPartyCdnAllowRules() {
+  if (!IS_CHROMIUM) return;
+
+  try {
+    const existingRules = await chrome.declarativeNetRequest.getSessionRules();
+    const removeIds = existingRules
+      .filter(r => r.id >= 920000 && r.id < 930000)
+      .map(r => r.id);
+
+    const addRules = [];
+    let nextId = 920000;
+
+    for (const [cdn, owners] of Object.entries(FIRST_PARTY_CDN_MAP)) {
+      if (!Array.isArray(owners) || owners.length === 0) continue;
+      addRules.push({
+        id: nextId++,
+        priority: 20,
+        action: { type: 'allow' },
+        condition: {
+          requestDomains: [cdn],
+          initiatorDomains: owners,
+          resourceTypes: [
+            'sub_frame', 'stylesheet', 'script', 'image',
+            'font', 'object', 'xmlhttprequest', 'ping', 'media', 'websocket', 'other',
+          ],
+        },
+      });
+    }
+
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: removeIds,
+      addRules,
+    });
+  } catch (e) {
+    console.warn('[midori] First-party CDN allow rules update failed:', e);
+  }
 }
 
 // ── Handle install/update ────────────────────────────────────────────────────
