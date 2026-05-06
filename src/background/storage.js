@@ -70,14 +70,16 @@ const DEFAULTS = {
   },
   experiments: {
     serpBar: false,
-    trackerDbAssisted: true,
+    // Phase C (2026-05-06): safe defaults aligned with uBO/AdGuard.
+    // Aggressive paths are opt-in via Options.
+    trackerDbAssisted: false,
     iaShield: false,
     aggressiveVerticalRules: false,
-    aggressiveThreatBlocking: true,
+    aggressiveThreatBlocking: false,
     rolloutTransparency: true,
-    rolloutEntityBlocking: true,
-    rolloutVerticalProfiles: true,
-    rolloutCosmeticAudit: true,
+    rolloutEntityBlocking: false,
+    rolloutVerticalProfiles: false,
+    rolloutCosmeticAudit: false,
   },
   lists: {
     // ── Core lists (enabled by default) ──
@@ -429,6 +431,58 @@ export async function recordHourlyBlock(count = 1) {
   }
 
   await setOptions({ hourlyStats });
+}
+
+// ── Phase C migration (2026-05-06) ──────────────────────────────────────────
+// Old defaults that were enabled in bulk pre-Phase-C. If the user still has
+// these exact values, treat them as "untouched defaults" and override with
+// the new safe values. Any divergent value is treated as user-customized
+// and left intact.
+const PHASE_C_OLD_EXPERIMENT_DEFAULTS = Object.freeze({
+  trackerDbAssisted: true,
+  aggressiveThreatBlocking: true,
+  rolloutEntityBlocking: true,
+  rolloutVerticalProfiles: true,
+  rolloutCosmeticAudit: true,
+});
+const PHASE_C_NEW_EXPERIMENT_DEFAULTS = Object.freeze({
+  trackerDbAssisted: false,
+  aggressiveThreatBlocking: false,
+  rolloutEntityBlocking: false,
+  rolloutVerticalProfiles: false,
+  rolloutCosmeticAudit: false,
+});
+const PHASE_C_MIGRATION_FLAG = 'phaseCSafeDefaultsApplied';
+
+/**
+ * Applies Phase C safe defaults to existing installs.
+ * Idempotent: only runs once per install (guarded by phaseCSafeDefaultsApplied).
+ * For each migrated experiment, if the user's current value equals the OLD default,
+ * we override it with the NEW default. Any other value is kept (user customization).
+ *
+ * Should be called from chrome.runtime.onInstalled with reason='update'.
+ * @returns {Promise<{applied: boolean, changed: string[]}>}
+ */
+export async function applyPhaseCSafeDefaults() {
+  const data = await storageLocal.get('options');
+  const opts = data?.options || {};
+  if (opts[PHASE_C_MIGRATION_FLAG]) {
+    return { applied: false, changed: [] };
+  }
+  const current = opts.experiments || {};
+  const next = { ...current };
+  const changed = [];
+  for (const key of Object.keys(PHASE_C_OLD_EXPERIMENT_DEFAULTS)) {
+    if (current[key] === PHASE_C_OLD_EXPERIMENT_DEFAULTS[key]) {
+      next[key] = PHASE_C_NEW_EXPERIMENT_DEFAULTS[key];
+      changed.push(key);
+    }
+  }
+  await setOptions({
+    experiments: next,
+    [PHASE_C_MIGRATION_FLAG]: true,
+  });
+  return { applied: true, changed };
 }
 
 export { DEFAULTS, storageLocal };

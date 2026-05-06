@@ -5,7 +5,7 @@
  * License: MPL-2.0
  */
 
-import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock } from './storage.js';
+import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock, applyPhaseCSafeDefaults } from './storage.js';
 import { extractDomain, categorizeRequest } from './filter-utils.js';
 import { GhosteryEngine } from './ghostery-engine.js';
 import { downloadAllListsWithStatus } from './lists-manager.js';
@@ -999,6 +999,19 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       setTimeout(() => {
         chrome.tabs.create({ url: setupUrl });
       }, 1500);
+    }
+  }
+
+  // Phase C (2026-05-06): apply safe-default migration on update.
+  // Only resets experiments still on the OLD bulk-enabled defaults.
+  if (details.reason === 'update') {
+    try {
+      const result = await applyPhaseCSafeDefaults();
+      if (result.applied && result.changed.length > 0) {
+        console.log('[midori] Phase C safe defaults applied:', result.changed.join(', '));
+      }
+    } catch (e) {
+      console.warn('[midori] Phase C migration failed:', e);
     }
   }
 });

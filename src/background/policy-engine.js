@@ -498,10 +498,20 @@ export function evaluateRequestPolicy({
   // ── Phase 8: First-Party Relaxation ──────────────────────────────────────
   // Allow first-party or same-entity resources to pass through for non-blocking content types.
   // This improves UX by reducing false-positive blocks on legitimate same-org resources.
+  // Phase C (2026-05-06): also relax script/xmlhttprequest when same-entity AND
+  // the request domain is NOT classified as 'ads' in TrackerDB. This unblocks
+  // SPAs like Reddit (own bundles served from sibling owned domains) without
+  // opening the door to ad-tagged endpoints.
+  const ownedByPage = isOwnedByPageHost(requestDomain, pageHostname);
+  const isSensitiveType = resourceType === 'script' || resourceType === 'xmlhttprequest';
+  const sameEntityNonAds = ownedByPage && (
+    !isSensitiveType ||
+    getTrackerCategory(requestDomain) !== 'ads'
+  );
   const firstPartyRelaxation = !effectiveEngineBlocked && (
     !isThirdParty ||
     isFirstPartyRelaxable(requestDomain, pageHostname, resourceType) ||
-    (isOwnedByPageHost(requestDomain, pageHostname) && resourceType !== 'script' && resourceType !== 'xmlhttprequest')
+    sameEntityNonAds
   );
 
   const shouldBlock = (entityBlocked || effectiveEngineBlocked || effectiveHardThreatBlocked || effectiveTrackerSignalEligible) && !firstPartyRelaxation;
