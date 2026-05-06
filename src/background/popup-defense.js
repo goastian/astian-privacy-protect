@@ -11,6 +11,26 @@ function hostnameMatches(hostname, pattern) {
   return hostname === pattern || hostname.endsWith(`.${pattern}`);
 }
 
+function isHostnameInWhitelist(hostname, whitelist) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host || !whitelist || typeof whitelist !== 'object') return false;
+  if (whitelist[host]) return true;
+  const parts = host.split('.');
+  for (let i = 1; i < parts.length - 1; i++) {
+    const parent = parts.slice(i).join('.');
+    if (whitelist[parent]) return true;
+  }
+  return false;
+}
+
+function isCandidateUrlEligible(url) {
+  // Phase A: only http(s) navigations can be popups/popunders. Extension pages,
+  // chrome://, about:, file:, data:, javascript:, etc. must never be auto-closed.
+  if (!url) return true; // empty url => give it a chance (will be evaluated on redirect)
+  const lowered = String(url).toLowerCase();
+  return lowered.startsWith('http://') || lowered.startsWith('https://') || lowered === 'about:blank';
+}
+
 export function createPopupDefenseController({ extractDomain, getTab, getPopupDefenseConfig, getRuntimeOptions }) {
   const popupGestureState = new Map();
   const popupCandidates = new Map();
@@ -62,6 +82,12 @@ export function createPopupDefenseController({ extractDomain, getTab, getPopupDe
     registerPopupCandidate(tab) {
       if (!tab?.id || tab.openerTabId === undefined || tab.openerTabId === null) return;
 
+      // Phase A6: ignore tabs that aren't http(s) navigations (extension pages,
+      // chrome://, about:, file://, data:, javascript:). These are never popups
+      // we should auto-close.
+      const candidateUrl = tab.url || tab.pendingUrl || '';
+      if (!isCandidateUrlEligible(candidateUrl)) return;
+
       const now = Date.now();
       if (popupCandidates.size >= MAX_POPUP_CANDIDATES) {
         for (const [id, candidate] of popupCandidates) {
@@ -75,7 +101,13 @@ export function createPopupDefenseController({ extractDomain, getTab, getPopupDe
 
       const openerTab = getTab(tab.openerTabId);
       const openerHostname = openerTab?.hostname || '';
-      const config = getPopupDefenseConfig(openerHostname, getRuntimeOptions());
+
+      // Phase A7: never act on candidates whose opener is whitelisted by the user.
+      const runtime = getRuntimeOptions();
+      if (runtime?.enabled === false) return;
+      if (openerHostname && isHostnameInWhitelist(openerHostname, runtime?.whitelist || {})) return;
+
+      const config = getPopupDefenseConfig(openerHostname, runtime);
       if (!config.enabled) return;
 
       const allowedByGesture = hasRecentUserGesture(tab.openerTabId, config.gestureWindowMs);

@@ -1789,6 +1789,11 @@
       document.addEventListener('keydown', markGesture, true);
       document.addEventListener('touchstart', markGesture, true);
 
+      // Phase A: only intercept window.open. We removed the overrides on
+      // HTMLAnchorElement.prototype.click and Element.prototype.setAttribute
+      // because they break SPAs (Reddit/X/etc.) that legitimately drive
+      // navigation through synthetic clicks or dynamic attribute writes.
+      // window.open still covers true popunder/popup networks.
       var origOpen = window.open;
       if (typeof origOpen === 'function') {
         window.open = function(url) {
@@ -1803,46 +1808,6 @@
           return origOpen.apply(this, arguments);
         };
       }
-
-      var origAnchorClick = HTMLAnchorElement.prototype.click;
-      if (typeof origAnchorClick === 'function') {
-        HTMLAnchorElement.prototype.click = function() {
-          var target = String(this.target || '').toLowerCase();
-          if (target === '_blank' && !withinGestureWindow() && cfg.closeTabsWithoutGesture !== false) {
-            postBlocked('synthetic-blank-click', this.href || '');
-            return;
-          }
-          return origAnchorClick.apply(this, arguments);
-        };
-      }
-
-      // Intercept onclick handlers that call window.open
-      var origSetAttribute = Element.prototype.setAttribute;
-      Element.prototype.setAttribute = function(name, value) {
-        if (name === 'onclick' && typeof value === 'string' && /window\\.open\\s*\\(/.test(value)) {
-          if (!withinGestureWindow() && cfg.closeTabsWithoutGesture !== false) {
-            postBlocked('onclick-window-open', value.slice(0, 200));
-            return;
-          }
-        }
-        return origSetAttribute.apply(this, arguments);
-      };
-
-      document.addEventListener('click', function(e) {
-        if (e.isTrusted) return;
-        var el = e.target;
-        if (!el) return;
-        var onclickFn = el.onclick;
-        if (typeof onclickFn === 'function') {
-          var fnStr = onclickFn.toString();
-          if (/window\\.open\\s*\\(/.test(fnStr) && !withinGestureWindow() && cfg.closeTabsWithoutGesture !== false) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            postBlocked('onclick-handler-open', fnStr.slice(0, 200));
-            return;
-          }
-        }
-      }, true);
     })();`;
   }
 

@@ -170,7 +170,7 @@ const PROTECTION_CONFIG = {
     popupBase: 'balanced',
     popupBurstLimit: 1,
     popupRedirectHopThreshold: 3,
-    popupGestureWindowMs: 1400,
+    popupGestureWindowMs: 4000,
     popupEvalDelayMs: 900,
     signalThreshold: 1,
   },
@@ -179,7 +179,7 @@ const PROTECTION_CONFIG = {
     popupBase: 'strict',
     popupBurstLimit: 1,
     popupRedirectHopThreshold: 2,
-    popupGestureWindowMs: 1800,
+    popupGestureWindowMs: 4000,
     popupEvalDelayMs: 700,
     signalThreshold: 0.2,
   },
@@ -557,6 +557,14 @@ export function getPopupDefenseConfig(pageHostname, options) {
   const burstLimit = siteContext.profile.popupBurstLimit ?? Math.max(0, protectionConfig.popupBurstLimit + levelWeight);
   const redirectHopThreshold = siteContext.profile.redirectHopThreshold ?? Math.max(2, protectionConfig.popupRedirectHopThreshold + levelWeight);
 
+  // Phase A: only auto-close tabs in adult vertical or when user picks 'strict' explicitly.
+  // For 'general'/'video'/'ai' on standard we no longer cierran pestañas legítimas;
+  // the in-page window.open guard and burst limit still mitigate true popunders.
+  const closeTabsWithoutGesture = (
+    siteContext.vertical === VERTICALS.ADULT ||
+    popupDefense === 'strict'
+  );
+
   return {
     enabled: protectionLevel !== 'basic' || popupDefense !== 'relaxed',
     defense: popupDefense,
@@ -565,7 +573,7 @@ export function getPopupDefenseConfig(pageHostname, options) {
     burstWindowMs: 5000,
     maxBurstWithoutGesture: burstLimit,
     redirectHopThreshold,
-    closeTabsWithoutGesture: popupDefense !== 'relaxed',
+    closeTabsWithoutGesture,
     vertical: siteContext.vertical,
   };
 }

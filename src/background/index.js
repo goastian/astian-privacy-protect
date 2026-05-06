@@ -730,11 +730,27 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (!IS_CHROMIUM) {
       updateBadge(tabId);
     }
+
+    // Phase A4: a fresh top-level navigation in this tab is a strong "user is
+    // active" signal. Record a synthetic gesture so child tabs spawned right
+    // after (e.g. by a click that triggers both navigation and window.open)
+    // are not mistaken for popunders.
+    if (tab.url.startsWith('http')) {
+      recordUserGesture(tabId, { type: 'tab-loading' });
+    }
   }
 });
 
 chrome.tabs.onCreated.addListener((tab) => {
   registerPopupCandidate(tab);
+});
+
+// Phase A5: prime a synthetic user gesture whenever the user actively switches
+// to a tab. This avoids the race where the very first click of a session opens
+// a child tab before our content-script gesture bridge has reported anything.
+chrome.tabs.onActivated.addListener((info) => {
+  if (!info || !Number.isInteger(info.tabId) || info.tabId < 0) return;
+  recordUserGesture(info.tabId, { type: 'tab-activated' });
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
