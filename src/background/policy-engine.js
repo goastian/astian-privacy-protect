@@ -87,7 +87,91 @@ export const FIRST_PARTY_CDN_MAP = {
   'media-amazon.com': ['amazon.com'],
   'ssl-images-amazon.com': ['amazon.com'],
   'paypalobjects.com': ['paypal.com'],
+  // Google ecosystem — Gmail, Drive, Docs, Meet, Calendar, etc. all rely
+  // on these CDNs/APIs as first-party. Without this, EasyList / DDG TDS
+  // generic third-party rules can break message rendering and bundle
+  // loading on `mail.google.com`, `docs.google.com`, etc.
+  'gstatic.com': ['google.com', 'gmail.com', 'googlemail.com', 'youtube.com', 'blogger.com'],
+  'googleusercontent.com': ['google.com', 'gmail.com', 'googlemail.com', 'youtube.com', 'blogger.com'],
+  'googleapis.com': ['google.com', 'gmail.com', 'googlemail.com', 'youtube.com', 'blogger.com'],
+  'withgoogle.com': ['google.com', 'gmail.com'],
+  // Microsoft 365 / Outlook / Teams
+  'office.com': ['microsoft.com', 'live.com', 'outlook.com'],
+  'office.net': ['microsoft.com', 'office.com', 'outlook.com', 'live.com'],
+  'officeapps.live.com': ['microsoft.com', 'office.com', 'outlook.com'],
+  'sharepoint.com': ['microsoft.com', 'office.com', 'outlook.com'],
+  'office365.com': ['microsoft.com', 'office.com', 'outlook.com'],
+  'outlook.com': ['microsoft.com', 'live.com', 'office.com'],
+  'live.net': ['microsoft.com', 'live.com', 'outlook.com'],
+  'aadcdn.msftauth.net': ['microsoft.com', 'live.com', 'outlook.com', 'office.com'],
+  'msauth.net': ['microsoft.com', 'live.com', 'outlook.com', 'office.com'],
+  'msftauth.net': ['microsoft.com', 'live.com', 'outlook.com', 'office.com'],
+  'msftauthimages.net': ['microsoft.com', 'live.com', 'outlook.com', 'office.com'],
+  'msocdn.com': ['microsoft.com', 'office.com', 'outlook.com'],
+  'msftidentity.com': ['microsoft.com', 'live.com', 'outlook.com'],
+  'msidentity.com': ['microsoft.com', 'live.com', 'outlook.com'],
+  'sfx.ms': ['microsoft.com', 'live.com', 'outlook.com'],
+  'akadns.net': [],
+  // Apple iCloud / Apple ID
+  'icloud-content.com': ['icloud.com', 'apple.com'],
+  'cdn-apple.com': ['apple.com', 'icloud.com'],
+  'apple.news': ['apple.com'],
+  // Yahoo Mail
+  'yimg.com': ['yahoo.com', 'aol.com'],
+  // Proton ecosystem
+  'protonmail.ch': ['proton.me', 'protonmail.com'],
+  'protonmail.com': ['proton.me'],
 };
+
+/**
+ * Critical first-party sites where cosmetic filters, scriptlets and
+ * heuristic ad-CSS injection are KNOWN to cause false positives that break
+ * core functionality (e.g. Gmail message body, Outlook reading pane,
+ * banking dashboards). On these hosts:
+ *   - cosmetic injection (Ghostery + global heuristic CSS) is suppressed
+ *   - scriptlet rules are suppressed
+ *   - same-registry & curated-CDN requests get strong first-party relaxation
+ *
+ * Entries are eTLD+1 (registry-level) domains, lowercase. Subdomains are
+ * matched by suffix.
+ */
+export const CRITICAL_FIRST_PARTY_SITES = new Set([
+  // Google productivity & auth
+  'google.com', 'gmail.com', 'googlemail.com',
+  // Microsoft / Outlook / 365
+  'microsoft.com', 'live.com', 'office.com', 'office365.com',
+  'outlook.com', 'sharepoint.com', 'msn.com', 'bing.com',
+  // Apple iCloud / Apple ID
+  'icloud.com', 'apple.com',
+  // Other major mail providers
+  'yahoo.com', 'aol.com', 'proton.me', 'protonmail.com', 'tutanota.com',
+  'fastmail.com', 'zoho.com', 'gmx.com', 'mail.ru',
+  // Dev / collaboration
+  'github.com', 'gitlab.com', 'bitbucket.org', 'atlassian.com',
+  'slack.com', 'notion.so', 'linear.app', 'figma.com',
+  // Banking / finance (broad protection — these MUST never break)
+  'paypal.com', 'stripe.com', 'wise.com', 'revolut.com',
+  // Payments / commerce critical
+  'shopify.com',
+]);
+
+/**
+ * Returns true when the page hostname matches a curated critical first-party
+ * site (registry-level suffix match). Used to suppress cosmetic injection
+ * and force strong same-registry relaxation.
+ *
+ * @param {string} hostname
+ * @returns {boolean}
+ */
+export function isCriticalFirstPartySite(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host) return false;
+  if (CRITICAL_FIRST_PARTY_SITES.has(host)) return true;
+  for (const reg of CRITICAL_FIRST_PARTY_SITES) {
+    if (host.endsWith('.' + reg)) return true;
+  }
+  return false;
+}
 
 function getRegistryDomain(hostname) {
   if (!hostname) return '';
@@ -654,9 +738,21 @@ export function evaluateRequestPolicy({
     getTrackerCategory(requestDomain) !== 'ads'
   );
 
+  // Critical-first-party relaxation: when the page is a known productivity /
+  // mail / banking site (Gmail, Outlook, iCloud, banking, etc.), any request
+  // that is same-registry OR owned-by-same-entity OR matches a curated
+  // first-party CDN (FIRST_PARTY_CDN_MAP) is force-relaxed regardless of
+  // its TrackerDB category. These hosts have a long history of legitimate
+  // first-party assets being mis-classified by generic third-party rules,
+  // and breakage there is high-impact (lost emails, broken banking flows).
+  const criticalFirstParty = isCriticalFirstPartySite(pageHostname) && (
+    ownedByPage ||
+    requestDomain === pageHostname
+  );
+
   // Strong relaxation: overrides engine + heuristic blocks (but not user
   // entity blocks). Reserved for verified first-party / same-owner contexts.
-  const firstPartyStrongRelaxation = sameEntityNonAds;
+  const firstPartyStrongRelaxation = sameEntityNonAds || criticalFirstParty;
 
   // Soft relaxation: only applied when no engine block is in effect.
   const firstPartyRelaxation = firstPartyStrongRelaxation || (!effectiveEngineBlocked && (

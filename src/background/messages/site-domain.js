@@ -139,6 +139,13 @@ export function createSiteDomainHandlers(ctx) {
       if (ctx.isProtectionBypassedForHost(hostname, runtime)) {
         return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
       }
+      // Critical first-party sites (Gmail, Outlook, iCloud, banking, etc.)
+      // are highly sensitive to cosmetic-rule false positives — skip cosmetic
+      // injection entirely on these hosts. User can still toggle protection
+      // off per-site if needed.
+      if (ctx.isCriticalFirstPartySite?.(hostname)) {
+        return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
+      }
       const siteContext = ctx.resolveSiteProfile(hostname, ctx.getRuntimeOptions());
       const cosmeticsEnabled = siteContext.profile?.cosmeticsEnabled !== false;
       if (!cosmeticsEnabled) {
@@ -158,6 +165,9 @@ export function createSiteDomainHandlers(ctx) {
       const hostname = msg.hostname || '';
       const runtime = ctx.getRuntimeOptions();
       if (ctx.isProtectionBypassedForHost(hostname, runtime)) {
+        return { enabled: false, scriptlets: [] };
+      }
+      if (ctx.isCriticalFirstPartySite?.(hostname)) {
         return { enabled: false, scriptlets: [] };
       }
       return {

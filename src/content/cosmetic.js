@@ -423,6 +423,12 @@
   // Phase B: extended with sensitive sites where Reddit-style CSS class
   // collisions historically caused layout breakage. Will be trimmed back as
   // we gain confidence in the tightened selectors above.
+  // Phase E (2026-05-07): mail/productivity/banking critical sites added —
+  // Gmail, Outlook, iCloud, Yahoo Mail, Proton, banking, etc. Generic
+  // [class~="ad"] / [class*=" ad-"] selectors collide with these sites'
+  // obfuscated class names (e.g. Gmail's `.adn`, `.adP`, `.aiL`) and hide
+  // the message body / reading pane. These hosts must be considered
+  // first-party-trusted and never receive heuristic ad CSS.
   const GLOBAL_CSS_EXCLUDE = new Set([
     'youtube.com',
     'youtu.be',
@@ -446,6 +452,40 @@
     'superuser.com',
     'askubuntu.com',
     'mathoverflow.net',
+    // Phase E: critical first-party sites (mail / productivity / banking).
+    // Mirrors `CRITICAL_FIRST_PARTY_SITES` in policy-engine.js.
+    'google.com',
+    'gmail.com',
+    'googlemail.com',
+    'microsoft.com',
+    'live.com',
+    'office.com',
+    'office365.com',
+    'outlook.com',
+    'sharepoint.com',
+    'msn.com',
+    'bing.com',
+    'icloud.com',
+    'apple.com',
+    'yahoo.com',
+    'aol.com',
+    'proton.me',
+    'protonmail.com',
+    'tutanota.com',
+    'fastmail.com',
+    'zoho.com',
+    'gmx.com',
+    'mail.ru',
+    'atlassian.com',
+    'slack.com',
+    'notion.so',
+    'linear.app',
+    'figma.com',
+    'paypal.com',
+    'stripe.com',
+    'wise.com',
+    'revolut.com',
+    'shopify.com',
   ]);
 
   function shouldExcludeGlobalCSS(host) {
@@ -1126,6 +1166,17 @@
     const OBSERVER_SKIP_DOMAINS = new Set([
       'youtube.com', 'youtu.be', 'youtube-nocookie.com', // YouTube has native ads, skip observer
       'reddit.com', 'twitch.tv', // High-traffic sites: CSS-only hiding, no JS observer
+      // Phase E (2026-05-07): critical first-party sites — never run the
+      // mutation-based heuristic collapse on mail/productivity/banking apps.
+      'google.com', 'gmail.com', 'googlemail.com',
+      'microsoft.com', 'live.com', 'office.com', 'office365.com',
+      'outlook.com', 'sharepoint.com',
+      'icloud.com', 'apple.com',
+      'yahoo.com', 'aol.com', 'proton.me', 'protonmail.com', 'tutanota.com',
+      'fastmail.com', 'zoho.com',
+      'github.com', 'gitlab.com', 'bitbucket.org', 'atlassian.com',
+      'slack.com', 'notion.so', 'linear.app', 'figma.com',
+      'paypal.com', 'stripe.com',
     ]);
 
     function isObserverSkipHost(host) {

@@ -18,6 +18,8 @@ import {
   resolveSiteProfile,
   invalidateSiteProfileCache,
   FIRST_PARTY_CDN_MAP,
+  isCriticalFirstPartySite,
+  CRITICAL_FIRST_PARTY_SITES,
 } from './policy-engine.js';
 import {
   fetchAndUpdateTrackerDb,
@@ -960,6 +962,7 @@ const dispatchMessage = createMessageDispatcher({
   getDataSaved,
   getRecentRequests,
   resolveSiteProfile,
+  isCriticalFirstPartySite,
   buildIaShieldConfig,
   normalizeIaRiskEvent,
   appendIaRiskEvent,
@@ -1070,6 +1073,29 @@ async function applyFirstPartyCdnAllowRules() {
           initiatorDomains: owners,
           resourceTypes: [
             'sub_frame', 'stylesheet', 'script', 'image',
+            'font', 'object', 'xmlhttprequest', 'ping', 'media', 'websocket', 'other',
+          ],
+        },
+      });
+    }
+
+    // Phase E (2026-05-07): critical-first-party self-allow rules.
+    // For each curated critical site (Gmail, Outlook, iCloud, banking, etc.)
+    // emit a `firstParty` allow rule scoped to its initiators. This guarantees
+    // that static DNR rulesets (DDG TDS, EasyPrivacy, etc.) cannot block
+    // first-party requests on these high-impact apps. Third-party trackers
+    // are still blocked normally.
+    const criticalInitiators = Array.from(CRITICAL_FIRST_PARTY_SITES);
+    if (criticalInitiators.length > 0 && nextId < 929900) {
+      addRules.push({
+        id: nextId++,
+        priority: 25,
+        action: { type: 'allow' },
+        condition: {
+          initiatorDomains: criticalInitiators,
+          domainType: 'firstParty',
+          resourceTypes: [
+            'main_frame', 'sub_frame', 'stylesheet', 'script', 'image',
             'font', 'object', 'xmlhttprequest', 'ping', 'media', 'websocket', 'other',
           ],
         },
