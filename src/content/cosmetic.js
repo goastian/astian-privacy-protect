@@ -26,9 +26,14 @@
   const MAX_APPLIED_SCRIPTLET_SAMPLES = 24;
   const SELECTOR_SAMPLE_RATE = 0.12;
   const SCRIPTLET_SAMPLE_RATE = 0.2;
+  const COSMETIC_BLOCK_FLUSH_MS = 800;
+  const MAX_COSMETIC_BLOCK_REPORT = 50;
   let appliedStyle = null;
   let globalAdStyle = null;
   let appliedRulesFlushTimer = null;
+  let cosmeticBlockFlushTimer = null;
+  let pendingCosmeticBlocks = 0;
+  let pendingCosmeticSources = Object.create(null);
   let cosmeticAuditEnabled = false;
   const appliedRulesBuffer = {
     selectorCount: 0,
@@ -175,6 +180,37 @@
     appliedRulesBuffer.sources = Object.create(null);
 
     sendMsg(payload).catch(() => {});
+  }
+
+  function queueCosmeticBlocks(count, source) {
+    const numeric = Math.max(0, Math.min(MAX_COSMETIC_BLOCK_REPORT, Number(count) || 0));
+    if (numeric <= 0) return;
+    const key = String(source || 'cosmetic').slice(0, 40) || 'cosmetic';
+    pendingCosmeticBlocks += numeric;
+    pendingCosmeticSources[key] = (pendingCosmeticSources[key] || 0) + numeric;
+
+    if (cosmeticBlockFlushTimer) return;
+    cosmeticBlockFlushTimer = setTimeout(() => {
+      cosmeticBlockFlushTimer = null;
+      flushCosmeticBlockReport();
+    }, COSMETIC_BLOCK_FLUSH_MS);
+  }
+
+  function flushCosmeticBlockReport() {
+    const count = Math.max(0, Math.min(MAX_COSMETIC_BLOCK_REPORT, pendingCosmeticBlocks));
+    if (count <= 0) return;
+    const sources = { ...pendingCosmeticSources };
+    pendingCosmeticBlocks = 0;
+    pendingCosmeticSources = Object.create(null);
+
+    const topSource = Object.entries(sources).sort((a, b) => b[1] - a[1])[0]?.[0] || 'cosmetic';
+    sendMsg({
+      action: 'record-cosmetic-blocks',
+      hostname: window.location.hostname || '',
+      count,
+      source: topSource,
+      sources,
+    }).catch(() => {});
   }
 
   initRolloutFlags();
@@ -757,6 +793,8 @@
 
     if (cssRules.length === 0) return;
 
+    reportSelectorMatches(cssRules.map(rule => rule.slice(0, rule.indexOf(' {'))));
+
     const style = document.createElement('style');
     style.setAttribute('data-midori-privacy', 'cosmetic');
     style.textContent = cssRules.join('\n');
@@ -764,6 +802,27 @@
     appliedStyle = style;
 
     queueAppliedSelectors(cssRules.map(rule => rule.slice(0, rule.indexOf(' {'))), 'cosmetic-selectors');
+  }
+
+  function reportSelectorMatches(selectors) {
+    if (!Array.isArray(selectors) || selectors.length === 0) return;
+    let matches = 0;
+    const seen = new WeakSet();
+
+    for (const selector of selectors.slice(0, 120)) {
+      if (matches >= MAX_COSMETIC_BLOCK_REPORT) break;
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (let i = 0; i < elements.length && matches < MAX_COSMETIC_BLOCK_REPORT; i++) {
+          const el = elements[i];
+          if (!el || seen.has(el) || SAFE_TAGS.has(el.tagName)) continue;
+          seen.add(el);
+          matches++;
+        }
+      } catch {}
+    }
+
+    if (matches > 0) queueCosmeticBlocks(matches, 'selector-cosmetic');
   }
 
   function getBuiltinSelectors(hostname) {
@@ -790,7 +849,9 @@
   // Patterns that strongly indicate an ad container
   const AD_ID_RE = /^(?:div-gpt-ad|google_ads|ad[-_]|ads[-_]|adSlot|adUnit|adContainer|adPlacement|adZone|adBanner|taboola|outbrain|mgid)/i;
   const AD_CLASS_RE = /(?:^|\s)(?:ad[-_]?(?:container|slot|wrapper|banner|unit|placement|zone|block|leaderboard|rectangle|skyscraper|billboard|interstitial|native|sponsored|box|rail|ldrb|mast|lrec|mon)|sponsored[-_]?(?:ad|content|link)|native[-_]?ad|nativeAd|adsbygoogle|taboola|outbrain|OUTBRAIN|mgid|gemini-ad|wafer-ad|fbs-ad)(?:\s|$)/i;
-  const AD_SRC_RE = /(?:doubleclick\.net|googlesyndication\.com|amazon-adsystem\.com|adnxs\.com|rubiconproject\.com|openx\.net|pubmatic\.com|criteo\.|taboola\.com|outbrain\.com|mgid\.com)/i;
+  const AD_SRC_RE = /(?:doubleclick\.net|googlesyndication\.com|googleadservices\.com|amazon-adsystem\.com|adnxs\.com|rubiconproject\.com|openx\.net|pubmatic\.com|criteo\.|taboola\.com|outbrain\.com|mgid\.com|rad\.msn\.com|msads\.net|bingads\.microsoft\.com)/i;
+  const TEXT_AD_LABEL_RE = /^(?:ad|ads|advertisement|sponsored|sponsor|promoted|publicidad|anuncio|anuncios|patrocinado|patrocinada)$/i;
+  const TEXT_AD_SCAN_DOMAINS = ['msn.com', 'bing.com', 'google.com'];
 
   // Tags that should NEVER be collapsed (to avoid breaking pages)
   const SAFE_TAGS = new Set(['HTML', 'BODY', 'HEAD', 'MAIN', 'ARTICLE', 'SECTION', 'NAV', 'HEADER', 'FOOTER', 'FORM', 'TABLE', 'UL', 'OL', 'VIDEO', 'AUDIO', 'CANVAS', 'INPUT', 'TEXTAREA', 'SELECT', 'BUTTON']);
@@ -838,16 +899,63 @@
     return false;
   }
 
+  function shouldScanTextAdLabels() {
+    const host = window.location.hostname || '';
+    for (const domain of TEXT_AD_SCAN_DOMAINS) {
+      if (host === domain || host.endsWith('.' + domain)) return true;
+    }
+    return false;
+  }
+
+  function findTextAdContainer(labelEl) {
+    let current = labelEl;
+    for (let depth = 0; current && depth < 7; depth++) {
+      if (SAFE_TAGS.has(current.tagName)) return null;
+      const rect = current.getBoundingClientRect ? current.getBoundingClientRect() : null;
+      const className = String(current.className || '').toLowerCase();
+      const role = String(current.getAttribute?.('role') || '').toLowerCase();
+      const usefulSize = rect && rect.width >= 80 && rect.height >= 30;
+      const cardLike = /(?:card|item|module|native|ad|sponsor|content|tile|feed|banner|slide)/.test(className) || role === 'article' || role === 'listitem';
+      const wideBanner = rect && rect.width >= 280 && rect.height >= 70;
+
+      if (usefulSize && (cardLike || wideBanner)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  function scanTextAdLabels(root) {
+    if (!shouldScanTextAdLabels() || !root?.querySelectorAll) return;
+    let checked = 0;
+    try {
+      const labels = root.querySelectorAll('span:not([data-midori-c]), small:not([data-midori-c]), div:not([data-midori-c]), p:not([data-midori-c])');
+      const limit = Math.min(labels.length, 160);
+      for (let i = 0; i < limit; i++) {
+        const label = labels[i];
+        if (!label || label.children.length > 2) continue;
+        const text = String(label.textContent || '').replace(/\s+/g, ' ').trim();
+        if (!text || text.length > 32 || !TEXT_AD_LABEL_RE.test(text)) continue;
+        const container = findTextAdContainer(label);
+        if (container) {
+          collapseElement(container, 'text-ad-label');
+          checked++;
+          if (checked >= 20) break;
+        }
+      }
+    } catch {}
+  }
+
   /**
    * Collapse an element and propagate upward if parent becomes empty.
    * This eliminates blank spaces left by blocked ads.
    */
-  function collapseElement(el) {
+  function collapseElement(el, source = 'heuristic-collapse') {
     if (!el || el.hasAttribute(ATTR_COLLAPSED)) return;
     if (SAFE_TAGS.has(el.tagName)) return;
 
     el.style.cssText = COLLAPSE_CSS;
     el.setAttribute(ATTR_COLLAPSED, '1');
+    queueCosmeticBlocks(1, source);
 
     // Propagate: if parent has no visible children left, collapse it too
     collapseEmptyParent(el.parentElement);
@@ -874,6 +982,7 @@
 
       parent.style.cssText = COLLAPSE_CSS;
       parent.setAttribute(ATTR_COLLAPSED, '1');
+      queueCosmeticBlocks(1, 'empty-ad-container');
 
       // Continue propagating up (max 3 levels to avoid over-collapsing)
       collapseEmptyParent(parent.parentElement);
@@ -904,10 +1013,12 @@
         // Optimization 8.2: Early exit if too many matches (likely false positives)
         if (els.length > 100) break;
         for (let i = 0; i < els.length; i++) {
-          collapseElement(els[i]);
+          collapseElement(els[i], 'fast-selector-collapse');
         }
       } catch {}
     }
+
+    scanTextAdLabels(root);
 
     // Slow path: heuristic check (only on initial/full scans AND for small roots)
     if (fullScan && root.children && root.children.length < 200) {
@@ -918,7 +1029,7 @@
         const limit = Math.min(candidates.length, 50);
         for (let i = 0; i < limit; i++) {
           if (isAdElement(candidates[i])) {
-            collapseElement(candidates[i]);
+            collapseElement(candidates[i], 'heuristic-collapse');
           }
         }
       } catch {}
@@ -947,7 +1058,7 @@
 
         // Check the node itself
         if (isAdElement(node)) {
-          collapseElement(node);
+          collapseElement(node, 'mutation-collapse');
           continue; // No need to scan children if parent is collapsed
         }
 
@@ -958,6 +1069,7 @@
         if (node.children && node.children.length > 0) {
           scanAndCollapse(node);
         }
+        scanTextAdLabels(node);
       }
     }
   }
