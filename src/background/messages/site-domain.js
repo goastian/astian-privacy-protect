@@ -182,6 +182,15 @@ export function createSiteDomainHandlers(ctx) {
       if (ctx.isProtectionBypassedForHost(tabHostname, runtime)) {
         return { enabled: false };
       }
+      // Critical first-party sites (banking, government, healthcare, mail) —
+      // anti-fingerprint scriptlets override native browser APIs (canvas, WebGL,
+      // AudioContext, navigator.*) in ways that trigger fraud-detection systems
+      // and can break WebRTC/camera/geolocation flows on these sensitive hosts.
+      // Cosmetics and scriptlets are already disabled here; anti-fingerprint
+      // must follow the same policy.
+      if (ctx.isCriticalFirstPartySite?.(tabHostname)) {
+        return { enabled: false };
+      }
       const afOpts = await ctx.getOptions();
       return { enabled: afOpts.antiFingerprint !== false };
     },

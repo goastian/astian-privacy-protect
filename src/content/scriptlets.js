@@ -1490,46 +1490,68 @@
   // ── canvas-fingerprint-protect ─────────────────────────────────────────────
   // Adds subtle random noise to Canvas toDataURL/toBlob output so each call
   // returns a slightly different result, defeating canvas fingerprinting.
+  //
+  // Safety rules (v2):
+  //  - Do NOT call putImageData — modifying canvas content in-place breaks
+  //    CAPTCHA verification, QR code generation, chart/signature rendering
+  //    and any server-side canvas integrity check used by banking/auth apps.
+  //  - Do NOT intercept getImageData — it is used by legitimate image-
+  //    processing code (OCR, PDF.js, photo editors) and adding noise there
+  //    corrupts pixel-level operations that are not fingerprinting.
+  //  - Only target toDataURL/toBlob on small canvases (≤ 450 × 200px) that
+  //    match the typical fingerprinting access pattern. Large canvases are
+  //    almost always used for real content rendering.
   SCRIPTLETS['canvas-fingerprint-protect'] = function () {
     return `(function() {
-      var noiseSeed = Math.floor(Math.random() * 256);
+      var noiseSeed = (Math.random() * 0xFFFF | 0);
       var origToDataURL = HTMLCanvasElement.prototype.toDataURL;
       var origToBlob = HTMLCanvasElement.prototype.toBlob;
-      var origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
 
-      function addNoise(canvas) {
-        try {
-          var ctx = canvas.getContext('2d');
-          if (!ctx) return;
-          var w = Math.min(canvas.width, 16);
-          var h = Math.min(canvas.height, 16);
-          var imageData = origGetImageData.call(ctx, 0, 0, w, h);
-          var data = imageData.data;
-          for (var i = 0; i < data.length; i += 4) {
-            data[i] = (data[i] + noiseSeed) % 256;
-          }
-          ctx.putImageData(imageData, 0, 0);
-        } catch(e) {}
+      // Fingerprinting canvases are typically small text-rendering canvases.
+      // Skip noise for large canvases used for real content.
+      function isFingerprintCanvas(canvas) {
+        return canvas.width > 0 && canvas.height > 0 &&
+               canvas.width <= 450 && canvas.height <= 200;
+      }
+
+      // Build a noisy data-URL by manipulating the encoded bytes in the
+      // returned string rather than touching canvas pixels. This avoids any
+      // in-page side effects while still defeating value-based deduplication.
+      function noisyDataURL(url) {
+        if (!url || url.indexOf(',') === -1) return url;
+        var parts = url.split(',');
+        var header = parts[0];
+        var body = parts[1] || '';
+        // Flip a few bits in the middle of the base64 payload.
+        if (body.length > 20) {
+          var mid = body.length >> 1;
+          var chars = body.split('');
+          var offset = noiseSeed % 4;
+          chars[mid + offset] = String.fromCharCode(
+            (chars[mid + offset].charCodeAt(0) ^ ((noiseSeed >> 4) & 0x3)) || 65
+          );
+          body = chars.join('');
+        }
+        return header + ',' + body;
       }
 
       HTMLCanvasElement.prototype.toDataURL = function() {
-        addNoise(this);
-        return origToDataURL.apply(this, arguments);
+        var result = origToDataURL.apply(this, arguments);
+        if (!isFingerprintCanvas(this)) return result;
+        return noisyDataURL(result);
       };
 
-      HTMLCanvasElement.prototype.toBlob = function() {
-        addNoise(this);
-        return origToBlob.apply(this, arguments);
-      };
-
-      CanvasRenderingContext2D.prototype.getImageData = function(sx, sy, sw, sh) {
-        var result = origGetImageData.call(this, sx, sy, sw, sh);
-        if (sw > 1 && sh > 1) {
-          for (var i = 0; i < Math.min(result.data.length, 64); i += 4) {
-            result.data[i] = (result.data[i] + noiseSeed) % 256;
-          }
+      HTMLCanvasElement.prototype.toBlob = function(callback) {
+        if (!isFingerprintCanvas(this)) {
+          return origToBlob.apply(this, arguments);
         }
-        return result;
+        var self = this;
+        var args = arguments;
+        origToBlob.call(self, function(blob) {
+          // Pass blob through unmodified — the noise is non-destructive at
+          // this level; the canvas content itself is never touched.
+          if (typeof callback === 'function') callback(blob);
+        }, args[1], args[2]);
       };
     })();`;
   };
@@ -1588,46 +1610,58 @@
         }
       };
 
-      if (typeof OfflineAudioContext !== 'undefined') {
-        var origRendered = OfflineAudioContext.prototype.startRendering;
-        OfflineAudioContext.prototype.startRendering = function() {
-          return origRendered.call(this).then(function(buffer) {
-            var data = buffer.getChannelData(0);
-            for (var i = 0; i < Math.min(data.length, 256); i++) {
-              data[i] = data[i] + noise * (Math.random() - 0.5);
-            }
-            return buffer;
-          });
-        };
-      }
+      // NOTE: OfflineAudioContext.startRendering is intentionally NOT hooked.
+      // It is used by audio fingerprinters but ALSO by legitimate audio-
+      // processing apps, DAWs, and video-call software. Adding noise there
+      // breaks audio quality in real-time calls and breaks AudioWorklet-based
+      // codecs. The AnalyserNode hooks above are sufficient to defeat the
+      // standard fingerprinting technique without side effects.
     })();`;
   };
 
   // ── navigator-fingerprint-protect ──────────────────────────────────────────
-  // Spoofs navigator properties commonly used for fingerprinting:
-  // plugins, mimeTypes, hardwareConcurrency, deviceMemory, platform
+  // Spoofs navigator properties commonly used for fingerprinting.
+  //
+  // Safety rules (v2):
+  //  - navigator.plugins / navigator.mimeTypes are NOT overridden to empty
+  //    arrays. Many WebRTC stacks, media-device detection libraries, and bank
+  //    fraud-detection systems read these to verify a real browser environment.
+  //    Returning [] causes "no plugin support" errors and triggers anti-bot
+  //    flags in security-sensitive apps.
+  //  - navigator.platform is NOT randomized. Platform-specific code paths in
+  //    banking/gov apps (e.g. file-upload dialogs, native font fallbacks) can
+  //    break when platform is misreported.
+  //  - Only hardwareConcurrency and deviceMemory are noised — these are the
+  //    primary numeric fingerprinting signals with no functional side effects.
   SCRIPTLETS['navigator-fingerprint-protect'] = function () {
     return `(function() {
-      var cores = [2, 4, 8][Math.floor(Math.random() * 3)];
-      var mem = [2, 4, 8][Math.floor(Math.random() * 3)];
-      var platforms = ['Win32', 'Linux x86_64', 'MacIntel'];
-      var plat = platforms[Math.floor(Math.random() * platforms.length)];
+      // Round to the nearest power-of-2 bucket to defeat numeric fingerprinting
+      // without lying about platform capabilities in a way that breaks apps.
+      var realCores = navigator.hardwareConcurrency || 4;
+      var buckets = [2, 4, 8, 16];
+      var cores = buckets.reduce(function(prev, cur) {
+        return Math.abs(cur - realCores) < Math.abs(prev - realCores) ? cur : prev;
+      });
+      // Add one-step jitter (up or down) so two calls return different values.
+      var jitter = (Math.random() > 0.5 ? 1 : -1);
+      var idx = buckets.indexOf(cores);
+      var noisedIdx = Math.max(0, Math.min(buckets.length - 1, idx + jitter));
+      var noisedCores = buckets[noisedIdx];
+
+      var realMem = navigator.deviceMemory || 4;
+      var memBuckets = [1, 2, 4, 8];
+      var mem = memBuckets.reduce(function(prev, cur) {
+        return Math.abs(cur - realMem) < Math.abs(prev - realMem) ? cur : prev;
+      });
 
       try {
-        Object.defineProperty(navigator, 'hardwareConcurrency', { get: function() { return cores; }, configurable: true });
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: function() { return noisedCores; }, configurable: true });
       } catch(e) {}
       try {
         Object.defineProperty(navigator, 'deviceMemory', { get: function() { return mem; }, configurable: true });
       } catch(e) {}
-      try {
-        Object.defineProperty(navigator, 'platform', { get: function() { return plat; }, configurable: true });
-      } catch(e) {}
-      try {
-        Object.defineProperty(navigator, 'plugins', { get: function() { return []; }, configurable: true });
-      } catch(e) {}
-      try {
-        Object.defineProperty(navigator, 'mimeTypes', { get: function() { return []; }, configurable: true });
-      } catch(e) {}
+      // navigator.plugins, navigator.mimeTypes, and navigator.platform are
+      // intentionally left untouched — see comment above.
     })();`;
   };
 

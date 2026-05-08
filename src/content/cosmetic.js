@@ -486,6 +486,23 @@
     'wise.com',
     'revolut.com',
     'shopify.com',
+    // ── Video-call / WebRTC apps (require camera / mic / location) ──────────
+    // Generic ad CSS collides with UI containers in these apps and can hide
+    // the participant grid, chat panel, or permission-request overlays.
+    'zoom.us', 'zoomgov.com', 'zoom.com',
+    'teams.microsoft.com', 'teams.live.com',
+    'meet.google.com', 'hangouts.google.com',
+    'webex.com', 'whereby.com', 'daily.co',
+    'jitsi.org', 'meet.jit.si',
+    'skype.com', 'gotomeeting.com', 'gotowebinar.com',
+    'bluejeans.com', 'ringcentral.com',
+    // ── Banking / fintech (critical — never inject ad CSS) ───────────────────
+    'bancolombia.com', 'davivienda.com', 'bbva.com', 'bbvanet.com',
+    'bankofamerica.com', 'chase.com', 'wellsfargo.com', 'citibank.com',
+    'capitalone.com', 'usbank.com', 'ally.com',
+    'mercadopago.com', 'mercadolibre.com',
+    'nubank.com.br', 'itau.com.br', 'bradesco.com.br',
+    'banamex.com', 'banorte.com', 'santander.com',
   ]);
 
   function shouldExcludeGlobalCSS(host) {
@@ -1177,6 +1194,21 @@
       'github.com', 'gitlab.com', 'bitbucket.org', 'atlassian.com',
       'slack.com', 'notion.so', 'linear.app', 'figma.com',
       'paypal.com', 'stripe.com',
+      // Video-call apps — mutation observer on meeting grids creates jank
+      // and can mis-collapse participant tiles / chat panels.
+      'zoom.us', 'zoomgov.com', 'zoom.com',
+      'teams.microsoft.com', 'teams.live.com',
+      'meet.google.com', 'hangouts.google.com',
+      'webex.com', 'whereby.com', 'daily.co', 'meet.jit.si',
+      'skype.com', 'gotomeeting.com', 'gotowebinar.com',
+      'bluejeans.com', 'ringcentral.com',
+      // Banking / fintech — highly sensitive to DOM manipulation.
+      'bancolombia.com', 'davivienda.com', 'bbva.com', 'bbvanet.com',
+      'bankofamerica.com', 'chase.com', 'wellsfargo.com', 'citibank.com',
+      'capitalone.com', 'usbank.com', 'ally.com',
+      'mercadopago.com', 'mercadolibre.com',
+      'nubank.com.br', 'itau.com.br', 'bradesco.com.br',
+      'banamex.com', 'banorte.com', 'santander.com',
     ]);
 
     function isObserverSkipHost(host) {

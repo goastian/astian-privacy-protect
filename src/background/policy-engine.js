@@ -153,6 +153,62 @@ export const CRITICAL_FIRST_PARTY_SITES = new Set([
   'paypal.com', 'stripe.com', 'wise.com', 'revolut.com',
   // Payments / commerce critical
   'shopify.com',
+  // ── Global banking & fintech ──────────────────────────────────────────────
+  // Anti-fingerprint scriptlets override canvas/WebGL/AudioContext/navigator
+  // which triggers fraud-detection on banking sites and can break
+  // camera/mic/geolocation permission flows used in onboarding & auth.
+  'bankofamerica.com', 'chase.com', 'wellsfargo.com', 'citibank.com',
+  'usbank.com', 'capitalone.com', 'ally.com', 'schwab.com',
+  'tdbank.com', 'pnc.com', 'regions.com', 'suntrust.com', 'truist.com',
+  'barclays.co.uk', 'hsbc.com', 'hsbc.co.uk', 'lloydsbank.com',
+  'natwest.com', 'rbs.co.uk', 'santander.com', 'santander.co.uk',
+  'ingdirect.com', 'ing.com', 'deutschebank.com', 'db.com',
+  'bnpparibas.com', 'societegenerale.fr', 'creditagricole.fr',
+  'ubswealthmanagement.com', 'ubs.com', 'credit-suisse.com',
+  'commerzbank.de', 'dkb.de', 'sparkasse.de', 'volksbank.de',
+  'raiffeisen.at', 'raiffeisen.com',
+  // ── Latin America banking ─────────────────────────────────────────────────
+  'bancolombia.com', 'bangerio', 'empresarial.banregio.com', 'davivienda.com', 'bbva.com.co', 'bbvanet.com',
+  'bogota.com', 'bancooccidente.com.co', 'bancoagrario.gov.co',
+  'banistmo.com', 'bgeneral.com', 'bancopanama.com',
+  'bancochile.cl', 'bci.cl', 'santander.cl', 'scotiabank.cl',
+  'itau.cl', 'falabella.com', 'ripley.cl',
+  'bbva.com.mx', 'banamex.com', 'banorte.com', 'bancomer.com',
+  'hsbc.com.mx', 'santander.com.mx', 'scotiabank.com.mx',
+  'aztecabank.com', 'bancobajio.com.mx', 'inbursa.com', 'banbajio.com.mx',
+  'sat.gob.mx', 'imss.gob.mx', 'issste.gob.mx',
+  'itau.com.br', 'bradesco.com.br', 'bb.com.br', 'caixa.gov.br',
+  'nubank.com.br', 'santander.com.br', 'inter.co', 'c6bank.com.br',
+  'bcp.com.pe', 'bbva.pe', 'interbank.com.pe', 'scotiabank.com.pe',
+  'bcp.com.bo', 'bnb.com.bo', 'bancounion.com.bo',
+  'pichincha.com', 'produbanco.com', 'guayaquil.com', 'internacional.fin.ec',
+  'banreservas.com', 'popular.com', 'bhdleon.com.do',
+  'bncr.fi.cr', 'bccr.fi.cr', 'bcr.fi.cr', 'scotiabank.com.cr',
+  'bac.net', 'lafise.com', 'credomatic.com',
+  'brou.com.uy', 'scotiabank.com.uy', 'itau.com.uy', 'santander.com.uy',
+  'bnv.com.ve', 'mercantilbanco.com', 'venezolano.com',
+  'bna.com.ar', 'santander.com.ar', 'bbva.com.ar', 'galicia.com.ar',
+  'macro.com.ar', 'hsbc.com.ar', 'itau.com.ar', 'icbc.com.ar',
+  'mercadopago.com', 'mercadolibre.com', 'mercadolibre.com.ar',
+  'mercadolibre.com.mx', 'mercadolibre.com.co', 'mercadolibre.com.br',
+  // ── Video calls / WebRTC (require camera/mic/geolocation permissions) ────
+  'zoom.us', 'zoomgov.com', 'zoom.com',
+  'teams.microsoft.com', 'teams.live.com',
+  'meet.google.com', 'hangouts.google.com',
+  'webex.com', 'cisco.com',
+  'whereby.com', 'daily.co', 'jitsi.org', 'meet.jit.si',
+  'skype.com', 'lync.com',
+  'gotomeeting.com', 'gotowebinar.com', 'logmein.com',
+  'bluejeans.com', 'ringcentral.com',
+  // ── Government / public services (location/ID verification) ─────────────
+  'irs.gov', 'ssa.gov', 'healthcare.gov', 'usa.gov',
+  'gov.co', 'gov.mx', 'gob.mx', 'gov.br', 'gov.ar', 'gob.cl',
+  'gob.pe', 'gob.bo', 'gob.ec', 'gob.ve', 'gob.uy',
+  'gov.uk', 'service.gov.uk', 'hmrc.gov.uk',
+  'bund.de', 'bundesregierung.de',
+  // ── Healthcare / telemedicine (camera/mic permissions) ───────────────────
+  'doxy.me', 'teladoc.com', 'mdlive.com', 'amwell.com',
+  'mychart.com', 'epic.com',
 ]);
 
 /**
