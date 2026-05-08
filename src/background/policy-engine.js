@@ -136,11 +136,19 @@ export const FIRST_PARTY_CDN_MAP = {
  * matched by suffix.
  */
 export const CRITICAL_FIRST_PARTY_SITES = new Set([
-  // Google productivity & auth
-  'google.com', 'gmail.com', 'googlemail.com',
-  // Microsoft / Outlook / 365
-  'microsoft.com', 'live.com', 'office.com', 'office365.com',
-  'outlook.com', 'sharepoint.com', 'msn.com', 'bing.com',
+  // Google productivity & auth (NOTE: 'google.com' itself is intentionally
+  // EXCLUDED so Google Search still blocks doubleclick / googleadservices /
+  // googletagmanager. Specific subdomains used for auth/mail/drive are
+  // covered via 'gmail.com' + the FIRST_PARTY_CDN_MAP allowlist).
+  'gmail.com', 'googlemail.com',
+  'accounts.google.com', 'mail.google.com', 'drive.google.com',
+  'docs.google.com', 'calendar.google.com', 'pay.google.com',
+  // Microsoft / Outlook / 365 (NOTE: 'microsoft.com' and 'bing.com' are
+  // EXCLUDED on purpose — same reason as google.com above. Auth flows live
+  // under login.microsoftonline.com / login.live.com which ARE listed.)
+  'live.com', 'office.com', 'office365.com',
+  'outlook.com', 'sharepoint.com',
+  'login.microsoftonline.com', 'login.microsoft.com',
   // Apple iCloud / Apple ID
   'icloud.com', 'apple.com',
   // Other major mail providers
@@ -210,6 +218,63 @@ export const CRITICAL_FIRST_PARTY_SITES = new Set([
   'doxy.me', 'teladoc.com', 'mdlive.com', 'amwell.com',
   'mychart.com', 'epic.com',
 ]);
+
+/**
+ * Hardcoded set of registry-level ad / ad-tech domains that must NEVER be
+ * relaxed by any first-party rule, even when the page is a critical site
+ * and the request domain is owned by the same entity. Used as a fallback
+ * when TrackerDB is not available (no feed configured).
+ *
+ * Sources cross-referenced: EasyList, AdGuard "ad-tech" tags, Disconnect.
+ */
+const KNOWN_AD_DOMAINS = new Set([
+  // Google ads stack
+  'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
+  'googletagmanager.com', 'googletagservices.com', 'google-analytics.com',
+  'adservice.google.com', 'g.doubleclick.net', '2mdn.net',
+  'admob.com', 'adsense.com',
+  // Microsoft ads / Bing ads / MSN ads
+  'bingads.microsoft.com', 'ads.microsoft.com', 'msads.net',
+  'rad.msn.com', 'c.msn.com', 'g.msn.com', 'b.www.bing.com',
+  'clarity.ms', 'clarity.microsoft.com',
+  // Facebook / Meta ads
+  'connect.facebook.net', 'an.facebook.com', 'business.facebook.com',
+  // Amazon ads
+  'amazon-adsystem.com', 'aax.amazon-adsystem.com', 'assoc-amazon.com',
+  // Yahoo / Verizon Media ads
+  'analytics.yahoo.com', 'adserver.yahoo.com', 'ads.yahoo.com',
+  // Twitter / X ads
+  'ads-twitter.com', 'ads-api.twitter.com', 'analytics.twitter.com',
+  // LinkedIn ads
+  'ads.linkedin.com', 'analytics.pointdrive.linkedin.com',
+  // TikTok ads
+  'analytics.tiktok.com', 'business-api.tiktok.com',
+  // Reddit ads
+  'ads.reddit.com', 'events.reddit.com',
+  // Generic ad tech
+  'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com',
+  'adnxs.com', 'adsrvr.org', 'pubmatic.com', 'rubiconproject.com',
+  'openx.net', 'openx.com', 'adsafeprotected.com', 'moatads.com',
+  'scorecardresearch.com', 'comscore.com', 'quantserve.com',
+  'chartbeat.com', 'mixpanel.com', 'segment.com', 'segment.io',
+  'amplitude.com', 'hotjar.com', 'fullstory.com', 'newrelic.com',
+  'optimizely.com', 'kissmetrics.com', 'crazyegg.com',
+]);
+
+/**
+ * Check whether a request domain is a known ad / ad-tech endpoint that
+ * must never be first-party-relaxed. Matches by suffix on registry-level.
+ * @param {string} requestDomain
+ */
+export function isKnownAdDomain(requestDomain) {
+  const host = String(requestDomain || '').toLowerCase();
+  if (!host) return false;
+  if (KNOWN_AD_DOMAINS.has(host)) return true;
+  for (const ad of KNOWN_AD_DOMAINS) {
+    if (host.endsWith('.' + ad)) return true;
+  }
+  return false;
+}
 
 /**
  * Returns true when the page hostname matches a curated critical first-party
@@ -789,7 +854,8 @@ export function evaluateRequestPolicy({
   // shadow engine blocks.
   const ownedByPage = isOwnedByPageHost(requestDomain, pageHostname);
   const isSensitiveType = resourceType === 'script' || resourceType === 'xmlhttprequest';
-  const sameEntityNonAds = ownedByPage && (
+  const requestIsAd = isKnownAdDomain(requestDomain) || getTrackerCategory(requestDomain) === 'ads';
+  const sameEntityNonAds = ownedByPage && !requestIsAd && (
     !isSensitiveType ||
     getTrackerCategory(requestDomain) !== 'ads'
   );
@@ -801,10 +867,16 @@ export function evaluateRequestPolicy({
   // its TrackerDB category. These hosts have a long history of legitimate
   // first-party assets being mis-classified by generic third-party rules,
   // and breakage there is high-impact (lost emails, broken banking flows).
-  const criticalFirstParty = isCriticalFirstPartySite(pageHostname) && (
-    ownedByPage ||
-    requestDomain === pageHostname
-  );
+  //
+  // 2026-05-08 fix: NEVER relax requests categorized as 'ads' (TrackerDB)
+  // OR matching the hardcoded KNOWN_AD_DOMAINS set, even on critical
+  // first-party sites. Otherwise google.com / msn.com would bypass blocking
+  // of doubleclick / googleadservices / msads.net (same entity) and the
+  // popup would show 0 blocked. Auth / mail / banking flows never
+  // legitimately need an ad request, so this is a safe tightening.
+  const criticalFirstParty = isCriticalFirstPartySite(pageHostname) &&
+    (ownedByPage || requestDomain === pageHostname) &&
+    !requestIsAd;
 
   // Strong relaxation: overrides engine + heuristic blocks (but not user
   // entity blocks). Reserved for verified first-party / same-owner contexts.

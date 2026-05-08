@@ -44,7 +44,13 @@ export function createSiteDomainHandlers(ctx) {
       return { success: true };
     },
 
-    'popup-guard-blocked': async () => ({ success: true }),
+    'popup-guard-blocked': async (msg, sender) => {
+      const tabId = sender?.tab?.id;
+      const recorded = Number.isInteger(tabId) && ctx.recordPopupBlocked
+        ? ctx.recordPopupBlocked(tabId, msg.url || '')
+        : false;
+      return { success: true, recorded };
+    },
 
     'get-tab-stats': async (msg) => {
       const runtimeOptions = ctx.getRuntimeOptions();
@@ -53,7 +59,6 @@ export function createSiteDomainHandlers(ctx) {
       if (ctx.IS_CHROMIUM) {
         const stats = await ctx.getChromiumTabStats(msg.tabId);
         const eco = ctx.getEcoStats(msg.tabId);
-        stats.groups = ctx.getGroupedRequestsEnriched(msg.tabId);
         stats.entityControl = rollout.entityBlocking
           ? ctx.getEntityControlForGroups(stats.groups, runtimeOptions)
           : null;

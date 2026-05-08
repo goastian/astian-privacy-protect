@@ -56,6 +56,27 @@ class LRUCache {
 
 const matchResultCache = new LRUCache(10000);
 
+/**
+ * Wipe ALL cached engine snapshots (main + per-profile + index).
+ * Call from migrations to force a fresh rebuild from raw filter lists.
+ */
+export async function wipeEngineCache() {
+  try {
+    await idbDelete(IDB_KEY);
+    const idx = await idbGet(IDB_PROFILE_INDEX_KEY);
+    if (Array.isArray(idx)) {
+      for (const entry of idx) {
+        if (entry?.key) await idbDelete(entry.key);
+      }
+    }
+    await idbDelete(IDB_PROFILE_INDEX_KEY);
+    matchResultCache.clear();
+    console.log('[ghostery-engine] Cache wiped (main + profile snapshots)');
+  } catch (e) {
+    console.warn('[ghostery-engine] wipeEngineCache failed:', e);
+  }
+}
+
 function openIDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, 1);

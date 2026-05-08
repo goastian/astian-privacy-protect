@@ -5,9 +5,9 @@
  * License: MPL-2.0
  */
 
-import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock, applyPhaseCSafeDefaults } from './storage.js';
+import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock, applyPhaseCSafeDefaults, applyV223Cleanup } from './storage.js';
 import { extractDomain, categorizeRequest } from './filter-utils.js';
-import { GhosteryEngine } from './ghostery-engine.js';
+import { GhosteryEngine, wipeEngineCache } from './ghostery-engine.js';
 import { downloadAllListsWithStatus } from './lists-manager.js';
 import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, getAppliedRulesDiagnostics, exportReport } from './report-generator.js';
@@ -623,6 +623,8 @@ const chromiumTabTrackers = new Map(); // tabId -> { hostname, domains: Set, blo
 // is already kept fresh by the platform; we just cap our diagnostic capture.
 const DNR_RECORD_RATE_LIMIT_PER_TAB = 30; // events / sec / tab
 const dnrRateState = new Map(); // tabId -> { windowStart, count }
+const recentChromiumBlockedUrls = new Map(); // tabId -> Map(url -> timestamp)
+const CHROMIUM_BLOCK_DEDUPE_TTL_MS = 1500;
 
 function dnrRateLimited(tabId) {
   const now = Date.now();
@@ -635,10 +637,58 @@ function dnrRateLimited(tabId) {
   return s.count > DNR_RECORD_RATE_LIMIT_PER_TAB;
 }
 
+function shouldRecordChromiumBlockedUrl(tabId, url) {
+  const now = Date.now();
+  let recent = recentChromiumBlockedUrls.get(tabId);
+  if (!recent) {
+    recent = new Map();
+    recentChromiumBlockedUrls.set(tabId, recent);
+  }
+
+  for (const [key, timestamp] of recent) {
+    if (now - timestamp > CHROMIUM_BLOCK_DEDUPE_TTL_MS) recent.delete(key);
+  }
+
+  const key = String(url || '');
+  const previous = recent.get(key) || 0;
+  if (previous && now - previous <= CHROMIUM_BLOCK_DEDUPE_TTL_MS) return false;
+  recent.set(key, now);
+  return true;
+}
+
+function recordChromiumBlockedRequest(tabId, url, metadata = {}) {
+  if (!Number.isInteger(tabId) || tabId < 0) return false;
+  if (!url || !url.startsWith('http')) return false;
+  if (!shouldRecordChromiumBlockedUrl(tabId, url)) return false;
+
+  const tab = getTab(tabId) || ensureTab(tabId);
+  const category = metadata.category || categorizeRequest(url);
+  recordBlockedCategory(category);
+  recordBlock(tabId, url, { ...metadata, category });
+  updateBadge(tabId);
+  notifyPopupStatsChange(tabId);
+
+  return !!tab;
+}
+
+function recordPopupBlocked(tabId, rawUrl) {
+  if (!Number.isInteger(tabId) || tabId < 0) return false;
+  const url = String(rawUrl || '');
+  const safeUrl = url.startsWith('http') ? url : 'https://popup-blocked.midori.invalid/';
+  return recordChromiumBlockedRequest(tabId, safeUrl, {
+    category: 'ads',
+    reason: 'popup-defense',
+    owner: 'Popup defense',
+    ownerId: 'popup-defense',
+  });
+}
+
 if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
   chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
     const tabId = info.request?.tabId;
     if (!tabId || tabId < 0) return;
+    const actionType = info.rule?.action?.type || '';
+    if (actionType && actionType !== 'block') return;
 
     let entry = chromiumTabTrackers.get(tabId);
     if (!entry) {
@@ -659,8 +709,7 @@ if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
       const d = extractDomain(url);
       if (d && !entry.domains.has(d)) {
         entry.domains.add(d);
-        recordBlock(tabId, url, { reason: 'rule-match' });
-        updateBadge(tabId);
+        recordChromiumBlockedRequest(tabId, url, { reason: 'rule-match' });
         deferHotPathWork(() => notifyPopupStatsChange(tabId));
       }
     }
@@ -767,6 +816,7 @@ async function getChromiumTabStats(tabId) {
   } catch (e) {
     console.log('[midori] getChromiumTabStats: getMatchedRules failed', e.message);
   }
+  blocked = Math.max(blocked, getBlockedCount(tabId));
 
   // Use stats-collector groups as primary source (properly categorized)
   let groups = getGroupedRequestsEnriched(tabId);
@@ -860,6 +910,7 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   pendingSaveTabsFirefox.delete(tabId);
   removeTab(tabId);
   chromiumTabTrackers.delete(tabId);
+  recentChromiumBlockedUrls.delete(tabId);
   lastCollectTime.delete(tabId);
   clearPopupUpdateTimer(tabId);
   clearPopupTracking(tabId);
@@ -980,6 +1031,7 @@ const dispatchMessage = createMessageDispatcher({
   getTab,
   getDataSaved,
   getRecentRequests,
+  recordPopupBlocked,
   resolveSiteProfile,
   isCriticalFirstPartySite,
   buildIaShieldConfig,
@@ -1184,6 +1236,20 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     } catch (e) {
       console.warn('[midori] Phase C migration failed:', e);
     }
+
+    // v2.2.3 (2026-05-07): purge obsolete `ddg-tds` list + caches and wipe
+    // the serialized engine snapshot so blocking is rebuilt from fresh
+    // EasyList/EasyPrivacy/uBlock rules. Also reasserts the Phase E
+    // critical-first-party set (google.com no longer relaxes doubleclick.net).
+    try {
+      const cleanup = await applyV223Cleanup();
+      if (cleanup.applied) {
+        console.log('[midori] v2.2.3 cleanup applied:', cleanup);
+        await wipeEngineCache();
+      }
+    } catch (e) {
+      console.warn('[midori] v2.2.3 cleanup failed:', e);
+    }
   }
 });
 
@@ -1208,13 +1274,7 @@ if (IS_CHROMIUM && webRequestAPI?.onErrorOccurred) {
       if (!details.url || !details.url.startsWith('http')) return;
 
       const tab = getTab(details.tabId);
-      if (tab) {
-        recordBlockedCategory(categorizeRequest(details.url));
-        recordBlock(details.tabId, details.url, { reason: 'rule-match' });
-        
-        // Notify popup of stats changes (8.1 optimization: event-driven)
-        notifyPopupStatsChange(details.tabId);
-      }
+      if (tab) recordChromiumBlockedRequest(details.tabId, details.url, { reason: 'rule-match' });
     },
     { urls: ['<all_urls>'] }
   );

@@ -454,17 +454,23 @@
     'mathoverflow.net',
     // Phase E: critical first-party sites (mail / productivity / banking).
     // Mirrors `CRITICAL_FIRST_PARTY_SITES` in policy-engine.js.
-    'google.com',
+    // NOTE (2026-05-08): google.com / microsoft.com / msn.com / bing.com are
+    // intentionally NOT here — they show sponsored ads on home / search /
+    // news pages that legitimately need cosmetic filtering. Specific auth /
+    // mail subdomains are protected by suffix-matching `gmail.com` etc.
     'gmail.com',
     'googlemail.com',
-    'microsoft.com',
+    'mail.google.com',
+    'drive.google.com',
+    'docs.google.com',
+    'calendar.google.com',
+    'accounts.google.com',
+    'pay.google.com',
     'live.com',
     'office.com',
     'office365.com',
     'outlook.com',
     'sharepoint.com',
-    'msn.com',
-    'bing.com',
     'icloud.com',
     'apple.com',
     'yahoo.com',
@@ -628,6 +634,23 @@
       '.ad-nativeAd', '.nativead', '.adunit',
       '[class*="AdModule"]', '.infopane-ad', '.river-ad', '.articlead',
       'msn-ad', 'msn-shopping-card', '.sponsored-content',
+      '[data-t="ad"]', '[data-t*="native-ad" i]', '[data-contenttype="ad"]',
+      '[data-m*="ad" i][class*="card" i]', '[class*="native-ad" i]',
+      '[class*="sponsored" i][class*="card" i]', '[aria-label*="advertisement" i]',
+      'iframe[src*="rad.msn.com"]', 'iframe[src*="msads.net"]',
+    ],
+    'bing.com': [
+      '#b_results .b_ad', '#b_results .b_adTop', '#b_results .b_adBottom',
+      '#b_context .b_ad', '.sb_add', '.b_adSlug', '.b_adlabel',
+      '[data-bm="ad"]', '[data-advertiserid]', '[aria-label*="advertisement" i]',
+      'li:has(.b_adSlug)', 'li:has(.b_adlabel)',
+    ],
+    'google.com': [
+      '#tads', '#tadsb', '#bottomads', '#taw', '#rhsads', '#center_col > #taw',
+      'div[data-text-ad="1"]', 'div[data-pcu]', 'div[data-rw][data-pcu]',
+      'div[data-dtld]', 'a[data-rw][data-pcu]', '[aria-label="Ads"]',
+      '[aria-label="Sponsored"]', '[aria-label="Publicidad"]',
+      'div:has(> span[aria-label="Sponsored"])',
     ],
     'twitch.tv': [
       '[data-a-target="video-ad-label"]', '[data-a-target="video-ad-countdown"]',
@@ -1185,8 +1208,12 @@
       'reddit.com', 'twitch.tv', // High-traffic sites: CSS-only hiding, no JS observer
       // Phase E (2026-05-07): critical first-party sites — never run the
       // mutation-based heuristic collapse on mail/productivity/banking apps.
-      'google.com', 'gmail.com', 'googlemail.com',
-      'microsoft.com', 'live.com', 'office.com', 'office365.com',
+      // NOTE (2026-05-08): google.com / microsoft.com / msn.com excluded
+      // here too — those portals carry sponsored content that needs scanning.
+      'gmail.com', 'googlemail.com',
+      'mail.google.com', 'drive.google.com', 'docs.google.com',
+      'calendar.google.com', 'accounts.google.com', 'pay.google.com',
+      'live.com', 'office.com', 'office365.com',
       'outlook.com', 'sharepoint.com',
       'icloud.com', 'apple.com',
       'yahoo.com', 'aol.com', 'proton.me', 'protonmail.com', 'tutanota.com',

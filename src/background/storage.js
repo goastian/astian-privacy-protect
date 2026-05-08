@@ -485,4 +485,47 @@ export async function applyPhaseCSafeDefaults() {
   return { applied: true, changed };
 }
 
+// ── v2.2.3 cleanup (2026-05-07) ─────────────────────────────────────────────
+// Removes the obsolete `ddg-tds` list entry that may persist in user options
+// from previous versions, plus its cached raw text. Also signals the engine
+// IDB cache should be wiped so the deserialized snapshot (which still contains
+// rules derived from ddg-tds and from the older google.com critical-site
+// relaxation) is rebuilt from current lists.
+const V223_MIGRATION_FLAG = 'v223CleanupApplied';
+
+export async function applyV223Cleanup() {
+  const data = await storageLocal.get(['options', 'filter_lists_cache', 'filter_lists_stats']);
+  const opts = data?.options || {};
+  if (opts[V223_MIGRATION_FLAG]) {
+    return { applied: false, listRemoved: false, cacheCleaned: false };
+  }
+
+  let listRemoved = false;
+  const lists = { ...(opts.lists || {}) };
+  if (lists['ddg-tds']) {
+    delete lists['ddg-tds'];
+    listRemoved = true;
+  }
+
+  let cacheCleaned = false;
+  const listCache = data?.['filter_lists_cache'] || {};
+  if (listCache['ddg-tds']) {
+    delete listCache['ddg-tds'];
+    cacheCleaned = true;
+  }
+  const listStats = data?.['filter_lists_stats'] || {};
+  if (listStats['ddg-tds']) {
+    delete listStats['ddg-tds'];
+    cacheCleaned = true;
+  }
+
+  await storageLocal.set({
+    options: { ...opts, lists, [V223_MIGRATION_FLAG]: true },
+    'filter_lists_cache': listCache,
+    'filter_lists_stats': listStats,
+  });
+
+  return { applied: true, listRemoved, cacheCleaned };
+}
+
 export { DEFAULTS, storageLocal };

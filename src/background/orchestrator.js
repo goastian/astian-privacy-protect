@@ -9,6 +9,8 @@ import {
   loadTrackerDbFromCache,
   scheduleTrackerDbUpdates,
 } from './trackerdb.js';
+import { applyV223Cleanup } from './storage.js';
+import { wipeEngineCache } from './ghostery-engine.js';
 
 export function createBackgroundOrchestrator({
   isChromium,
@@ -91,6 +93,20 @@ export function createBackgroundOrchestrator({
   async function initialize() {
     console.log('[midori] Initializing...');
     const t0 = Date.now();
+
+    // v2.2.3 cleanup: idempotent (no-op once flag is set). Runs on every
+    // startup so existing installs that updated BEFORE this code shipped
+    // also get the obsolete ddg-tds artifacts purged and the engine cache
+    // wiped exactly once.
+    try {
+      const cleanup = await applyV223Cleanup();
+      if (cleanup.applied) {
+        console.log('[midori] v2.2.3 cleanup applied at startup:', cleanup);
+        await wipeEngineCache();
+      }
+    } catch (e) {
+      console.warn('[midori] v2.2.3 cleanup at startup failed:', e);
+    }
 
     const options = await getOptions();
     telemetry.initFromOptions(options);
