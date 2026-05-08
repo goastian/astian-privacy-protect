@@ -65,8 +65,9 @@ const storageLocal = {
 const DEFAULTS = {
   enabled: true,
   whitelist: {
-    'astian.org': true,
-    'astiango.com': true,
+    '*.astian.org': true,
+    '*.ads.astian.org': true,
+    '*.astiango.com': true,
   },
   experiments: {
     serpBar: false,
