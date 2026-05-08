@@ -40,6 +40,7 @@ import { createPopupDefenseController } from './popup-defense.js';
 import { createTrackerDbDnrController } from './trackerdb-dnr.js';
 import { createBackgroundOrchestrator } from './orchestrator.js';
 import { createMessageDispatcher } from './messages/index.js';
+import { cleanUrl, buildCleanerDnrRule } from './url-cleaner.js';
 
 // ── Single engine: Ghostery (primary and only runtime engine) ──
 const ghosteryEngine = new GhosteryEngine();
@@ -471,6 +472,7 @@ const orchestrator = createBackgroundOrchestrator({
   applyTrackerDbDynamicRules,
   updateDnrEntityBlockRules,
   applyFirstPartyCdnAllowRules,
+  installDnrUrlCleanerRule,
   isTrackerDbAssistedEnabled: () => isTrackerDbAssistedEnabled,
 });
 
@@ -510,10 +512,27 @@ function setupWebRequestBlocking() {
     (details) => {
       if (!isEnabled) return WR_PASS;
       if (details.tabId < 0) return WR_PASS;
-      if (details.type === 'main_frame') return WR_PASS;
 
       const url = details.url;
       if (!url.startsWith('http')) return WR_PASS;
+
+      // Ghostery-style URL cleaner: strip tracking params on top-level
+      // navigations and iframes before the request is fired. Skipped on
+      // whitelisted hosts so user opt-outs are honored.
+      if (details.type === 'main_frame' || details.type === 'sub_frame') {
+        try {
+          const u = new URL(url);
+          const host = u.hostname;
+          if (!host || !isWhitelistedSync(host)) {
+            const cleaned = cleanUrl(url);
+            if (cleaned && cleaned !== url) {
+              return { redirectUrl: cleaned };
+            }
+          }
+        } catch { /* malformed URL, skip */ }
+      }
+
+      if (details.type === 'main_frame') return WR_PASS;
 
       const tab = getTab(details.tabId) || ensureTab(details.tabId);
       const pageHostname = tab.hostname || '';
@@ -1041,6 +1060,27 @@ async function updateDnrWhitelist() {
     removeRuleIds: removeIds,
     addRules,
   });
+}
+
+// ── Chromium: URL cleaner via dynamic DNR ───────────────────────────────────
+// Ghostery-style: strips known tracking query parameters from main_frame /
+// sub_frame navigations using a single redirect rule with queryTransform.
+// Idempotent: re-installing replaces the prior rule(s).
+async function installDnrUrlCleanerRule() {
+  if (!IS_CHROMIUM) return;
+  const CLEANER_RULE_ID = 950001;
+  try {
+    const existing = await chrome.declarativeNetRequest.getSessionRules();
+    const removeIds = existing
+      .filter(r => r.id >= 950000 && r.id < 950100)
+      .map(r => r.id);
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: removeIds,
+      addRules: [buildCleanerDnrRule(CLEANER_RULE_ID)],
+    });
+  } catch (e) {
+    console.warn('[midori] Failed to install URL cleaner DNR rule:', e?.message || e);
+  }
 }
 
 // ── Chromium: first-party CDN allow rules ───────────────────────────────────

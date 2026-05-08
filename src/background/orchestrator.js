@@ -21,6 +21,7 @@ export function createBackgroundOrchestrator({
   applyTrackerDbDynamicRules,
   updateDnrEntityBlockRules,
   applyFirstPartyCdnAllowRules,
+  installDnrUrlCleanerRule,
   isTrackerDbAssistedEnabled,
 }) {
   async function loadEngine(lists) {
@@ -174,6 +175,11 @@ export function createBackgroundOrchestrator({
         if (typeof applyFirstPartyCdnAllowRules === 'function') {
           applyFirstPartyCdnAllowRules().catch((e) =>
             console.warn('[midori] First-party CDN allow rules (startup):', e)
+          );
+        }
+        if (typeof installDnrUrlCleanerRule === 'function') {
+          installDnrUrlCleanerRule().catch((e) =>
+            console.warn('[midori] URL cleaner DNR rule (startup):', e)
           );
         }
       }
