@@ -82,7 +82,7 @@ export function recordBlock(tabId, url, metadata = {}) {
 
   tab.blocked++;
 
-  const domain = extractDomain(url);
+  const domain = metadata.domain || extractDomain(url);
   const tracker = enrichTrackerWithOwner(domain) || {
     domain,
     owner: domain,
