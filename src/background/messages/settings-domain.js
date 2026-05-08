@@ -1,5 +1,5 @@
 function getDnrRulesets() {
-  return ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe', 'ddg-tds'];
+  return ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
 }
 
 async function updateEnabledRulesetsFromFlags(flags) {

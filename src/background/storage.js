@@ -90,7 +90,6 @@ const DEFAULTS = {
     'ublock-privacy': { enabled: true, url: 'https://ublockorigin.github.io/uAssets/filters/privacy.txt' },
     'ublock-unbreak': { enabled: true, url: 'https://ublockorigin.github.io/uAssets/filters/unbreak.txt' },
     'peter-lowe': { enabled: true, url: 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext' },
-    'ddg-tds': { enabled: true, url: 'https://raw.githubusercontent.com/duckduckgo/tracker-blocklists/main/web/v6/extension-mv3-tds.json', format: 'tds' },
     // ── Annoyances ──
     'ublock-annoyances-cookies': { enabled: false, url: 'https://ublockorigin.github.io/uAssets/filters/annoyances-cookies.txt' },
     'ublock-annoyances-others': { enabled: false, url: 'https://ublockorigin.github.io/uAssets/filters/annoyances-others.txt' },
@@ -121,10 +120,10 @@ const DEFAULTS = {
   antiFingerprint: true,
   updateInterval: 4,
   lastUpdated: 0,
-  // TrackerDB data-layer settings (Phase 1)
-  trackerDbEnabled: true,
+  // TrackerDB data-layer settings
+  trackerDbEnabled: false,
   trackerDbUpdateIntervalHours: 24,
-  trackerDbUrl: '', // empty = use built-in default URL
+  trackerDbUrl: '', // empty = no remote feed (set to a self-hosted or third-party JSON URL to enable)
   sitePolicy: {
     verticalProfiles: {
       general: {

@@ -37,7 +37,7 @@ function isFirstPartyRelaxable(requestDomain, pageHostname, resourceType) {
  * Curated map of CDN/static-asset domains to the first-party sites that own them.
  * Used as a deterministic fallback when TrackerDB does not assign a shared
  * `ownerId` to a CDN and its parent site (e.g. `redditstatic.com` ↔ `reddit.com`).
- * Without this map, third-party blocklists (DDG TDS, EasyPrivacy) can incorrectly
+ * Without this map, third-party blocklists (EasyPrivacy, uBlock Privacy) can incorrectly
  * block legitimate first-party bundles served from a sibling CDN domain, breaking
  * SPAs that import ES modules from the CDN.
  *
@@ -88,7 +88,7 @@ export const FIRST_PARTY_CDN_MAP = {
   'ssl-images-amazon.com': ['amazon.com'],
   'paypalobjects.com': ['paypal.com'],
   // Google ecosystem — Gmail, Drive, Docs, Meet, Calendar, etc. all rely
-  // on these CDNs/APIs as first-party. Without this, EasyList / DDG TDS
+  // on these CDNs/APIs as first-party. Without this, EasyList / EasyPrivacy
   // generic third-party rules can break message rendering and bundle
   // loading on `mail.google.com`, `docs.google.com`, etc.
   'gstatic.com': ['google.com', 'gmail.com', 'googlemail.com', 'youtube.com', 'blogger.com'],
@@ -782,7 +782,7 @@ export function evaluateRequestPolicy({
   // SPAs like Reddit (own bundles served from sibling owned domains) without
   // opening the door to ad-tagged endpoints.
   // Phase C2 (2026-05-06): same-entity non-ads requests also override engine
-  // matches (e.g. DDG TDS treating `redditstatic.com` as a generic third-party
+  // matches (e.g. third-party blocklists treating `redditstatic.com` as a generic third-party
   // tracker). Without this, Reddit's own bundle CDN is blocked even though the
   // user is browsing reddit.com. Curated CDN→site map in `FIRST_PARTY_CDN_MAP`
   // is the source of truth for which third-party domains are allowed to

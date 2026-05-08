@@ -23,11 +23,6 @@ const LISTS = {
   'peter-lowe': 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext',
 };
 
-// DuckDuckGo Tracker Detection Schema (TDS) — curated tracker list with better signal/noise than EasyPrivacy
-const TDS_LISTS = {
-  'ddg-tds': 'https://raw.githubusercontent.com/duckduckgo/tracker-blocklists/main/web/v6/extension-mv3-tds.json',
-};
-
 // Chrome DNR limits
 const MAX_RULES_PER_LIST = 60000;
 
@@ -275,7 +270,7 @@ function allResourceTypes() {
 }
 
 /**
- * Convert DuckDuckGo TDS JSON to Chrome DNR rules.
+ * Convert TDS-style tracker JSON to Chrome DNR rules.
  * Only trackers with default:'block' are converted; rules with action:'ignore' become allow rules.
  * All rules are scoped to third-party context since TDS only tracks cross-site trackers.
  */
@@ -376,33 +371,6 @@ async function main() {
 
       writeFileSync(outputPath, JSON.stringify(rules, null, 0));
       console.log(` ${rules.length} rules. Done.`);
-    } catch (e) {
-      console.error(` FAILED: ${e.message}`);
-    }
-  }
-
-  // ── DuckDuckGo TDS JSON lists ────────────────────────────────────────────
-  for (const [name, url] of Object.entries(TDS_LISTS)) {
-    const outputPath = resolve(RULES_DIR, `${name}.json`);
-
-    if (existsSync(outputPath)) {
-      console.log(`[skip] ${name}.json already exists`);
-      continue;
-    }
-
-    process.stdout.write(`Downloading ${name} (TDS JSON)...`);
-
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const tds = await response.json();
-      const trackerCount = Object.keys(tds.trackers || {}).length;
-
-      process.stdout.write(` ${trackerCount} trackers. Converting...`);
-
-      const rules = parseTDStoDNR(tds);
-      writeFileSync(outputPath, JSON.stringify(rules, null, 0));
-      console.log(` ${rules.length} DNR rules. Done.`);
     } catch (e) {
       console.error(` FAILED: ${e.message}`);
     }

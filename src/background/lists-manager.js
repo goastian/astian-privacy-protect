@@ -67,12 +67,12 @@ async function writeListStats(id, text, meta = {}) {
 }
 
 /**
- * Convert DuckDuckGo TDS JSON object to ABP filter text.
+ * Convert TDS-style JSON object to ABP filter text.
  * Only trackers with default:'block' are converted so the ABP filter engine
  * (Firefox) gets the same tracker set that the DNR ruleset provides on Chromium.
  */
 function convertTDStoABP(tds) {
-  const lines = ['! DuckDuckGo Tracker Blocklist (auto-converted from TDS JSON)'];
+  const lines = ['! Tracker Detection Schema (auto-converted from TDS JSON)'];
   for (const [domain, tracker] of Object.entries(tds.trackers || {})) {
     if (tracker.default === 'block') {
       lines.push(`||${domain}^$third-party`);
@@ -227,7 +227,7 @@ async function fetchListWithStatus(id, url) {
 
 /**
  * Download a TDS JSON list, convert to ABP filter text, and cache it.
- * Used for lists with format:'tds' (e.g. DuckDuckGo tracker-blocklists).
+ * Used for lists with format:'tds' (TDS-style tracker JSON).
  */
 async function fetchTDSList(id, url) {
   const cacheData = await storageLocal.get(LIST_CACHE_KEY);

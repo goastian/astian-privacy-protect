@@ -1,13 +1,15 @@
 /**
  * Midori Privacy Blocker
  * TrackerDB — Ingestion, versioned local storage, continuous updates, and lookup
- * Phase 1 (2.1 – 2.3): Data layer for TrackerDB
  *
  * Supports three feed formats:
- *   - DuckDuckGo TDS  (trackers keyed by domain)
- *   - WhoTracks.me / Ghostery (trackers keyed by slug, with domains[] array)
- *   - DuckDuckGo Tracker Radar generated data:
- *       domain_summary.json + domain_map.json
+ *   - TDS-style (trackers keyed by domain) [legacy parser]
+ *   - WhoTracks.me / Ghostery (trackers keyed by slug, with domains[] array) — PREFERRED
+ *   - Tracker Radar generated data: domain_summary.json + domain_map.json [legacy parser]
+ *
+ * No default feed URL is shipped: the user (or a deployment) must configure
+ * `trackerDbUrl` in storage to enable remote ingestion. The module operates
+ * happily on an empty index if no feed is configured.
  *
  * Storage model (IndexedDB "midori-trackerdb"):
  *   snapshot-current → latest verified snapshot
@@ -20,16 +22,12 @@
 import { storageLocal } from './storage.js';
 
 // ── Feed URLs ────────────────────────────────────────────────────────────────
-export const TRACKERDB_URL_PRIMARY =
-  'https://raw.githubusercontent.com/duckduckgo/tracker-radar/main/build-data/generated/domain_summary.json';
-export const TRACKERDB_URL_FALLBACK =
-  'https://raw.githubusercontent.com/duckduckgo/tracker-radar/main/build-data/generated/domain_map.json';
-
-// Alternative CDN mirrors when GitHub raw fails
-export const TRACKERDB_URL_PRIMARY_ALT =
-  'https://cdn.jsdelivr.net/gh/duckduckgo/tracker-radar@main/build-data/generated/domain_summary.json';
-export const TRACKERDB_URL_FALLBACK_ALT =
-  'https://cdn.jsdelivr.net/gh/duckduckgo/tracker-radar@main/build-data/generated/domain_map.json';
+// No default remote feed: empty by design. Set `trackerDbUrl` (and optionally
+// `trackerDbFallbackUrl`) in storage to wire a self-hosted or third-party feed.
+export const TRACKERDB_URL_PRIMARY = '';
+export const TRACKERDB_URL_FALLBACK = '';
+export const TRACKERDB_URL_PRIMARY_ALT = '';
+export const TRACKERDB_URL_FALLBACK_ALT = '';
 
 // ── Fetch robustness constants ───────────────────────────────────────────────
 const FETCH_TIMEOUT_MS = 30000;
@@ -267,7 +265,7 @@ function snapshotChecksum(snapshot) {
  * Normalize a raw TrackerDB JSON payload into a uniform internal structure.
  *
  * Supports two shapes:
- *   Shape A — DuckDuckGo TDS (domain-keyed trackers):
+ *   Shape A — TDS-style (domain-keyed trackers):
  *     { trackers: { "domain.com": { owner, prevalence, categories, rules } }, entities: {...} }
  *   Shape B — WhoTracks.me / Ghostery (slug-keyed with domains array):
  *     { trackers: { "google_analytics": { name, domains[], category, prevalence } }, entities: {...} }
@@ -286,7 +284,7 @@ export function normalizeTrackerDb(raw) {
   const entities = new Map();
   const version = raw.version || raw.generatedAt || raw.sourceVersion || String(Date.now());
 
-  // ── Shape C: DuckDuckGo Tracker Radar generated data ──
+  // ── Shape C: Tracker Radar generated data ──
   if (raw.domainSummary && typeof raw.domainSummary === 'object') {
     const domainMap = raw.domainMap || {};
 
@@ -330,9 +328,9 @@ export function normalizeTrackerDb(raw) {
 
   const firstEntry = Object.values(raw.trackers)[0] || {};
 
-  // ── Shape A: DuckDuckGo TDS (each key IS the domain) ──
+  // ── Shape A: TDS-style payload (each key IS the domain) ──
   if (firstEntry.domain !== undefined || firstEntry.owner !== undefined) {
-    // Build entity map (keyed by owner name in DDG format)
+    // Build entity map (keyed by owner name in TDS-style payloads)
     for (const [ownerName, entity] of Object.entries(raw.entities || {})) {
       entities.set(ownerName, {
         name: entity.displayName || ownerName,
@@ -568,7 +566,7 @@ export function isTrackerFingerprinter(domain) {
   return String(entry.category).toLowerCase().includes('fingerprint');
 }
 
-// ── Phase 8: Entity Enrichment API (Tracker-Radar Metadata) ──────────────────
+// ── Phase 8: Entity Enrichment API (Tracker Metadata) ───────────────────────
 /**
  * Get the owner/entity name for a domain (with LRU caching for performance).
  * Falls back to domain itself if not found in trackerdb.
@@ -863,22 +861,40 @@ export async function rollbackTrackerDb() {
  */
 export async function fetchAndUpdateTrackerDb({ primaryUrl, fallbackUrl } = {}) {
   const meta = await getStoredMeta();
-  const url1 = primaryUrl || TRACKERDB_URL_PRIMARY;
-  const url2 = fallbackUrl || TRACKERDB_URL_FALLBACK;
+  // Read user-configured feed URLs from storage if no overrides were passed.
+  let storedPrimary = '';
+  let storedFallback = '';
+  try {
+    const opts = await storageLocal.get(['trackerDbUrl', 'trackerDbFallbackUrl']);
+    storedPrimary = (opts && typeof opts.trackerDbUrl === 'string') ? opts.trackerDbUrl : '';
+    storedFallback = (opts && typeof opts.trackerDbFallbackUrl === 'string') ? opts.trackerDbFallbackUrl : '';
+  } catch { /* storage may not be available in tests */ }
 
-  // ── Step 1: Fetch Tracker Radar pair (primary URLs) ──
+  const url1 = primaryUrl || storedPrimary || TRACKERDB_URL_PRIMARY;
+  const url2 = fallbackUrl || storedFallback || TRACKERDB_URL_FALLBACK;
+
+  // No feed configured at all → nothing to do.
+  if (!url1) {
+    console.log('[trackerdb] No feed URL configured; skipping fetch.');
+    return 'unchanged';
+  }
+
+  // ── Step 1: Fetch feed pair (primary URLs) ──
   let fetchResult = null;
   try {
     fetchResult = await fetchRadarPair(url1, url2, meta);
   } catch (e) {
-    console.warn(`[trackerdb] Primary feed failed (${e.message}). Trying alternative CDN...`);
-
-    // ── Step 1b: Try alternative CDN URLs as fallback ──
-    try {
-      fetchResult = await fetchRadarPair(TRACKERDB_URL_PRIMARY_ALT, TRACKERDB_URL_FALLBACK_ALT, meta);
-      console.log('[trackerdb] Alternative CDN fetch succeeded');
-    } catch (e2) {
-      console.error(`[trackerdb] Alternative CDN also failed (${e2.message}). Keeping current data.`);
+    console.warn(`[trackerdb] Primary feed failed (${e.message}).`);
+    if (TRACKERDB_URL_PRIMARY_ALT) {
+      // ── Step 1b: Try alternative CDN URLs as fallback ──
+      try {
+        fetchResult = await fetchRadarPair(TRACKERDB_URL_PRIMARY_ALT, TRACKERDB_URL_FALLBACK_ALT, meta);
+        console.log('[trackerdb] Alternative CDN fetch succeeded');
+      } catch (e2) {
+        console.error(`[trackerdb] Alternative CDN also failed (${e2.message}). Keeping current data.`);
+        return 'failed';
+      }
+    } else {
       return 'failed';
     }
   }

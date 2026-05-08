@@ -1044,7 +1044,7 @@ async function updateDnrWhitelist() {
 }
 
 // ── Chromium: first-party CDN allow rules ───────────────────────────────────
-// Static DNR rulesets (DDG TDS, EasyPrivacy) match generic third-party
+// Static DNR rulesets (EasyPrivacy, uBlock Privacy) match generic third-party
 // trackers and end up blocking legitimate same-owner CDNs (e.g.
 // `redditstatic.com` while the user is on `reddit.com`). We mirror the
 // curated `FIRST_PARTY_CDN_MAP` from policy-engine into session allow rules
@@ -1082,7 +1082,7 @@ async function applyFirstPartyCdnAllowRules() {
     // Phase E (2026-05-07): critical-first-party self-allow rules.
     // For each curated critical site (Gmail, Outlook, iCloud, banking, etc.)
     // emit a `firstParty` allow rule scoped to its initiators. This guarantees
-    // that static DNR rulesets (DDG TDS, EasyPrivacy, etc.) cannot block
+    // that static DNR rulesets (EasyPrivacy, uBlock Privacy, etc.) cannot block
     // first-party requests on these high-impact apps. Third-party trackers
     // are still blocked normally.
     const criticalInitiators = Array.from(CRITICAL_FIRST_PARTY_SITES);
