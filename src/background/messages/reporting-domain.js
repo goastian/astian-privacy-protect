@@ -39,6 +39,14 @@ export function createReportingDomainHandlers(ctx) {
       return { success: true };
     },
 
+    'record-cosmetic-blocks': async (msg, sender) => {
+      const tabId = sender?.tab?.id;
+      const recorded = Number.isInteger(tabId) && typeof ctx.recordCosmeticBlocks === 'function'
+        ? ctx.recordCosmeticBlocks(tabId, msg)
+        : false;
+      return { success: true, recorded };
+    },
+
     'report-false-positive': async (msg) => {
       ctx.recordFalsePositive(msg.hostname, msg.category);
       return { success: true, total: ctx.telemetry.getFalsePositiveTotal() };
