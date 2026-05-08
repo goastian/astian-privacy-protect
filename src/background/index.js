@@ -625,6 +625,7 @@ const DNR_RECORD_RATE_LIMIT_PER_TAB = 30; // events / sec / tab
 const dnrRateState = new Map(); // tabId -> { windowStart, count }
 const recentChromiumBlockedUrls = new Map(); // tabId -> Map(url -> timestamp)
 const CHROMIUM_BLOCK_DEDUPE_TTL_MS = 1500;
+const MAX_COSMETIC_BLOCKS_PER_REPORT = 50;
 
 function dnrRateLimited(tabId) {
   const now = Date.now();
@@ -681,6 +682,31 @@ function recordPopupBlocked(tabId, rawUrl) {
     owner: 'Popup defense',
     ownerId: 'popup-defense',
   });
+}
+
+function recordCosmeticBlocks(tabId, payload = {}) {
+  if (!Number.isInteger(tabId) || tabId < 0) return false;
+  const hostname = String(payload.hostname || '').toLowerCase() || 'current-site';
+  const source = String(payload.source || 'cosmetic').toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 40) || 'cosmetic';
+  const count = Math.max(0, Math.min(MAX_COSMETIC_BLOCKS_PER_REPORT, Number(payload.count) || 0));
+  if (count <= 0) return false;
+
+  let recorded = 0;
+  for (let i = 0; i < count; i++) {
+    const ok = recordChromiumBlockedRequest(
+      tabId,
+      `https://cosmetic-block.midori.invalid/${encodeURIComponent(hostname)}/${source}/${Date.now()}-${i}`,
+      {
+        category: 'ads',
+        reason: 'cosmetic-filter',
+        domain: `cosmetic:${hostname}`,
+        owner: 'Cosmetic filtering',
+        ownerId: 'cosmetic-filtering',
+      },
+    );
+    if (ok) recorded++;
+  }
+  return recorded > 0;
 }
 
 if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
@@ -1032,6 +1058,7 @@ const dispatchMessage = createMessageDispatcher({
   getDataSaved,
   getRecentRequests,
   recordPopupBlocked,
+  recordCosmeticBlocks,
   resolveSiteProfile,
   isCriticalFirstPartySite,
   buildIaShieldConfig,
