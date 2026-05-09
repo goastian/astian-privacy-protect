@@ -34,11 +34,11 @@ export const TRACKING_PARAMS = Object.freeze([
   // Microsoft / Bing
   'msclkid',
   // Twitter / X
-  'twclid', 's', 't',
+  'twclid',
   // TikTok
   'ttclid',
   // LinkedIn
-  'li_fat_id', 'trk', 'trkCampaign',
+  'li_fat_id',
   // Mailchimp
   'mc_cid', 'mc_eid',
   // HubSpot
@@ -58,6 +58,10 @@ export const TRACKING_PARAMS = Object.freeze([
   // Klaviyo / Drip / others
   'kclickid', '_kx',
 ]);
+
+// Keys like `t`, `s`, and `trk` are intentionally excluded.
+// They are too generic and widely used as functional parameters
+// (pagination/state/deep-link tokens), which can break navigation.
 
 const TRACKING_PARAMS_SET = new Set(TRACKING_PARAMS);
 

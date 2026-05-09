@@ -111,7 +111,8 @@ export function createPopupDefenseController({ extractDomain, getTab, getPopupDe
       if (!config.enabled) return;
 
       const allowedByGesture = hasRecentUserGesture(tab.openerTabId, config.gestureWindowMs);
-      const burstExceeded = trackPopupBurst(tab.openerTabId, config) && !allowedByGesture;
+      const canAutoClose = config.closeTabsWithoutGesture === true;
+      const burstExceeded = canAutoClose && trackPopupBurst(tab.openerTabId, config) && !allowedByGesture;
 
       popupCandidates.set(tab.id, {
         openerTabId: tab.openerTabId,
@@ -126,7 +127,7 @@ export function createPopupDefenseController({ extractDomain, getTab, getPopupDe
         return;
       }
 
-      if (!allowedByGesture && config.closeTabsWithoutGesture) {
+      if (canAutoClose && !allowedByGesture) {
         setTimeout(() => {
           if (popupCandidates.has(tab.id)) {
             maybeClosePopupTab(tab.id, 'popup-no-gesture');
@@ -138,6 +139,7 @@ export function createPopupDefenseController({ extractDomain, getTab, getPopupDe
     trackPopupRedirect(tabId, url) {
       const candidate = popupCandidates.get(tabId);
       if (!candidate || !url || !url.startsWith('http')) return;
+      if (!candidate.config?.closeTabsWithoutGesture) return;
 
       const host = extractDomain(url);
       if (!host) return;
