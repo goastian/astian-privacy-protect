@@ -644,7 +644,6 @@
       // they are in the player's click event path and break pause/spacebar.
       // ── Anti-adblock enforcement modals ──
       'ytd-enforcement-message-view-model',
-      'tp-yt-paper-dialog.ytd-popup-container:has(#dismiss-button)',
       'tp-yt-paper-dialog.ytd-popup-container:has(ytd-enforcement-message-view-model)',
       'ytd-popup-container tp-yt-paper-dialog:has(.yt-about-this-ad-renderer)',
       // ── YouTube Shorts ads ──

@@ -1007,12 +1007,43 @@
   };
 
   // ── disable-newtab-links ───────────────────────────────────────────────────
-  // Prevents links from opening in new tabs (anti-popup).
+  // Prevents links from opening in new tabs for known popunder networks only.
+  // Compatibility hardening: the old blanket behavior broke legitimate
+  // external links on many sites (including YouTube channel links).
   SCRIPTLETS['disable-newtab-links'] = function () {
     return `(function() {
+      var POPUNDER_HOSTS = [
+        'trafficjunky.net', 'trafficjunky.com', 'juicyads.com', 'exoclick.com',
+        'ero-advertising.com', 'plugrush.com', 'exdynsrv.com', 'popads.net',
+        'popcash.net', 'onclickads.net', 'hilltopads.net', 'adcash.com'
+      ];
+
+      function hostMatches(hostname, pattern) {
+        return hostname === pattern || hostname.endsWith('.' + pattern);
+      }
+
+      function isPopunderHref(href) {
+        if (!href || typeof href !== 'string') return false;
+        if (!/^https?:\/\//i.test(href)) return false;
+        try {
+          var u = new URL(href, location.href);
+          var h = String(u.hostname || '').toLowerCase();
+          if (!h) return false;
+          for (var i = 0; i < POPUNDER_HOSTS.length; i++) {
+            if (hostMatches(h, POPUNDER_HOSTS[i])) return true;
+          }
+        } catch (e) {}
+        return false;
+      }
+
       document.addEventListener('click', function(e) {
         var el = e.target.closest('a[target="_blank"]');
-        if (el) { el.removeAttribute('target'); }
+        if (!el) return;
+        var href = '';
+        try { href = String(el.href || el.getAttribute('href') || ''); } catch (err) {}
+        if (isPopunderHref(href)) {
+          el.removeAttribute('target');
+        }
       }, true);
     })();`;
   };
@@ -1081,7 +1112,6 @@
         '.ytp-ad-skip-button-slot',
       ].join(',');
       var OVERLAY_CLOSE = '.ytp-ad-overlay-close-button, .ytp-ad-overlay-close-container button, .ytp-ad-overlay-close-button svg';
-      var ENFORCEMENT_KEYWORDS = ['ad blocker','bloqueador','werbeblocker','bloqueur','adblocker','bloqueador de anuncios','adblock','premium'];
       var userWasMuted = false;
       var savedState = false;
       var lastAdSeenAt = 0;
@@ -1221,16 +1251,14 @@
         var els = document.querySelectorAll('ytd-enforcement-message-view-model');
         for (var i = 0; i < els.length; i++) els[i].remove();
 
-        var dialogs = document.querySelectorAll('tp-yt-paper-dialog.ytd-popup-container, tp-yt-paper-dialog');
-        for (var d = 0; d < dialogs.length; d++) {
-          var text = (dialogs[d].textContent || '').toLowerCase();
-          for (var k = 0; k < ENFORCEMENT_KEYWORDS.length; k++) {
-            if (text.indexOf(ENFORCEMENT_KEYWORDS[k]) !== -1) {
-              dialogs[d].remove();
-              break;
-            }
-          }
-        }
+        // Compatibility hardening: only remove dialogs that explicitly contain
+        // enforcement/ad-info components. Text-based sweeping was too broad
+        // and could remove legitimate YouTube dialogs used by channel links.
+        var dialogs = document.querySelectorAll(
+          'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model), ' +
+          'tp-yt-paper-dialog:has(.yt-about-this-ad-renderer)'
+        );
+        for (var d = 0; d < dialogs.length; d++) dialogs[d].remove();
 
         var bds = document.querySelectorAll('tp-yt-iron-overlay-backdrop[opened]');
         for (var b = 0; b < bds.length; b++) bds[b].style.display = 'none';
@@ -1790,6 +1818,13 @@
     return `(function() {
       var cfg = ${cfg};
       if (!cfg || cfg.enabled === false) return;
+      // Compatibility fix (2026-05-09): only override window.open when the
+      // user (or the vertical profile) actually opted into auto-closing
+      // gestureless popups. Otherwise we behaved like Ghostery does — no
+      // page-context window.open hooking — to avoid breaking SPA links such
+      // as YouTube's channel "more links" panel that legitimately use
+      // window.open(redirectUrl, '_blank') from JS.
+      if (cfg.closeTabsWithoutGesture !== true) return;
       if (window.__midoriPopupDefenseInstalled) return;
       window.__midoriPopupDefenseInstalled = true;
 
@@ -1823,19 +1858,18 @@
       document.addEventListener('keydown', markGesture, true);
       document.addEventListener('touchstart', markGesture, true);
 
-      // Phase A: only intercept window.open. We removed the overrides on
-      // HTMLAnchorElement.prototype.click and Element.prototype.setAttribute
-      // because they break SPAs (Reddit/X/etc.) that legitimately drive
-      // navigation through synthetic clicks or dynamic attribute writes.
-      // window.open still covers true popunder/popup networks.
       var origOpen = window.open;
       if (typeof origOpen === 'function') {
         window.open = function(url) {
           pruneOpens();
           var hasGesture = withinGestureWindow();
           var maxBurst = Number.isFinite(cfg.maxBurstWithoutGesture) ? cfg.maxBurstWithoutGesture : 1;
-          if ((!hasGesture && cfg.closeTabsWithoutGesture !== false) || (!hasGesture && openTimestamps.length > maxBurst)) {
-            postBlocked(!hasGesture ? 'no-gesture' : 'burst', url);
+          if (!hasGesture && openTimestamps.length > maxBurst) {
+            postBlocked('burst', url);
+            return null;
+          }
+          if (!hasGesture) {
+            postBlocked('no-gesture', url);
             return null;
           }
           openTimestamps.push(Date.now());

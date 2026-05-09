@@ -126,6 +126,15 @@ export function cleanUrl(rawUrl) {
  * @returns {chrome.declarativeNetRequest.Rule}
  */
 export function buildCleanerDnrRule(ruleId) {
+  // Compatibility fix (2026-05-09): the previous regex matched ANY URL with
+  // a query string and forced a DNR redirect through queryTransform on every
+  // navigation. Even when removeParams produced no change, the redirect path
+  // could break SPA navigations (e.g. YouTube's `/redirect?event=...` link
+  // handler). Build a precise alternation so DNR only fires when the URL
+  // actually contains one of our tracking parameters.
+  const escaped = TRACKING_PARAMS
+    .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
   return {
     id: ruleId,
     priority: 1,
@@ -140,11 +149,10 @@ export function buildCleanerDnrRule(ruleId) {
       },
     },
     condition: {
-      // Match any URL that contains at least one '?' — actual filtering of
-      // params is done by queryTransform; the engine only fires the rule
-      // when removeParams produces a different URL.
-      regexFilter: '^https?://.*\\?.+',
-      resourceTypes: ['main_frame', 'sub_frame'],
+      regexFilter: `[?&](${escaped})=`,
+      // Only top-level navigations. Sub-frames legitimately ship the same
+      // parameter names as state tokens (embeds, OAuth flows, etc.).
+      resourceTypes: ['main_frame'],
     },
   };
 }

@@ -946,13 +946,11 @@ export function getPopupDefenseConfig(pageHostname, options) {
   const burstLimit = siteContext.profile.popupBurstLimit ?? Math.max(0, protectionConfig.popupBurstLimit + levelWeight);
   const redirectHopThreshold = siteContext.profile.redirectHopThreshold ?? Math.max(2, protectionConfig.popupRedirectHopThreshold + levelWeight);
 
-  // Phase A: only auto-close tabs in adult vertical or when user picks 'strict' explicitly.
-  // For 'general'/'video'/'ai' on standard we no longer cierran pestañas legítimas;
-  // the in-page window.open guard and burst limit still mitigate true popunders.
-  const closeTabsWithoutGesture = (
-    siteContext.vertical === VERTICALS.ADULT ||
-    popupDefense === 'strict'
-  );
+  // Compatibility hardening (2026-05-09): auto-close is reserved strictly for
+  // adult vertical where popunder abuse is common. Applying auto-close to
+  // non-adult strict profiles keeps causing legitimate new-tab flows to fail
+  // on SPA sites (YouTube/GitHub/X/etc.) due to gesture timing races.
+  const closeTabsWithoutGesture = siteContext.vertical === VERTICALS.ADULT;
 
   return {
     enabled: protectionLevel !== 'basic' || popupDefense !== 'relaxed',

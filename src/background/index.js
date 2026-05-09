@@ -517,9 +517,10 @@ function setupWebRequestBlocking() {
       if (!url.startsWith('http')) return WR_PASS;
 
       // Ghostery-style URL cleaner: strip tracking params on top-level
-      // navigations and iframes before the request is fired. Skipped on
-      // whitelisted hosts so user opt-outs are honored.
-      if (details.type === 'main_frame' || details.type === 'sub_frame') {
+      // navigations only. Sub-frames are excluded because embeds and OAuth
+      // flows legitimately reuse the same parameter names as state tokens,
+      // and a redirect there typically breaks iframe loading.
+      if (details.type === 'main_frame') {
         try {
           const u = new URL(url);
           const host = u.hostname;
