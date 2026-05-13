@@ -190,6 +190,34 @@ export function createSettingsDomainHandlers(ctx) {
       return { success: true };
     },
 
+    'set-popup-allowlist': async (msg) => {
+      const hostname = String(msg.hostname || '').trim().toLowerCase();
+      if (!hostname) return { success: false, error: 'missing-hostname' };
+
+      const opts = await ctx.getOptions();
+      const popupAllowlist = { ...(opts.popupAllowlist || {}) };
+      const mode = String(msg.mode || 'hour');
+
+      if (mode === 'remove') {
+        delete popupAllowlist[hostname];
+      } else if (mode === 'permanent') {
+        popupAllowlist[hostname] = { permanent: true, updatedAt: Date.now() };
+      } else {
+        popupAllowlist[hostname] = {
+          expiresAt: Date.now() + 60 * 60 * 1000,
+          updatedAt: Date.now(),
+        };
+      }
+
+      const updated = await ctx.setOptions({ popupAllowlist });
+      ctx.refreshRuntimeOptions(updated);
+      if (ctx.IS_CHROMIUM && typeof ctx.installPopunderDnrRules === 'function') {
+        await ctx.installPopunderDnrRules();
+      }
+      ctx.broadcastOptionsChanged({ popupAllowlist });
+      return { success: true, popupAllowlist };
+    },
+
     'resume-protection': async (msg) => {
       const opts = await ctx.getOptions();
       const whitelist = { ...(opts.whitelist || {}) };

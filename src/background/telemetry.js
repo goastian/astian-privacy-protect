@@ -50,6 +50,7 @@ export function normalizeTelemetry(raw) {
       total: 0,
       ads: 0,
       trackers: 0,
+      popups: 0,
       other: 0,
       unknown: 0,
       ...(t.blockedByCategory || {}),
@@ -144,7 +145,7 @@ export function createTelemetryController() {
 
     recordBlockedCategory(category) {
       if (!telemetryState?.enabled) return;
-      const cat = (category === 'ads' || category === 'trackers' || category === 'other') ? category : 'unknown';
+      const cat = (category === 'ads' || category === 'trackers' || category === 'popups' || category === 'other') ? category : 'unknown';
       telemetryState.blockedByCategory.total = (telemetryState.blockedByCategory.total || 0) + 1;
       telemetryState.blockedByCategory[cat] = (telemetryState.blockedByCategory[cat] || 0) + 1;
       markDirty();

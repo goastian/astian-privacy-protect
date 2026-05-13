@@ -950,7 +950,9 @@ export function getPopupDefenseConfig(pageHostname, options) {
   // adult vertical where popunder abuse is common. Applying auto-close to
   // non-adult strict profiles keeps causing legitimate new-tab flows to fail
   // on SPA sites (YouTube/GitHub/X/etc.) due to gesture timing races.
-  const closeTabsWithoutGesture = siteContext.vertical === VERTICALS.ADULT;
+  const explicitAutoClose = siteContext.override?.popupAutoClose === true ||
+    siteContext.override?.closeTabsWithoutGesture === true;
+  const closeTabsWithoutGesture = siteContext.vertical === VERTICALS.ADULT || explicitAutoClose;
 
   return {
     enabled: protectionLevel !== 'basic' || popupDefense !== 'relaxed',

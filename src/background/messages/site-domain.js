@@ -1,23 +1,44 @@
 export function createSiteDomainHandlers(ctx) {
+  function popupAllowedForHost(hostname, allowlist) {
+    const host = String(hostname || '').toLowerCase();
+    if (!host || !allowlist || typeof allowlist !== 'object') return false;
+    const now = Date.now();
+    const parts = host.split('.');
+    for (let i = 0; i < parts.length - 1; i++) {
+      const key = parts.slice(i).join('.');
+      const entry = allowlist[key];
+      if (!entry) continue;
+      if (entry === true || entry.permanent === true) return true;
+      const expiresAt = Number(entry.expiresAt || 0);
+      if (!expiresAt || expiresAt > now) return true;
+    }
+    return false;
+  }
+
+  function disabledPopupConfig(reason = 'disabled') {
+    return {
+      enabled: false,
+      defense: reason === 'popups-allowed' ? 'allowed' : 'relaxed',
+      gestureWindowMs: 0,
+      evaluationDelayMs: 0,
+      burstWindowMs: 5000,
+      maxBurstWithoutGesture: 99,
+      redirectHopThreshold: 99,
+      closeTabsWithoutGesture: false,
+      vertical: 'general',
+    };
+  }
+
   return {
     'get-popup-defense-config': async (msg, sender) => {
       const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
       const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
       const runtime = ctx.getRuntimeOptions();
       if (ctx.isProtectionBypassedForHost(hostname, runtime)) {
-        return {
-          config: {
-            enabled: false,
-            defense: 'relaxed',
-            gestureWindowMs: 0,
-            evaluationDelayMs: 0,
-            burstWindowMs: 5000,
-            maxBurstWithoutGesture: 99,
-            redirectHopThreshold: 99,
-            closeTabsWithoutGesture: false,
-            vertical: 'general',
-          },
-        };
+        return { config: disabledPopupConfig('site-bypassed') };
+      }
+      if (popupAllowedForHost(hostname, runtime?.popupAllowlist || {})) {
+        return { config: disabledPopupConfig('popups-allowed') };
       }
       return { config: ctx.getPopupDefenseConfig(hostname, runtime) };
     },
@@ -40,6 +61,14 @@ export function createSiteDomainHandlers(ctx) {
       const tabId = sender?.tab?.id ?? msg.tabId;
       if (Number.isInteger(tabId) && tabId >= 0) {
         ctx.recordUserGesture(tabId, msg);
+      }
+      return { success: true };
+    },
+
+    'popup-guard-window-signal': async (msg, sender) => {
+      const tabId = sender?.tab?.id ?? msg.tabId;
+      if (Number.isInteger(tabId) && tabId >= 0 && ctx.recordWindowSignal) {
+        ctx.recordWindowSignal(tabId, msg);
       }
       return { success: true };
     },
