@@ -63,6 +63,7 @@ export function createTrackerDbDnrController({ isChromium, protectionLevels, get
         action: { type: 'block' },
         condition: {
           requestDomains: [domain],
+          domainType: 'thirdParty',
           resourceTypes: [
             'script', 'xmlhttprequest', 'image', 'sub_frame',
             'font', 'object', 'ping', 'media', 'websocket', 'other',

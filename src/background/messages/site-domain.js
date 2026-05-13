@@ -263,11 +263,14 @@ export function createSiteDomainHandlers(ctx) {
       // and can break WebRTC/camera/geolocation flows on these sensitive hosts.
       // Cosmetics and scriptlets are already disabled here; anti-fingerprint
       // must follow the same policy.
-      if (ctx.isCriticalFirstPartySite?.(tabHostname)) {
+      const mode = ctx.getAntiFingerprintMode
+        ? ctx.getAntiFingerprintMode(tabHostname, runtime)
+        : (ctx.isCriticalFirstPartySite?.(tabHostname) ? 'off' : 'balanced');
+      if (mode === 'off') {
         return { enabled: false };
       }
       const afOpts = await ctx.getOptions();
-      return { enabled: afOpts.antiFingerprint !== false };
+      return { enabled: afOpts.antiFingerprint !== false, mode };
     },
   };
 }

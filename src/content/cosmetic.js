@@ -1261,10 +1261,14 @@
       const fpScriptlets = [
         { name: 'canvas-fingerprint-protect', args: [] },
         { name: 'webgl-fingerprint-protect', args: [] },
-        { name: 'audiocontext-fingerprint-protect', args: [] },
         { name: 'navigator-fingerprint-protect', args: [] },
-        { name: 'screen-fingerprint-protect', args: [] },
       ];
+      if (antiFpResponse.mode === 'strong') {
+        fpScriptlets.push(
+          { name: 'audiocontext-fingerprint-protect', args: [] },
+          { name: 'screen-fingerprint-protect', args: [] },
+        );
+      }
       forwardScriptletsToPage(fpScriptlets);
     }
 

@@ -6,6 +6,7 @@
 
 import { extractDomain, classifyRequestDetails } from './filter-utils.js';
 import { getTrackerCategory, getTrackerConfidence, isHighConfidenceTracker, getTrackerOwnerId } from './trackerdb.js';
+import { getLocalTrackerReputation } from './local-reputation.js';
 
 // ── Phase 8: First-Party Relaxation (entity matching) ──────────────────────
 /**
@@ -219,6 +220,17 @@ export const CRITICAL_FIRST_PARTY_SITES = new Set([
   'mychart.com', 'epic.com',
 ]);
 
+const ANTI_FINGERPRINT_EXCLUDED_SITES = new Set([
+  ...CRITICAL_FIRST_PARTY_SITES,
+  // Editors / publishers / creator tools often rely on canvas, WebGL,
+  // AudioContext and accurate screen metrics for layout or media workflows.
+  'wordpress.com', 'wp.com', 'medium.com', 'substack.com', 'ghost.org',
+  'canva.com', 'figma.com', 'adobe.com', 'behance.net',
+  'notion.so', 'docs.google.com', 'office.com',
+  // WebRTC and media-production surfaces beyond the critical meeting list.
+  'streamyard.com', 'riverside.fm', 'descript.com', 'loom.com',
+]);
+
 /**
  * Hardcoded set of registry-level ad / ad-tech domains that must NEVER be
  * relaxed by any first-party rule, even when the page is a critical site
@@ -292,6 +304,31 @@ export function isCriticalFirstPartySite(hostname) {
     if (host.endsWith('.' + reg)) return true;
   }
   return false;
+}
+
+export function shouldDisableAntiFingerprint(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host) return false;
+  if (ANTI_FINGERPRINT_EXCLUDED_SITES.has(host)) return true;
+  for (const reg of ANTI_FINGERPRINT_EXCLUDED_SITES) {
+    if (host.endsWith('.' + reg)) return true;
+  }
+  return false;
+}
+
+export function getAntiFingerprintMode(hostname, options = {}) {
+  if (shouldDisableAntiFingerprint(hostname)) return 'off';
+
+  const siteContext = resolveSiteProfile(hostname, options);
+  const override = siteContext.override || {};
+  if (override.antiFingerprint === false) return 'off';
+  if (override.antiFingerprint === true || override.antiFingerprintMode === 'strong') return 'strong';
+
+  const level = normalizeProtectionLevel(options?.protectionLevel);
+  if (level === 'strict' || siteContext.vertical === VERTICALS.AI || siteContext.vertical === VERTICALS.ADULT) {
+    return 'strong';
+  }
+  return 'balanced';
 }
 
 function getRegistryDomain(hostname) {
@@ -625,6 +662,13 @@ function matchesAggressiveThreatHost(hostname) {
   return false;
 }
 
+function isStrictTrackerTaxonomy(trackerCategory, classification) {
+  const taxonomy = classification?.taxonomy || 'generic';
+  if (taxonomy === 'fingerprinting' || taxonomy === 'session-replay') return true;
+  if (taxonomy === 'tag-manager' || taxonomy === 'social-pixel' || taxonomy === 'redirect-tracker') return true;
+  return trackerCategory === 'trackers' && taxonomy === 'generic';
+}
+
 export function inferSiteVertical(hostname) {
   const host = String(hostname || '').toLowerCase();
   if (!host) return VERTICALS.GENERAL;
@@ -771,6 +815,16 @@ export function evaluateRequestPolicy({
   const trackerCategory = requestDomain ? getTrackerCategory(requestDomain) : null;
   const trackerConfidence = requestDomain ? getTrackerConfidence(requestDomain) : 0;
   const classification = classifyRequestDetails(url, pageHostname, resourceType);
+  const localReputation = requestDomain ? getLocalTrackerReputation(requestDomain) : {
+    confidenceBoost: 0,
+    aggressionMultiplier: 1,
+    distinctTrackerSites: 0,
+    firstPartyFunctional: 0,
+  };
+  const effectiveTrackerConfidence = Math.min(
+    1,
+    Math.max(0, (Number(trackerConfidence) || 0) + Number(localReputation.confidenceBoost || 0))
+  );
   const isThirdParty = !!(
     requestDomain &&
     pageHostname &&
@@ -794,15 +848,15 @@ export function evaluateRequestPolicy({
   }
 
   const aggressiveVerticalRules = rollout.verticalProfiles && options?.experiments?.aggressiveVerticalRules === true;
-  const signalScore = computeTrackerSignalScore({
-    trackerConfidence,
+  const signalScore = Math.min(1, computeTrackerSignalScore({
+    trackerConfidence: effectiveTrackerConfidence,
     trackerCategory,
     classification,
     isThirdParty,
     resourceType,
     siteProfile: siteContext.profile,
     aggressiveVerticalRules,
-  });
+  }) * Number(localReputation.aggressionMultiplier || 1));
 
   const trackerSignalEligible = (
     protectionConfig.trackerSignalMode === 'strict' &&
@@ -810,7 +864,9 @@ export function evaluateRequestPolicy({
     rollout.entityBlocking &&
     options?.experiments?.trackerDbAssisted === true &&
     requestDomain &&
-    isHighConfidenceTracker(requestDomain) &&
+    isThirdParty &&
+    (isHighConfidenceTracker(requestDomain) || effectiveTrackerConfidence >= 0.05) &&
+    isStrictTrackerTaxonomy(trackerCategory, classification) &&
     signalScore >= protectionConfig.signalThreshold
   );
 
@@ -854,6 +910,10 @@ export function evaluateRequestPolicy({
   // shadow engine blocks.
   const ownedByPage = isOwnedByPageHost(requestDomain, pageHostname);
   const isSensitiveType = resourceType === 'script' || resourceType === 'xmlhttprequest';
+  const lowConfidenceFirstPartyScript = !isThirdParty &&
+    siteContext.vertical === VERTICALS.GENERAL &&
+    (resourceType === 'script' || resourceType === 'xmlhttprequest') &&
+    effectiveTrackerConfidence < 0.05;
   const requestIsAd = isKnownAdDomain(requestDomain) || getTrackerCategory(requestDomain) === 'ads';
   const sameEntityNonAds = ownedByPage && !requestIsAd && (
     !isSensitiveType ||
@@ -880,7 +940,7 @@ export function evaluateRequestPolicy({
 
   // Strong relaxation: overrides engine + heuristic blocks (but not user
   // entity blocks). Reserved for verified first-party / same-owner contexts.
-  const firstPartyStrongRelaxation = sameEntityNonAds || criticalFirstParty;
+  const firstPartyStrongRelaxation = sameEntityNonAds || criticalFirstParty || lowConfidenceFirstPartyScript;
 
   // Soft relaxation: only applied when no engine block is in effect.
   const firstPartyRelaxation = firstPartyStrongRelaxation || (!effectiveEngineBlocked && (
@@ -913,7 +973,9 @@ export function evaluateRequestPolicy({
     vertical: siteContext.vertical,
     profile: siteContext.profile,
     trackerCategory,
-    trackerConfidence,
+    trackerConfidence: effectiveTrackerConfidence,
+    trackerBaseConfidence: trackerConfidence,
+    localReputation,
     ownerId: requestOwnerId,
     signalScore,
     sources: {

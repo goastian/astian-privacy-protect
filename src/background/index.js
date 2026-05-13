@@ -20,6 +20,7 @@ import {
   FIRST_PARTY_CDN_MAP,
   isCriticalFirstPartySite,
   CRITICAL_FIRST_PARTY_SITES,
+  getAntiFingerprintMode,
 } from './policy-engine.js';
 import {
   fetchAndUpdateTrackerDb,
@@ -40,7 +41,13 @@ import { CONFIRMED_POPUNDER_DOMAINS, createPopupDefenseController } from './popu
 import { createTrackerDbDnrController } from './trackerdb-dnr.js';
 import { createBackgroundOrchestrator } from './orchestrator.js';
 import { createMessageDispatcher } from './messages/index.js';
-import { cleanUrl, buildCleanerDnrRule } from './url-cleaner.js';
+import { cleanUrlWithMetadata, buildCleanerDnrRules } from './url-cleaner.js';
+import {
+  loadLocalReputation,
+  flushLocalReputation,
+  recordTrackerObservation,
+  recordUrlCleanerRemoval,
+} from './local-reputation.js';
 
 // ── Single engine: Ghostery (primary and only runtime engine) ──
 const ghosteryEngine = new GhosteryEngine();
@@ -278,6 +285,24 @@ function recordContentScriptCost(script, hostname, durationMs) {
 
 function recordFalsePositive(hostname, category) {
   telemetry.recordFalsePositive(hostname, category);
+}
+
+function observeTrackerPolicy(policy, url, pageHostname, resourceType) {
+  if (!policy || !url || !pageHostname) return;
+  const requestDomain = extractDomain(url);
+  if (!requestDomain) return;
+  recordTrackerObservation({
+    requestDomain,
+    pageHostname,
+    isThirdParty: requestDomain !== pageHostname &&
+      !requestDomain.endsWith(`.${pageHostname}`) &&
+      !pageHostname.endsWith(`.${requestDomain}`),
+    trackerCategory: policy.trackerCategory || policy.category,
+    taxonomy: policy.taxonomy,
+    wasBlocked: policy.shouldBlock === true,
+    resourceType,
+    isCriticalSite: isCriticalFirstPartySite(pageHostname),
+  });
 }
 
 function recordGlobalCssFalsePositive(hostname, hits) {
@@ -556,9 +581,10 @@ function setupWebRequestBlocking() {
           const u = new URL(url);
           const host = u.hostname;
           if (!host || !isWhitelistedSync(host)) {
-            const cleaned = cleanUrl(url);
-            if (cleaned && cleaned !== url) {
-              return { redirectUrl: cleaned };
+            const cleaned = cleanUrlWithMetadata(url);
+            if (cleaned?.url && cleaned.url !== url) {
+              deferHotPathWork(() => recordUrlCleanerRemoval(cleaned.hostname || host, cleaned.removed || []));
+              return { redirectUrl: cleaned.url };
             }
           }
         } catch { /* malformed URL, skip */ }
@@ -617,6 +643,7 @@ function setupWebRequestBlocking() {
         const blockedTabId = details.tabId;
         const blockedCategory = policy.category || categorizeRequest(url);
         deferHotPathWork(() => {
+          observeTrackerPolicy(policy, url, pageHostname, details.type);
           recordMatchingLatency(matchElapsed);
           recordBlockedCategory(blockedCategory);
           notifyPopupStatsChange(blockedTabId);
@@ -631,7 +658,10 @@ function setupWebRequestBlocking() {
       }
 
       // Pass-through: still record matching latency, but lazily.
-      deferHotPathWork(() => recordMatchingLatency(matchElapsed));
+      deferHotPathWork(() => {
+        observeTrackerPolicy(policy, url, pageHostname, details.type);
+        recordMatchingLatency(matchElapsed);
+      });
       return WR_PASS;
     },
     { urls: ['<all_urls>'] },
@@ -722,6 +752,20 @@ function recordChromiumBlockedRequest(tabId, url, metadata = {}) {
   const reason = metadata.reason || (isPopunderNetwork ? 'popunder-network' : 'rule-match');
   recordBlockedCategory(category);
   recordBlock(tabId, url, { ...metadata, category, reason });
+  if (blockedHost && tab.hostname) {
+    deferHotPathWork(() => recordTrackerObservation({
+      requestDomain: blockedHost,
+      pageHostname: tab.hostname,
+      isThirdParty: blockedHost !== tab.hostname &&
+        !blockedHost.endsWith(`.${tab.hostname}`) &&
+        !tab.hostname.endsWith(`.${blockedHost}`),
+      trackerCategory: category,
+      taxonomy: metadata.taxonomy,
+      wasBlocked: true,
+      resourceType: metadata.resourceType || 'other',
+      isCriticalSite: isCriticalFirstPartySite(tab.hostname),
+    }));
+  }
   updateBadge(tabId);
   notifyPopupStatsChange(tabId);
 
@@ -770,6 +814,17 @@ if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
     const tabId = info.request?.tabId;
     if (!tabId || tabId < 0) return;
     const actionType = info.rule?.action?.type || '';
+    const matchedRuleId = info.rule?.ruleId ?? info.rule?.id;
+    if (actionType === 'redirect' && matchedRuleId === 950001) {
+      const rawUrl = info.request?.url || '';
+      try {
+        const cleaned = cleanUrlWithMetadata(rawUrl);
+        if (cleaned?.removed?.length) {
+          deferHotPathWork(() => recordUrlCleanerRemoval(cleaned.hostname, cleaned.removed));
+        }
+      } catch {}
+      return;
+    }
     if (actionType && actionType !== 'block') return;
 
     let entry = chromiumTabTrackers.get(tabId);
@@ -1121,6 +1176,7 @@ const dispatchMessage = createMessageDispatcher({
   recordCosmeticBlocks,
   resolveSiteProfile,
   isCriticalFirstPartySite,
+  getAntiFingerprintMode,
   buildIaShieldConfig,
   normalizeIaRiskEvent,
   appendIaRiskEvent,
@@ -1216,7 +1272,7 @@ async function installDnrUrlCleanerRule() {
       .map(r => r.id);
     await chrome.declarativeNetRequest.updateSessionRules({
       removeRuleIds: removeIds,
-      addRules: [buildCleanerDnrRule(CLEANER_RULE_ID)],
+      addRules: buildCleanerDnrRules(CLEANER_RULE_ID),
     });
   } catch (e) {
     console.warn('[midori] Failed to install URL cleaner DNR rule:', e?.message || e);
@@ -1427,10 +1483,13 @@ if (IS_CHROMIUM && webRequestAPI?.onErrorOccurred) {
 
 if (chrome.runtime?.onSuspend) {
   chrome.runtime.onSuspend.addListener(() => {
+    flushLocalReputation().catch(() => {});
     flushTelemetry().catch(() => {});
   });
 }
 
 // ── Start ───────────────────────────────────────────────────────────────────
 
-initialize();
+loadLocalReputation()
+  .catch((e) => console.warn('[midori] Local reputation startup failed:', e))
+  .finally(() => initialize());

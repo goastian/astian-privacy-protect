@@ -566,6 +566,18 @@ export function isTrackerFingerprinter(domain) {
   return String(entry.category).toLowerCase().includes('fingerprint');
 }
 
+function isAssistedBlockingTaxonomy(entry) {
+  const category = String(entry?.category || '').toLowerCase();
+  if (!category) return entry?.midoriCat === 'trackers';
+  return category.includes('track') ||
+    category.includes('fingerprint') ||
+    category.includes('session') ||
+    category.includes('replay') ||
+    category.includes('analytics') ||
+    category.includes('tag manager') ||
+    category.includes('pixel');
+}
+
 // ── Phase 8: Entity Enrichment API (Tracker Metadata) ───────────────────────
 /**
  * Get the owner/entity name for a domain (with LRU caching for performance).
@@ -687,7 +699,8 @@ export function collectHighConfidenceDomains(limit = 500) {
     if (results.length >= limit) break;
     if (
       entry.confidence >= HIGH_CONFIDENCE_THRESHOLD &&
-      (entry.midoriCat === 'ads' || entry.midoriCat === 'trackers')
+      (entry.midoriCat === 'ads' || entry.midoriCat === 'trackers') &&
+      isAssistedBlockingTaxonomy(entry)
     ) {
       results.push(domain);
     }
