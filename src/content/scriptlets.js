@@ -1965,6 +1965,7 @@
 
   function installPopupGestureBridge() {
     var lastSentAt = 0;
+    var lastWindowSignalAt = 0;
     var handler = function(event) {
       if (!event || event.isTrusted !== true) return;
       var now = Date.now();
@@ -1987,9 +1988,21 @@
       });
     };
 
+    var signalWindow = function(type) {
+      var now = Date.now();
+      if (now - lastWindowSignalAt < 120) return;
+      lastWindowSignalAt = now;
+      sendRuntimeMessage({
+        action: 'popup-guard-window-signal',
+        type: type,
+      });
+    };
+
     window.addEventListener('pointerdown', handler, true);
     window.addEventListener('keydown', handler, true);
     window.addEventListener('touchstart', handler, true);
+    window.addEventListener('blur', function() { signalWindow('blur'); }, true);
+    window.addEventListener('focus', function() { signalWindow('focus'); }, true);
   }
 
   function buildPopupDefenseCode(config) {
