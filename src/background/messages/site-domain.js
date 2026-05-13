@@ -138,6 +138,46 @@ export function createSiteDomainHandlers(ctx) {
       return ctx.summarizeIaRiskEvents(opts.iaRiskEvents || [], days, limit);
     },
 
+    'clear-ia-risk-events': async () => {
+      const opts = await ctx.getOptions();
+      await ctx.setOptions({ iaRiskEvents: [] });
+      ctx.refreshRuntimeOptions({ ...opts, iaRiskEvents: [] });
+      return { success: true };
+    },
+
+    'set-ia-shield-site-policy': async (msg, sender) => {
+      const opts = await ctx.getOptions();
+      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
+      const hostname = String(msg.hostname || tabHostname || '').trim().toLowerCase();
+      if (!hostname) return { success: false, error: 'missing-hostname' };
+
+      const domainOverrides = {
+        ...(opts.sitePolicy?.domainOverrides || {}),
+      };
+      const existing = domainOverrides[hostname] || {};
+      const patch = {};
+
+      if (typeof msg.iaShieldBypass === 'boolean') patch.iaShieldBypass = msg.iaShieldBypass;
+      if (typeof msg.iaShieldStrict === 'boolean') patch.iaShieldStrict = msg.iaShieldStrict;
+
+      domainOverrides[hostname] = {
+        ...existing,
+        ...patch,
+        updatedAt: Date.now(),
+      };
+
+      const sitePolicy = {
+        ...(opts.sitePolicy || {}),
+        domainOverrides,
+      };
+      const updated = await ctx.setOptions({ sitePolicy });
+      ctx.refreshRuntimeOptions(updated);
+      return {
+        success: true,
+        config: ctx.buildIaShieldConfig(updated, hostname),
+      };
+    },
+
     'get-cosmetics': async (msg) => {
       const hostname = msg.hostname || '';
       const runtime = ctx.getRuntimeOptions();

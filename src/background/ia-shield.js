@@ -34,6 +34,39 @@ const AI_HOST_PATTERNS = [
   'abacus.ai',
 ];
 
+const CHATBOT_HOST_PATTERNS = [
+  'chat.openai.com',
+  'chatgpt.com',
+  'gemini.google.com',
+  'claude.ai',
+  'copilot.microsoft.com',
+  'bing.com',
+  'you.com',
+  'poe.com',
+  'perplexity.ai',
+  'mistral.ai',
+  'console.mistral.ai',
+  'deepseek.com',
+  'chat.deepseek.com',
+  'grok.com',
+  'x.ai',
+  'notebooklm.google.com',
+  'character.ai',
+  'phind.com',
+  'cerebras.ai',
+  'duck.ai',
+  'abacus.ai',
+];
+
+const DOCUMENT_HOST_PATTERNS = [
+  'gmail.com',
+  'mail.google.com',
+  'docs.google.com',
+  'drive.google.com',
+  'github.com',
+  'gitlab.com',
+];
+
 const VALID_SEVERITIES = new Set(['low', 'medium', 'high', 'critical']);
 
 function hostnameMatches(hostname, pattern) {
@@ -72,6 +105,12 @@ export function isAiHostname(hostname) {
   return false;
 }
 
+function matchesAnyHost(hostname, patterns) {
+  const host = normalizeHostname(hostname);
+  if (!host) return false;
+  return patterns.some(pattern => hostnameMatches(host, pattern));
+}
+
 export function buildIaShieldConfig(options, hostname) {
   const host = normalizeHostname(hostname);
   const experiments = options?.experiments || {};
@@ -81,16 +120,31 @@ export function buildIaShieldConfig(options, hostname) {
   const overrideConfig = override?.config || {};
 
   const aiHost = isAiHostname(host);
+  const chatbotHost = matchesAnyHost(host, CHATBOT_HOST_PATTERNS);
+  const documentHost = matchesAnyHost(host, DOCUMENT_HOST_PATTERNS);
   const experimentEnabled = experiments.iaShield === true;
   const bypassed = overrideConfig.iaShieldBypass === true;
   const siteWhitelisted = !!whitelist[host];
   const enabled = aiHost && experimentEnabled && !bypassed && !siteWhitelisted;
+  const strict = enabled && (options?.iaShieldStrict === true || overrideConfig.iaShieldStrict === true);
 
   return {
     enabled,
     aiHost,
-    strict: enabled && (options?.iaShieldStrict === true || overrideConfig.iaShieldStrict === true),
-    sanitizeOnPaste: enabled && options?.iaShieldSanitizeOnPaste !== false,
+    chatbotHost,
+    documentHost,
+    strict,
+    sanitizeOnPaste: enabled && chatbotHost && options?.iaShieldSanitizeOnPaste !== false,
+    monitor: {
+      paste: enabled && chatbotHost,
+      input: enabled && chatbotHost,
+      dom: enabled && chatbotHost,
+      copy: enabled && documentHost,
+    },
+    isolate: {
+      enabled: enabled && chatbotHost,
+      mode: strict ? 'block' : 'warn',
+    },
     bypassed,
     hostname: host,
     matchedOverrideDomain: override?.domain || '',
@@ -122,9 +176,11 @@ export function normalizeIaRiskEvent(event, fallbackHostname) {
   const details = {
     findings: Array.isArray(payload.findings) ? payload.findings.slice(0, 16).map(v => String(v).slice(0, 120)) : [],
     source: String(payload.source || '').slice(0, 120),
-    sample: String(payload.sample || '').slice(0, 320),
+    reason: String(payload.reason || '').slice(0, 240),
+    contentHash: String(payload.contentHash || '').slice(0, 80),
     blockedUrl: String(payload.blockedUrl || '').slice(0, 320),
     fieldType: String(payload.fieldType || '').slice(0, 64),
+    score: Number.isFinite(Number(payload.score)) ? Number(payload.score) : 0,
     strict: payload.strict === true,
   };
 

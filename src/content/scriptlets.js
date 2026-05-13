@@ -62,69 +62,106 @@
     return String(text || '').replace(/\s+/g, ' ').trim();
   }
 
+  function stripZeroWidthAndBidi(text) {
+    return String(text || '').replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '');
+  }
+
+  function decodeSuspiciousText(raw) {
+    var decoded = [];
+    var text = String(raw || '');
+    var base64Matches = text.match(/\b[A-Za-z0-9+/]{32,}={0,2}\b/g) || [];
+    for (var i = 0; i < Math.min(base64Matches.length, 4); i++) {
+      try {
+        var out = atob(base64Matches[i]);
+        if (/[\x09\x0A\x0D\x20-\x7E]{12,}/.test(out)) decoded.push(out);
+      } catch (e) {}
+    }
+    var urlMatches = text.match(/(?:%[0-9a-f]{2}){8,}/gi) || [];
+    for (var j = 0; j < Math.min(urlMatches.length, 4); j++) {
+      try { decoded.push(decodeURIComponent(urlMatches[j])); } catch (e2) {}
+    }
+    return decoded.join('\n');
+  }
+
   function analyzePromptPayload(text) {
     var raw = String(text || '');
-    var lower = raw.toLowerCase();
+    var normalized = stripZeroWidthAndBidi(raw);
+    var decoded = decodeSuspiciousText(raw);
+    var searchable = raw + '\n' + normalized + '\n' + decoded;
+    var lower = searchable.toLowerCase();
     var findings = [];
     var score = 0;
+    var reasons = [];
+
+    function add(points, finding, reason) {
+      score += points;
+      findings.push(finding);
+      if (reason) reasons.push(reason);
+    }
 
     var dangerousPatterns = [
-      /ignore\s+(all\s+)?previous\s+instructions?/i,
-      /disregard\s+(all\s+)?(prior|previous)\s+instructions?/i,
-      /developer\s+mode/i,
-      /reveal\s+(the\s+)?system\s+prompt/i,
-      /print\s+(the\s+)?system\s+prompt/i,
-      /show\s+(me\s+)?(your\s+)?hidden\s+instructions?/i,
-      /do\s+not\s+follow\s+the\s+rules/i,
-      /bypass\s+(all\s+)?safety/i,
-      /exfiltrat(e|ion)/i,
-      /send\s+all\s+(data|history|context)\s+to/i,
-      /base64/i,
-      /prompt\s+chain(ing)?/i,
+      { re: /ignore\s+(all\s+)?(previous|prior|above)\s+instructions?/i, f: 'ignore-previous-instructions', p: 3 },
+      { re: /disregard\s+(all\s+)?(prior|previous|above)\s+instructions?/i, f: 'disregard-instructions', p: 3 },
+      { re: /(developer|god|sudo|admin)\s+mode/i, f: 'jailbreak-mode', p: 2 },
+      { re: /(reveal|print|dump|show)\s+(the\s+)?(system|developer)\s+(prompt|instructions?)/i, f: 'system-prompt-request', p: 3 },
+      { re: /hidden\s+instructions?/i, f: 'hidden-instruction-reference', p: 2 },
+      { re: /do\s+not\s+follow\s+the\s+(rules|policy|guardrails)/i, f: 'rule-bypass', p: 3 },
+      { re: /bypass\s+(all\s+)?(safety|policy|guardrails|filters?)/i, f: 'safety-bypass', p: 3 },
+      { re: /jailbreak|dan\s+mode|unfiltered\s+answer/i, f: 'jailbreak-keyword', p: 3 },
+      { re: /exfiltrat(e|ion)|send\s+all\s+(data|history|context|prompts?)\s+to/i, f: 'exfil-instruction', p: 4 },
+      { re: /(base64|rot13|hex|url\s*encoded|decode\s+this)/i, f: 'encoded-payload-reference', p: 1 },
+      { re: /prompt\s+chain(ing)?|step\s*\d+\s*[:.)-]/i, f: 'prompt-chain', p: 1 },
+      { re: /ignora\s+(todas\s+)?(las\s+)?instrucciones\s+(anteriores|previas)/i, f: 'spanish-ignore-instructions', p: 3 },
+      { re: /olvida\s+(todas\s+)?(las\s+)?reglas|muestra\s+(el\s+)?prompt\s+del\s+sistema/i, f: 'spanish-jailbreak', p: 3 },
+      { re: /ignorez\s+(toutes\s+)?les\s+instructions\s+precedentes|oublie\s+les\s+regles/i, f: 'french-jailbreak', p: 3 },
+      { re: /ignoriere\s+(alle\s+)?vorherigen\s+anweisungen/i, f: 'german-jailbreak', p: 3 },
+      { re: /ignore\s+as\s+instrucoes\s+anteriores|modo\s+desenvolvedor/i, f: 'portuguese-jailbreak', p: 3 },
     ];
 
     for (var i = 0; i < dangerousPatterns.length; i++) {
-      if (dangerousPatterns[i].test(raw)) {
-        score += 2;
-        findings.push('pattern:' + dangerousPatterns[i].source.slice(0, 42));
+      if (dangerousPatterns[i].re.test(searchable)) {
+        add(dangerousPatterns[i].p, dangerousPatterns[i].f, dangerousPatterns[i].f);
       }
     }
 
-    if (/[\u200B-\u200F\u2060\uFEFF]/.test(raw)) {
-      score += 2;
-      findings.push('invisible-unicode');
+    if (/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/.test(raw)) {
+      add(2, 'invisible-or-bidi-unicode', 'hidden Unicode control characters');
     }
 
-    if (/\$\\color\{\s*white\s*\}\{[^}]{3,}\}/i.test(raw)) {
-      score += 2;
-      findings.push('hidden-latex');
+    if (/\$\\color\{\s*(white|#fff|#ffffff|transparent)\s*\}\{[^}]{3,}\}/i.test(raw)) {
+      add(2, 'hidden-latex', 'text hidden with Markdown/LaTeX color');
+    }
+
+    if (/(<[^>]+style\s*=\s*["'][^"']*(color\s*:\s*(white|#fff|#ffffff|transparent)|display\s*:\s*none|opacity\s*:\s*0|font-size\s*:\s*0)[^"']*["'][^>]*>)/i.test(raw)) {
+      add(3, 'hidden-html-style', 'HTML appears to hide instructional text');
+    }
+
+    if (/<!--[\s\S]{12,}-->|<template[\s\S]{12,}<\/template>/i.test(raw)) {
+      add(2, 'hidden-html-comment', 'hidden HTML/comment content');
     }
 
     if (/\b[A-Za-z0-9+/]{40,}={0,2}\b/.test(raw)) {
-      score += 2;
-      findings.push('base64-like');
+      add(decoded ? 3 : 2, 'base64-like', 'encoded payload-like text');
     }
 
     if (/\b(?:[A-Fa-f0-9]{2}){20,}\b/.test(raw)) {
-      score += 2;
-      findings.push('hex-like');
+      add(2, 'hex-like', 'hex payload-like text');
     }
 
-    if (/ignroe|bpyass|revael|syts?em\s+prompt/i.test(lower)) {
-      score += 1;
-      findings.push('typoglycemia');
+    if (/ignroe|ig nore|bpyass|by pass|revael|reve al|syts?em\s+prompt|syst[e3]m\s+pr[o0]mpt/i.test(lower)) {
+      add(1, 'typosquatting-instruction', 'misspelled jailbreak terms');
     }
 
-    if (/\b(step\s*\d+|first\s*[:,]|then\s*[:,]|after\s+that\s*[:,])\b/i.test(raw)) {
-      score += 1;
-      findings.push('prompt-chaining');
+    if (/\b(step\s*\d+|first\s*[:,]|then\s*[:,]|after\s+that\s*[:,]|next\s*[:,])\b/i.test(raw)) {
+      add(1, 'prompt-chaining', 'multi-step instruction chain');
     }
 
     var severity = 'low';
-    if (score >= 7) severity = 'high';
+    if (score >= 10) severity = 'critical';
+    else if (score >= 7) severity = 'high';
     else if (score >= 4) severity = 'medium';
 
-    return { score: score, severity: severity, findings: findings };
+    return { score: score, severity: severity, findings: findings, reason: reasons.slice(0, 3).join(', ') };
   }
 
   function sanitizePromptPayload(text) {
@@ -133,7 +170,7 @@
     var findings = [];
 
     var before = value;
-    value = value.replace(/[\u200B-\u200F\u2060\uFEFF]/g, '');
+    value = value.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '');
     if (value !== before) {
       changed = true;
       findings.push('removed-invisible-unicode');
@@ -156,10 +193,13 @@
     var dangerous = [
       /ignore\s+(all\s+)?previous\s+instructions?/gi,
       /disregard\s+(all\s+)?(prior|previous)\s+instructions?/gi,
+      /ignore\s+(all\s+)?(above|prior)\s+instructions?/gi,
       /reveal\s+(the\s+)?system\s+prompt/gi,
       /show\s+(me\s+)?(your\s+)?hidden\s+instructions?/gi,
       /bypass\s+(all\s+)?safety/gi,
       /you\s+are\s+now\s+in\s+developer\s+mode/gi,
+      /ignora\s+(todas\s+)?(las\s+)?instrucciones\s+(anteriores|previas)/gi,
+      /muestra\s+(el\s+)?prompt\s+del\s+sistema/gi,
     ];
 
     for (var i = 0; i < dangerous.length; i++) {
@@ -228,9 +268,14 @@
     window.__midoriIaShieldInstalled = true;
 
     var strict = config.strict === true;
+    var monitor = config.monitor || {};
+    var isolate = config.isolate || {};
+    var chatbotHost = config.chatbotHost !== false && config.documentHost !== true;
+    var documentHost = config.documentHost === true;
     var sanitizeOnPaste = config.sanitizeOnPaste !== false;
     var lastBannerAt = 0;
     var reportedHashes = {};
+    var seenOutboundHosts = {};
 
     var style = document.createElement('style');
     style.textContent = [
@@ -292,7 +337,9 @@
           timestamp: Date.now(),
           payload: {
             source: source,
-            sample: String(sample || text || '').slice(0, 200),
+            contentHash: hashText(sample || text || ''),
+            score: analysis.score,
+            reason: analysis.reason,
             findings: analysis.findings,
             strict: strict,
           },
@@ -314,10 +361,35 @@
       return false;
     }
 
+    function isFunctionalAiContainer(el) {
+      if (!el || el.nodeType !== 1) return false;
+      var selector = [
+        'main',
+        '[role="main"]',
+        'form',
+        'textarea',
+        '[contenteditable="true"]',
+        '[data-testid*="composer"]',
+        '[data-testid*="conversation"]',
+        '[class*="composer"]',
+        '[class*="conversation"]',
+        '[class*="chat"]',
+        '[id*="composer"]',
+        '[id*="conversation"]',
+      ].join(',');
+      try {
+        return !!(el.matches && el.matches(selector)) || !!(el.closest && el.closest('main,[role="main"],form'));
+      } catch (e) {
+        return false;
+      }
+    }
+
     function inspectNode(node) {
       if (!node || node.nodeType !== 1) return;
+      if (isolate.enabled === false) return;
       if (node.__midoriIaChecked) return;
       node.__midoriIaChecked = true;
+      if (isFunctionalAiContainer(node)) return;
 
       var text = normalizePromptText(node.textContent || '').slice(0, 4000);
       if (!text || text.length < 30) return;
@@ -328,7 +400,7 @@
       var overlay = isOverlayLike(node);
       if (!overlay && !strict) return;
 
-      if (strict) node.classList.add('midori-ia-isolated-block');
+      if (strict && isolate.mode === 'block') node.classList.add('midori-ia-isolated-block');
       else node.classList.add('midori-ia-isolated-warn');
 
       analyzeAndWarn(text, 'dom-overlay', text.slice(0, 180));
@@ -340,8 +412,10 @@
         payload: {
           source: 'dom-overlay',
           findings: analysis.findings,
+          contentHash: hashText(text),
+          score: analysis.score,
+          reason: analysis.reason,
           strict: strict,
-          sample: text.slice(0, 180),
         },
       });
     }
@@ -361,17 +435,40 @@
       }
     }
 
-    var observer = new MutationObserver(inspectMutations);
-    observer.observe(document.documentElement || document, { childList: true, subtree: true });
+    var observer = null;
+    if (chatbotHost && monitor.dom !== false) {
+      observer = new MutationObserver(inspectMutations);
+      observer.observe(document.documentElement || document, { childList: true, subtree: true });
 
-    setTimeout(function() {
-      var primaries = document.querySelectorAll('[role="dialog"],[role="alert"],.modal,.overlay,.banner,aside,section');
-      for (var i = 0; i < Math.min(primaries.length, 50); i++) {
-        inspectNode(primaries[i]);
-      }
-    }, 350);
+      setTimeout(function() {
+        var primaries = document.querySelectorAll('[role="dialog"],[role="alert"],.modal,.overlay,.banner,aside,section');
+        for (var i = 0; i < Math.min(primaries.length, 50); i++) {
+          inspectNode(primaries[i]);
+        }
+      }, 350);
+    }
 
-    if (sanitizeOnPaste) {
+    function confirmSanitizePreview(original, sanitized, analysis) {
+      if (strict) return analysis.score >= 7;
+      var before = normalizePromptText(original).slice(0, 260);
+      var after = normalizePromptText(sanitized).slice(0, 260);
+      var msg = [
+        'IA Shield encontro posible prompt injection.',
+        '',
+        'Hallazgos: ' + analysis.findings.slice(0, 4).join(', '),
+        '',
+        'Vista previa original:',
+        before,
+        '',
+        'Vista previa sanitizada:',
+        after,
+        '',
+        '¿Pegar la version sanitizada?'
+      ].join('\n');
+      try { return window.confirm(msg); } catch (e) { return false; }
+    }
+
+    if (chatbotHost && sanitizeOnPaste && monitor.paste !== false) {
       document.addEventListener('paste', function(event) {
         var target = event && event.target;
         if (!isPromptField(target)) return;
@@ -384,6 +481,24 @@
 
         var sanitized = sanitizePromptPayload(text);
         if (!sanitized.changed) return;
+        if (!confirmSanitizePreview(text, sanitized.text, analysis)) {
+          reportIaRisk({
+            type: 'prompt_injection_detected',
+            severity: analysis.severity,
+            timestamp: Date.now(),
+            payload: {
+              source: 'paste',
+              findings: analysis.findings,
+              contentHash: hashText(text),
+              score: analysis.score,
+              reason: analysis.reason,
+              fieldType: (target.tagName || '').toLowerCase(),
+              strict: strict,
+            },
+          });
+          showBanner('IA Shield detecto un paste sospechoso y no modifico el texto.');
+          return;
+        }
 
         event.preventDefault();
         insertTextIntoTarget(target, sanitized.text);
@@ -396,15 +511,17 @@
           payload: {
             source: 'paste',
             findings: analysis.findings.concat(sanitized.findings),
+            contentHash: hashText(text),
+            score: analysis.score,
+            reason: analysis.reason,
             fieldType: (target.tagName || '').toLowerCase(),
-            sample: String(text || '').slice(0, 160),
             strict: strict,
           },
         });
       }, true);
     }
 
-    document.addEventListener('input', function(event) {
+    if (chatbotHost && monitor.input !== false) document.addEventListener('input', function(event) {
       var target = event && event.target;
       if (!isPromptField(target)) return;
       var value = '';
@@ -414,49 +531,108 @@
       analyzeAndWarn(value.slice(0, 2000), 'prompt-input', value.slice(0, 120));
     }, true);
 
-    function isKnownExfilUrl(url) {
-      if (!url) return false;
+    if (documentHost && monitor.copy !== false) {
+      document.addEventListener('copy', function(event) {
+        var selection = '';
+        try { selection = String(window.getSelection ? window.getSelection() : ''); } catch (e) { selection = ''; }
+        if (!selection || selection.length < 24) return;
+        var analysis = analyzePromptPayload(selection);
+        if (analysis.score < 4) return;
+        reportIaRisk({
+          type: 'prompt_injection_detected',
+          severity: analysis.severity,
+          timestamp: Date.now(),
+          payload: {
+            source: 'copy',
+            findings: analysis.findings,
+            contentHash: hashText(selection),
+            score: analysis.score,
+            reason: analysis.reason,
+            strict: strict,
+          },
+        });
+        showBanner('IA Shield detecto instrucciones sospechosas en el texto copiado.');
+      }, true);
+    }
+
+    function getExfilUrlScore(url) {
+      if (!url) return { block: false, score: 0, findings: [] };
       var u;
       try {
         u = new URL(url, location.href);
       } catch (e) {
-        return false;
+        return { block: false, score: 0, findings: [] };
       }
 
       var host = String(u.hostname || '').toLowerCase();
       var path = String(u.pathname || '').toLowerCase();
+      var firstParty = u.origin === location.origin || host === location.hostname || host.endsWith('.' + location.hostname);
+      var findings = [];
+      var score = 0;
 
-      var hostNeedles = [
-        'webhook.site', 'hookbin', 'requestbin', 'ngrok', 'pipedream',
-        'beeceptor', 'interact.sh', 'oast', 'discord.com', 'slack.com',
+      if (firstParty) return { block: false, score: 0, findings: ['first-party'] };
+
+      var firstPartyAiHosts = [
+        'openai.com', 'chatgpt.com', 'google.com', 'googleapis.com', 'gstatic.com',
+        'claude.ai', 'anthropic.com', 'microsoft.com', 'bing.com', 'perplexity.ai',
+        'poe.com', 'mistral.ai', 'deepseek.com', 'x.ai', 'grok.com', 'github.com',
       ];
-      for (var i = 0; i < hostNeedles.length; i++) {
-        if (host.indexOf(hostNeedles[i]) !== -1) return true;
+      for (var fp = 0; fp < firstPartyAiHosts.length; fp++) {
+        if (host === firstPartyAiHosts[fp] || host.endsWith('.' + firstPartyAiHosts[fp])) {
+          return { block: false, score: 0, findings: ['known-ai-first-party'] };
+        }
       }
 
-      if (u.origin !== location.origin) {
-        if (/\/(collect|exfil|steal|dump|leak|prompt|history|conversation|memory)\b/.test(path)) return true;
+      var hostNeedles = [
+        'webhook.site', 'hookbin', 'requestbin', 'ngrok', 'trycloudflare',
+        'pipedream', 'beeceptor', 'interact.sh', 'oast', 'burpcollaborator',
+        'webtask.io', 'discord.com/api/webhooks', 'slack.com/api',
+      ];
+      for (var i = 0; i < hostNeedles.length; i++) {
+        if ((host + path).indexOf(hostNeedles[i]) !== -1) {
+          score += 5;
+          findings.push('known-exfil-destination');
+        }
+      }
+
+      if (/\/(collect|exfil|steal|dump|leak|prompt|prompts|history|conversation|memory|token|session)\b/.test(path)) {
+        score += 3;
+        findings.push('suspicious-path');
       }
 
       var params = u.searchParams;
-      var suspiciousKeys = ['prompt', 'system_prompt', 'history', 'chat_history', 'conversation', 'api_key', 'token', 'authorization'];
+      var suspiciousKeys = ['prompt', 'system_prompt', 'history', 'chat_history', 'conversation', 'api_key', 'token', 'authorization', 'cookie', 'session'];
       var keys = [];
       params.forEach(function(_, k) { keys.push(k); });
 
       for (var j = 0; j < keys.length; j++) {
         var key = keys[j].toLowerCase();
         for (var k = 0; k < suspiciousKeys.length; k++) {
-          if (key.indexOf(suspiciousKeys[k]) !== -1 && u.origin !== location.origin) {
-            return true;
+          if (key.indexOf(suspiciousKeys[k]) !== -1) {
+            score += 3;
+            findings.push('sensitive-param:' + suspiciousKeys[k]);
           }
         }
       }
 
-      return false;
+      if (!seenOutboundHosts[host]) {
+        seenOutboundHosts[host] = Date.now();
+        if (keys.length > 0 && /[a-z0-9-]{12,}\.(?:com|net|app|dev|io|site|xyz)$/i.test(host)) {
+          score += 1;
+          findings.push('new-cross-origin-destination');
+        }
+      }
+
+      return { block: score >= 5, score: score, findings: findings };
+    }
+
+    function isKnownExfilUrl(url) {
+      return getExfilUrlScore(url).block;
     }
 
     function maybeBlockOutbound(url, channel) {
-      if (!isKnownExfilUrl(url)) return false;
+      var decision = getExfilUrlScore(url);
+      if (!decision.block) return false;
       reportIaRisk({
         type: 'exfil_request_blocked',
         severity: 'high',
@@ -464,6 +640,9 @@
         payload: {
           source: channel,
           blockedUrl: String(url || '').slice(0, 280),
+          findings: decision.findings,
+          score: decision.score,
+          reason: 'cross-origin request matched exfil scoring',
           strict: strict,
         },
       });

@@ -205,6 +205,7 @@ async function init() {
 
   // Render module cards from options
   updateModuleCards(options);
+  await updateIaShieldPanel(options);
 
   // Setup message listener for background updates (event-driven)
   setupMessageListener();
@@ -1092,6 +1093,44 @@ function setupListeners() {
       if (p && typeof p.then === 'function') p.then(r, r); else r();
     });
     updateModuleCards(updated);
+    await updateIaShieldPanel(updated);
+  });
+
+  $('#ia-btn-enable')?.addEventListener('click', async () => {
+    if (!currentHostname) return;
+    const opts = await sendMessage({ action: 'get-options' });
+    const experiments = { ...(opts.experiments || {}), iaShield: true };
+    const updated = { ...opts, experiments };
+    const storage = (typeof browser !== 'undefined' && browser.storage?.local) ? browser.storage.local : chrome.storage.local;
+    await new Promise(r => {
+      const p = storage.set({ options: updated });
+      if (p && typeof p.then === 'function') p.then(r, r); else r();
+    });
+    await sendMessage({ action: 'set-ia-shield-site-policy', hostname: currentHostname, iaShieldBypass: false });
+    updateModuleCards(updated);
+    await updateIaShieldPanel(updated);
+  });
+
+  $('#ia-btn-strict')?.addEventListener('click', async () => {
+    if (!currentHostname) return;
+    const state = await sendMessage({ action: 'get-ia-shield-config', hostname: currentHostname });
+    const nextStrict = !(state?.config?.strict === true);
+    await sendMessage({ action: 'set-ia-shield-site-policy', hostname: currentHostname, iaShieldStrict: nextStrict, iaShieldBypass: false });
+    const opts = await sendMessage({ action: 'get-options' });
+    await updateIaShieldPanel(opts || {});
+  });
+
+  $('#ia-btn-pause')?.addEventListener('click', async () => {
+    if (!currentHostname) return;
+    await sendMessage({ action: 'set-ia-shield-site-policy', hostname: currentHostname, iaShieldBypass: true });
+    const opts = await sendMessage({ action: 'get-options' });
+    await updateIaShieldPanel(opts || {});
+  });
+
+  $('#ia-btn-clear')?.addEventListener('click', async () => {
+    await sendMessage({ action: 'clear-ia-risk-events' });
+    const opts = await sendMessage({ action: 'get-options' });
+    await updateIaShieldPanel(opts || {});
   });
 }
 
@@ -1120,6 +1159,68 @@ function updateModuleCards(options) {
   applyCard('mc-antitrack', 'mc-toggle-antitrack', 'mc-antitrack-state', antitrackOn);
   applyCard('mc-consent', 'mc-toggle-consent', 'mc-consent-state', consentOn);
   applyCard('mc-ia-shield', 'mc-toggle-ia-shield', 'mc-ia-shield-state', iaShieldOn);
+}
+
+async function updateIaShieldPanel(options) {
+  const panel = $('#ia-shield-panel');
+  if (!panel) return;
+
+  const configResponse = await sendMessage({ action: 'get-ia-shield-config', hostname: currentHostname });
+  const config = configResponse?.config || {};
+  const eventsResponse = await sendMessage({ action: 'get-ia-risk-events', days: 30, limit: 30 }) || {};
+  const events = (Array.isArray(eventsResponse.events) ? eventsResponse.events : [])
+    .filter(event => !event.hostname || event.hostname === currentHostname)
+    .slice(0, 4);
+
+  const experiments = options?.experiments || {};
+  const enabled = config.enabled === true;
+  const strict = config.strict === true;
+  const bypassed = config.bypassed === true;
+  const globallyOn = experiments.iaShield === true;
+  if (!globallyOn && !enabled && !bypassed) {
+    panel.classList.add('hidden');
+    return;
+  }
+  const stateText = bypassed ? 'bypassed' : (enabled ? 'enabled' : (globallyOn ? 'standby' : 'disabled'));
+  const modeText = strict ? 'strict' : 'normal';
+
+  panel.classList.remove('hidden');
+  const stateEl = $('#ia-site-state');
+  const modeEl = $('#ia-site-mode');
+  const reasonEl = $('#ia-site-reason');
+  if (stateEl) stateEl.textContent = stateText;
+  if (modeEl) modeEl.textContent = modeText;
+  if (reasonEl) reasonEl.textContent = config.reason || 'disabled';
+
+  $('#ia-btn-enable')?.classList.toggle('active', enabled && !bypassed);
+  $('#ia-btn-strict')?.classList.toggle('active', strict);
+  $('#ia-btn-pause')?.classList.toggle('active', bypassed);
+  const siteControlsDisabled = !currentHostname;
+  for (const btn of ['#ia-btn-enable', '#ia-btn-strict', '#ia-btn-pause']) {
+    const el = $(btn);
+    if (el) el.disabled = siteControlsDisabled;
+  }
+
+  const list = $('#ia-recent-events');
+  if (!list) return;
+  if (events.length === 0) {
+    list.innerHTML = '<div class="ia-empty">Sin eventos recientes.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  for (const event of events) {
+    const date = new Date(event.timestamp || Date.now());
+    const when = Number.isNaN(date.getTime()) ? 'ahora' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const details = event.details || {};
+    const findings = Array.isArray(details.findings) ? details.findings.slice(0, 2).join(', ') : '';
+    const row = document.createElement('div');
+    row.className = 'ia-event-row';
+    row.innerHTML =
+      `<div class="ia-event-title">${escapeHtml(event.type || 'event')} · ${escapeHtml(event.severity || 'medium')}</div>` +
+      `<div class="ia-event-meta">${escapeHtml(when)} · ${escapeHtml(details.source || 'local')}${findings ? ' · ' + escapeHtml(findings) : ''}</div>`;
+    list.appendChild(row);
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

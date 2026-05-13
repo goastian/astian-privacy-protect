@@ -969,6 +969,105 @@ body {
   color: var(--color-text-tertiary);
 }
 
+.ia-panel {
+  padding: 8px;
+}
+
+.ia-status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.ia-status-grid > div {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  padding: 6px;
+  min-width: 0;
+}
+
+.ia-status-grid .ia-reason {
+  grid-column: 1 / -1;
+}
+
+.ia-label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.ia-status-grid strong {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ia-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 7px;
+}
+
+.ia-action-btn {
+  min-height: 28px;
+  padding: 4px 5px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font-size: 0.66rem;
+  font-weight: 800;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ia-action-btn.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.ia-events {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 110px;
+  overflow: auto;
+}
+
+.ia-event-row,
+.ia-empty {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  padding: 5px 6px;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  color: var(--color-text-secondary);
+}
+
+.ia-event-title {
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+.ia-event-meta {
+  color: var(--color-text-tertiary);
+  font-size: 0.63rem;
+  margin-top: 2px;
+}
+
 .module-card.active .mc-state {
   color: var(--color-primary);
 }
@@ -1032,4 +1131,3 @@ body {
   background: var(--color-border);
   flex-shrink: 0;
 }
-
