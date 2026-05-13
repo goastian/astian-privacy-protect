@@ -36,7 +36,7 @@ import {
   summarizeIaRiskEvents,
 } from './ia-shield.js';
 import { createTelemetryController } from './telemetry.js';
-import { createPopupDefenseController } from './popup-defense.js';
+import { CONFIRMED_POPUNDER_DOMAINS, createPopupDefenseController } from './popup-defense.js';
 import { createTrackerDbDnrController } from './trackerdb-dnr.js';
 import { createBackgroundOrchestrator } from './orchestrator.js';
 import { createMessageDispatcher } from './messages/index.js';
@@ -82,6 +82,32 @@ function isHostnameWhitelisted(hostname, whitelist = whitelistCache) {
 function isProtectionBypassedForHost(hostname, options = getRuntimeOptions()) {
   if (options?.enabled === false) return true;
   return isHostnameWhitelisted(hostname, options?.whitelist || {});
+}
+
+function isConfirmedPopunderDomain(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host) return false;
+  for (const domain of CONFIRMED_POPUNDER_DOMAINS) {
+    if (host === domain || host.endsWith(`.${domain}`)) return true;
+  }
+  return false;
+}
+
+function isPopupAllowedForHost(hostname, options = getRuntimeOptions()) {
+  const host = String(hostname || '').toLowerCase();
+  const allowlist = options?.popupAllowlist || {};
+  if (!host || !allowlist || typeof allowlist !== 'object') return false;
+  const now = Date.now();
+  const parts = host.split('.');
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts.slice(i).join('.');
+    const entry = allowlist[key];
+    if (!entry) continue;
+    if (entry === true || entry.permanent === true) return true;
+    const expiresAt = Number(entry.expiresAt || 0);
+    if (!expiresAt || expiresAt > now) return true;
+  }
+  return false;
 }
 
 function queueSessionStatsWrite(tabId, statsData) {
@@ -371,12 +397,16 @@ function recordUserGesture(tabId, payload = {}) {
   popupDefense.recordUserGesture(tabId, payload);
 }
 
+function recordWindowSignal(tabId, payload = {}) {
+  popupDefense.recordWindowSignal(tabId, payload);
+}
+
 function clearPopupTracking(tabId) {
   popupDefense.clearPopupTracking(tabId);
 }
 
 function registerPopupCandidate(tab) {
-  popupDefense.registerPopupCandidate(tab);
+  popupDefense.registerPopupCandidate(tab, recordPopupBlocked);
 }
 
 function trackPopupRedirect(tabId, url) {
@@ -473,6 +503,7 @@ const orchestrator = createBackgroundOrchestrator({
   updateDnrEntityBlockRules,
   applyFirstPartyCdnAllowRules,
   installDnrUrlCleanerRule,
+  installPopunderDnrRules,
   isTrackerDbAssistedEnabled: () => isTrackerDbAssistedEnabled,
 });
 
@@ -539,6 +570,27 @@ function setupWebRequestBlocking() {
       const pageHostname = tab.hostname || '';
 
       if (pageHostname && isWhitelistedSync(pageHostname)) return WR_PASS;
+
+      const requestHostname = extractDomain(url);
+      if (requestHostname && isConfirmedPopunderDomain(requestHostname) && !isPopupAllowedForHost(pageHostname)) {
+        recordBlock(details.tabId, url, {
+          category: 'popups',
+          reason: 'popunder-network',
+          ownerId: 'popup-defense',
+          confidence: 1,
+        });
+        updateBadge(details.tabId);
+        deferHotPathWork(() => {
+          recordBlockedCategory('popups');
+          notifyPopupStatsChange(details.tabId);
+          bufferHourlyBlock(1);
+          pendingSaveTabsFirefox.add(details.tabId);
+          if (!firefoxSaveTimer) {
+            firefoxSaveTimer = setTimeout(flushFirefoxStats, 5000);
+          }
+        });
+        return WR_BLOCK;
+      }
 
       const tMatchStart = performance.now();
       const policy = evaluateRequestPolicyCached({
@@ -664,9 +716,12 @@ function recordChromiumBlockedRequest(tabId, url, metadata = {}) {
   if (!shouldRecordChromiumBlockedUrl(tabId, url)) return false;
 
   const tab = getTab(tabId) || ensureTab(tabId);
-  const category = metadata.category || categorizeRequest(url);
+  const blockedHost = extractDomain(url);
+  const isPopunderNetwork = blockedHost && isConfirmedPopunderDomain(blockedHost);
+  const category = metadata.category || (isPopunderNetwork ? 'popups' : categorizeRequest(url));
+  const reason = metadata.reason || (isPopunderNetwork ? 'popunder-network' : 'rule-match');
   recordBlockedCategory(category);
-  recordBlock(tabId, url, { ...metadata, category });
+  recordBlock(tabId, url, { ...metadata, category, reason });
   updateBadge(tabId);
   notifyPopupStatsChange(tabId);
 
@@ -678,7 +733,7 @@ function recordPopupBlocked(tabId, rawUrl) {
   const url = String(rawUrl || '');
   const safeUrl = url.startsWith('http') ? url : 'https://popup-blocked.midori.invalid/';
   return recordChromiumBlockedRequest(tabId, safeUrl, {
-    category: 'ads',
+    category: 'popups',
     reason: 'popup-defense',
     owner: 'Popup defense',
     ownerId: 'popup-defense',
@@ -730,7 +785,10 @@ if (IS_CHROMIUM && chrome.declarativeNetRequest.onRuleMatchedDebug) {
 
     // Phase D: defer telemetry; rate-limit the heavier per-event work.
     if (url && !limited) {
-      deferHotPathWork(() => recordBlockedCategory(categorizeRequest(url)));
+      deferHotPathWork(() => {
+        const host = extractDomain(url);
+        recordBlockedCategory(host && isConfirmedPopunderDomain(host) ? 'popups' : categorizeRequest(url));
+      });
     }
     if (!limited && entry.domains.size < 200 && url) {
       const d = extractDomain(url);
@@ -1049,6 +1107,7 @@ const dispatchMessage = createMessageDispatcher({
   isProtectionBypassedForHost,
   isHostnameWhitelisted,
   recordUserGesture,
+  recordWindowSignal,
   getEffectiveRolloutFlags,
   getChromiumTabStats,
   getEcoStats,
@@ -1085,6 +1144,7 @@ const dispatchMessage = createMessageDispatcher({
   },
   isTrackerDbAssistedEnabled: () => isTrackerDbAssistedEnabled,
   applyTrackerDbDynamicRules,
+  installPopunderDnrRules,
   broadcastOptionsChanged,
   recordContentScriptCost,
   recordAppliedRulesEvent,
@@ -1160,6 +1220,63 @@ async function installDnrUrlCleanerRule() {
     });
   } catch (e) {
     console.warn('[midori] Failed to install URL cleaner DNR rule:', e?.message || e);
+  }
+}
+
+// ── Chromium: confirmed popunder network block rules ───────────────────────
+// These are high-confidence pop/tabunder networks that are better blocked at
+// the browser network layer than cleaned up after a tab has already opened.
+async function installPopunderDnrRules() {
+  if (!IS_CHROMIUM) return;
+  try {
+    const options = await getOptions();
+    const now = Date.now();
+    const popupAllowlist = options.popupAllowlist || {};
+    const allowedInitiators = Object.entries(popupAllowlist)
+      .filter(([, entry]) => entry === true || !Number(entry?.expiresAt || 0) || Number(entry.expiresAt || 0) > now)
+      .map(([hostname]) => hostname)
+      .filter(Boolean)
+      .slice(0, 30);
+
+    const existing = await chrome.declarativeNetRequest.getSessionRules();
+    const removeIds = existing
+      .filter(r => r.id >= 960000 && r.id < 960300)
+      .map(r => r.id);
+
+    const addRules = CONFIRMED_POPUNDER_DOMAINS.slice(0, 190).map((domain, index) => ({
+      id: 960000 + index,
+      priority: 35,
+      action: { type: 'block' },
+      condition: {
+        requestDomains: [domain],
+        resourceTypes: [
+          'main_frame', 'sub_frame', 'script', 'xmlhttprequest',
+          'ping', 'other',
+        ],
+      },
+    }));
+    if (allowedInitiators.length > 0) {
+      addRules.push({
+        id: 960250,
+        priority: 45,
+        action: { type: 'allow' },
+        condition: {
+          requestDomains: CONFIRMED_POPUNDER_DOMAINS.slice(0, 190),
+          initiatorDomains: allowedInitiators,
+          resourceTypes: [
+            'main_frame', 'sub_frame', 'script', 'xmlhttprequest',
+            'ping', 'other',
+          ],
+        },
+      });
+    }
+
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: removeIds,
+      addRules,
+    });
+  } catch (e) {
+    console.warn('[midori] Failed to install popunder DNR rules:', e?.message || e);
   }
 }
 
