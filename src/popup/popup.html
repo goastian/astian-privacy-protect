@@ -215,11 +215,28 @@
       </div>
     </div>
 
+    <div id="popup-allow-section" class="popup-section popup-allow-section">
+      <div class="popup-allow-head">
+        <span class="section-label">Popups</span>
+        <span id="popup-allow-state" class="popup-allow-state">Blocked</span>
+      </div>
+      <div class="popup-allow-actions">
+        <button id="btn-popups-allow-hour" class="popup-allow-btn">Allow 1h</button>
+        <button id="btn-popups-allow-permanent" class="popup-allow-btn">Always</button>
+        <button id="btn-popups-allow-remove" class="popup-allow-btn" disabled>Block</button>
+      </div>
+    </div>
+
     <!-- ── Compact stats bar ── -->
     <div class="cstats-bar">
       <div class="cstat">
         <span class="cstat-val stat-blocked" id="blocked-count">0</span>
         <span class="cstat-lbl">Blocked</span>
+      </div>
+      <div class="cstat-sep"></div>
+      <div class="cstat">
+        <span class="cstat-val stat-popups" id="popup-blocked-count">0</span>
+        <span class="cstat-lbl">Popups</span>
       </div>
       <div class="cstat-sep"></div>
       <div class="cstat">

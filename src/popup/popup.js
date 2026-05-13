@@ -18,6 +18,7 @@ let isWhitelisted = false;
 let lastGroups = { trackers: [], ads: [], other: [] };
 let currentBlockedEntities = {};
 let currentEntityControl = null;
+let currentPopupAllowlist = {};
 
 // ── Category toggle state ────────────────────────────────────────────────────
 let categoryState = { ads: true, trackers: true, fingerprinting: true };
@@ -108,6 +109,7 @@ function hasDataChanged(newData) {
     (groupCountsChanged === false && getFastGroupFingerprint(prevGroups) !== getFastGroupFingerprint(nextGroups)) ||
     (nextCats.ads || 0) !== (prevCats.ads || 0) ||
     (nextCats.trackers || 0) !== (prevCats.trackers || 0) ||
+    (nextCats.popups || 0) !== (prevCats.popups || 0) ||
     (nextCats.other || 0) !== (prevCats.other || 0)
   );
 }
@@ -180,6 +182,7 @@ async function init() {
   const options = await sendMessage({ action: 'get-options' });
   isWhitelisted = !!(options?.whitelist?.[currentHostname]);
   currentBlockedEntities = options?.blockedEntities || {};
+  currentPopupAllowlist = options?.popupAllowlist || {};
 
   // Restore category toggle state
   if (options?.categoryState) {
@@ -195,6 +198,7 @@ async function init() {
   updatePauseUI();
 
   updateStatusUI();
+  updatePopupAllowlistUI();
 
   // Set current protection level
   const currentLevel = options?.protectionLevel || 'standard';
@@ -275,6 +279,8 @@ function renderTabStats(data) {
     // Update counter
   const blocked = data.blocked || 0;
   $('#blocked-count').textContent = blocked;
+  const popupBlockedEl = $('#popup-blocked-count');
+  if (popupBlockedEl) popupBlockedEl.textContent = data.blockedByCategory?.popups || 0;
 
   // Update bandwidth saved estimate
   const savedKB = data.dataSaved ? Math.round(data.dataSaved / 1024) : Math.round(blocked * 35);
@@ -539,12 +545,14 @@ function buildTrackerMetaLine(item) {
 const OA_COLORS = {
   ads:      '#e74c3c',
   trackers: '#f39c12',
+  popups:   '#8e44ad',
   other:    '#34dbc2',
 };
 
 const OA_LABELS = {
   ads:      'Advertising',
   trackers: 'Site Analytics',
+  popups:   'Popups',
   other:    'Other',
 };
 
@@ -561,10 +569,11 @@ function updateOAPanel(groups, blocked, blockedByCategory) {
   const domainTotal = domainCounts.ads + domainCounts.trackers + domainCounts.other;
 
   // Per-category request counts (accurate total, same units as badge)
-  const counts = blockedByCategory && (blockedByCategory.ads + blockedByCategory.trackers + blockedByCategory.other) > 0
+  const counts = blockedByCategory && ((blockedByCategory.ads || 0) + (blockedByCategory.trackers || 0) + (blockedByCategory.popups || 0) + (blockedByCategory.other || 0)) > 0
     ? blockedByCategory
     : { ads: domainCounts.ads, trackers: domainCounts.trackers, other: domainCounts.other };
-  const total = counts.ads + counts.trackers + counts.other;
+  if (!Object.prototype.hasOwnProperty.call(counts, 'popups')) counts.popups = 0;
+  const total = counts.ads + counts.trackers + counts.popups + counts.other;
 
   // Contador de blockeados en la fila inferior
   const blockedBadge = $('#oa-blocked-count');
@@ -638,10 +647,12 @@ function renderOAFlatList(groups) {
 function renderDonut(container, counts, total) {
   const adsAngle = total > 0 ? (counts.ads || 0) / total * 360 : 0;
   const trackersAngle = total > 0 ? (counts.trackers || 0) / total * 360 : 0;
+  const popupsAngle = total > 0 ? (counts.popups || 0) / total * 360 : 0;
   const otherAngle = total > 0 ? (counts.other || 0) / total * 360 : 0;
 
   container.style.setProperty('--oa-ads-angle', `${adsAngle}deg`);
   container.style.setProperty('--oa-trackers-angle', `${trackersAngle}deg`);
+  container.style.setProperty('--oa-popups-angle', `${popupsAngle}deg`);
   container.style.setProperty('--oa-other-angle', `${otherAngle}deg`);
 }
 
@@ -650,7 +661,7 @@ function renderOACats(counts, total) {
   if (!catsEl) return;
   const emptyEl = $('#oa-empty');
 
-  const renderKey = `${total}|${counts.ads || 0}|${counts.trackers || 0}|${counts.other || 0}`;
+  const renderKey = `${total}|${counts.ads || 0}|${counts.trackers || 0}|${counts.popups || 0}|${counts.other || 0}`;
   if (lastOACatsKey === renderKey) return;
   lastOACatsKey = renderKey;
 
@@ -663,7 +674,7 @@ function renderOACats(counts, total) {
   }
   if (emptyEl) emptyEl.classList.add('hidden');
 
-  for (const cat of ['ads', 'trackers', 'other']) {
+  for (const cat of ['ads', 'trackers', 'popups', 'other']) {
     const count = counts[cat] || 0;
     if (count === 0) continue;
     const row = document.createElement('div');
@@ -856,6 +867,62 @@ function updatePauseUI() {
   }
 }
 
+function getPopupAllowEntry() {
+  if (!currentHostname || !currentPopupAllowlist) return null;
+  const parts = currentHostname.split('.');
+  for (let i = 0; i < parts.length - 1; i++) {
+    const host = parts.slice(i).join('.');
+    const entry = currentPopupAllowlist[host];
+    if (entry) return { host, entry };
+  }
+  return null;
+}
+
+function updatePopupAllowlistUI() {
+  const stateEl = $('#popup-allow-state');
+  const hourBtn = $('#btn-popups-allow-hour');
+  const permanentBtn = $('#btn-popups-allow-permanent');
+  const removeBtn = $('#btn-popups-allow-remove');
+  if (!stateEl || !hourBtn || !permanentBtn || !removeBtn) return;
+
+  const match = getPopupAllowEntry();
+  const now = Date.now();
+  const expiresAt = Number(match?.entry?.expiresAt || 0);
+  const active = !!match && (!expiresAt || expiresAt > now || match.entry === true || match.entry.permanent === true);
+
+  if (!active) {
+    stateEl.textContent = 'Blocked';
+    hourBtn.disabled = false;
+    permanentBtn.disabled = false;
+    removeBtn.disabled = true;
+    return;
+  }
+
+  if (expiresAt > now) {
+    const mins = Math.max(1, Math.ceil((expiresAt - now) / 60000));
+    stateEl.textContent = `Allowed ${mins}m`;
+  } else {
+    stateEl.textContent = 'Allowed';
+  }
+  hourBtn.disabled = true;
+  permanentBtn.disabled = true;
+  removeBtn.disabled = false;
+}
+
+async function setPopupAllowlist(mode) {
+  if (!currentHostname) return;
+  const result = await sendMessage({
+    action: 'set-popup-allowlist',
+    hostname: currentHostname,
+    mode,
+  });
+  if (result?.success) {
+    currentPopupAllowlist = result.popupAllowlist || {};
+    updatePopupAllowlistUI();
+    scheduleTabStatsLoad();
+  }
+}
+
 function startPauseCountdown() {
   if (pauseInterval) clearInterval(pauseInterval);
   updatePauseUI();
@@ -973,6 +1040,18 @@ function setupListeners() {
   // Resume button
   $('#btn-resume')?.addEventListener('click', () => {
     resumeProtection();
+  });
+
+  $('#btn-popups-allow-hour')?.addEventListener('click', () => {
+    setPopupAllowlist('hour');
+  });
+
+  $('#btn-popups-allow-permanent')?.addEventListener('click', () => {
+    setPopupAllowlist('permanent');
+  });
+
+  $('#btn-popups-allow-remove')?.addEventListener('click', () => {
+    setPopupAllowlist('remove');
   });
 
   // Settings button
