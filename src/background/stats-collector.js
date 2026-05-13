@@ -33,7 +33,7 @@ export function initTab(tabId, hostname) {
   tabData.set(tabId, {
     hostname,
     blocked: 0,
-    blockedByCategory: { ads: 0, trackers: 0, other: 0 },
+    blockedByCategory: { ads: 0, trackers: 0, popups: 0, other: 0 },
     dataSaved: 0,
     energySaved: 0, // In kWh
     co2Saved: 0,    // In grams
@@ -54,7 +54,7 @@ export function ensureTab(tabId) {
     tab = { 
       hostname: '', 
       blocked: 0, 
-      blockedByCategory: { ads: 0, trackers: 0, other: 0 },
+      blockedByCategory: { ads: 0, trackers: 0, popups: 0, other: 0 },
       dataSaved: 0, 
       energySaved: 0, 
       co2Saved: 0, 
@@ -64,7 +64,8 @@ export function ensureTab(tabId) {
     };
     tabData.set(tabId, tab);
   }
-  if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, other: 0 };
+  if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, popups: 0, other: 0 };
+  if (!Object.prototype.hasOwnProperty.call(tab.blockedByCategory, 'popups')) tab.blockedByCategory.popups = 0;
   return tab;
 }
 
@@ -98,8 +99,9 @@ export function recordBlock(tabId, url, metadata = {}) {
   const ownerId = metadata.ownerId || tracker.ownerId || domain;
 
   // Track per-category blocked count (always accurate, regardless of requests cap)
-  if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, other: 0 };
-  const cat = (category === 'ads' || category === 'trackers') ? category : 'other';
+  if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, popups: 0, other: 0 };
+  if (!Object.prototype.hasOwnProperty.call(tab.blockedByCategory, 'popups')) tab.blockedByCategory.popups = 0;
+  const cat = (category === 'ads' || category === 'trackers' || category === 'popups') ? category : 'other';
   tab.blockedByCategory[cat]++;
 
   // Optimization 8.3: Batch eco-calculations — only recalculate every 10 blocks
@@ -144,7 +146,9 @@ export function getBlockedCount(tabId) {
 
 export function getBlockedByCategory(tabId) {
   const tab = tabData.get(tabId);
-  return tab?.blockedByCategory ? { ...tab.blockedByCategory } : { ads: 0, trackers: 0, other: 0 };
+  return tab?.blockedByCategory
+    ? { ads: 0, trackers: 0, popups: 0, other: 0, ...tab.blockedByCategory }
+    : { ads: 0, trackers: 0, popups: 0, other: 0 };
 }
 
 export function getDataSaved(tabId) {

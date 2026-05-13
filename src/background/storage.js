@@ -69,6 +69,7 @@ const DEFAULTS = {
     '*.ads.astian.org': true,
     '*.astiango.com': true,
   },
+  popupAllowlist: {},
   experiments: {
     serpBar: false,
     // Phase C (2026-05-06): safe defaults aligned with uBO/AdGuard.
@@ -183,7 +184,7 @@ const DEFAULTS = {
       scriptlets: { count: 0, avg: 0, min: 0, max: 0, last: 0 },
       perPage: {},
     },
-    blockedByCategory: { total: 0, ads: 0, trackers: 0, other: 0, unknown: 0 },
+    blockedByCategory: { total: 0, ads: 0, trackers: 0, popups: 0, other: 0, unknown: 0 },
     falsePositiveReports: {
       total: 0,
       byCategory: { ads: 0, trackers: 0, other: 0, unknown: 0 },
@@ -216,6 +217,10 @@ function mergeOptionsWithDefaults(options = {}) {
     whitelist: {
       ...DEFAULTS.whitelist,
       ...(options.whitelist || {}),
+    },
+    popupAllowlist: {
+      ...DEFAULTS.popupAllowlist,
+      ...(options.popupAllowlist || {}),
     },
     blockedEntities: {
       ...DEFAULTS.blockedEntities,
@@ -278,6 +283,9 @@ export async function setOptions(partial) {
       ...(current.blockedEntities || {}),
       ...(partial.blockedEntities || {}),
     },
+    popupAllowlist: Object.prototype.hasOwnProperty.call(partial, 'popupAllowlist')
+      ? (partial.popupAllowlist || {})
+      : (current.popupAllowlist || {}),
     experiments: {
       ...(current.experiments || {}),
       ...(partial.experiments || {}),
