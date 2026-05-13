@@ -152,8 +152,9 @@ export const CRITICAL_FIRST_PARTY_SITES = new Set([
   'login.microsoftonline.com', 'login.microsoft.com',
   // Apple iCloud / Apple ID
   'icloud.com', 'apple.com',
-  // Other major mail providers
-  'yahoo.com', 'aol.com', 'proton.me', 'protonmail.com', 'tutanota.com',
+  // Other major mail providers. Keep `yahoo.com` itself out so Yahoo Search
+  // and Yahoo News can receive precise ad cosmetics; protect the mail hosts.
+  'mail.yahoo.com', 'aol.com', 'proton.me', 'protonmail.com', 'tutanota.com',
   'fastmail.com', 'zoho.com', 'gmx.com', 'mail.ru',
   // Dev / collaboration
   'github.com', 'gitlab.com', 'bitbucket.org', 'atlassian.com',
@@ -239,38 +240,48 @@ const ANTI_FINGERPRINT_EXCLUDED_SITES = new Set([
  *
  * Sources cross-referenced: EasyList, AdGuard "ad-tech" tags, Disconnect.
  */
-const KNOWN_AD_DOMAINS = new Set([
+export const KNOWN_AD_DOMAINS = new Set([
   // Google ads stack
   'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
-  'googletagmanager.com', 'googletagservices.com', 'google-analytics.com',
-  'adservice.google.com', 'g.doubleclick.net', '2mdn.net',
-  'admob.com', 'adsense.com',
+  'googletagservices.com', 'googletag.net',
+  'adservice.google.com', 'pagead2.googlesyndication.com',
+  'googleads.g.doubleclick.net', 'securepubads.g.doubleclick.net',
+  'tpc.googlesyndication.com', 'ad.doubleclick.net', 'static.doubleclick.net',
+  'pubads.g.doubleclick.net', 'partner.googleadservices.com',
+  'afs.googlesyndication.com', '2mdn.net', 'admob.com', 'adsense.com',
+  'imasdk.googleapis.com',
   // Microsoft ads / Bing ads / MSN ads
-  'bingads.microsoft.com', 'ads.microsoft.com', 'msads.net',
-  'rad.msn.com', 'c.msn.com', 'g.msn.com', 'b.www.bing.com',
-  'clarity.ms', 'clarity.microsoft.com',
+  'bingads.microsoft.com', 'ads.microsoft.com', 'bat.bing.com',
+  'msads.net', 'ads.msn.com', 'rad.msn.com', 'adsdk.microsoft.com',
+  'c.msn.com', 'g.msn.com', 'b.www.bing.com',
   // Facebook / Meta ads
   'connect.facebook.net', 'an.facebook.com', 'business.facebook.com',
   // Amazon ads
   'amazon-adsystem.com', 'aax.amazon-adsystem.com', 'assoc-amazon.com',
+  'c.amazon-adsystem.com', 'fls-na.amazon-adsystem.com',
+  'mads.amazon-adsystem.com', 's.amazon-adsystem.com',
   // Yahoo / Verizon Media ads
-  'analytics.yahoo.com', 'adserver.yahoo.com', 'ads.yahoo.com',
+  'adserver.yahoo.com', 'ads.yahoo.com', 'gemini.yahoo.com',
+  'native.yahoo.com', 'yads.yahoo.com',
   // Twitter / X ads
-  'ads-twitter.com', 'ads-api.twitter.com', 'analytics.twitter.com',
+  'ads-twitter.com', 'ads-api.twitter.com',
   // LinkedIn ads
-  'ads.linkedin.com', 'analytics.pointdrive.linkedin.com',
+  'ads.linkedin.com',
   // TikTok ads
-  'analytics.tiktok.com', 'business-api.tiktok.com',
+  'business-api.tiktok.com',
   // Reddit ads
   'ads.reddit.com', 'events.reddit.com',
   // Generic ad tech
   'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com',
+  'tblcdn.com', 'taboolasyndication.com', 'outbrainimg.com',
   'adnxs.com', 'adsrvr.org', 'pubmatic.com', 'rubiconproject.com',
-  'openx.net', 'openx.com', 'adsafeprotected.com', 'moatads.com',
-  'scorecardresearch.com', 'comscore.com', 'quantserve.com',
-  'chartbeat.com', 'mixpanel.com', 'segment.com', 'segment.io',
-  'amplitude.com', 'hotjar.com', 'fullstory.com', 'newrelic.com',
-  'optimizely.com', 'kissmetrics.com', 'crazyegg.com',
+  'magnite.com', 'rubiconproject.net', 'openx.net', 'openx.com',
+  'openxcdn.net', 'teads.tv', 'teads.com', 'mgid.com', 'mgidcdn.com',
+  'bidswitch.net', 'casalemedia.com', 'indexww.com', 'sharethrough.com',
+  'smartadserver.com', '33across.com', 'triplelift.com', 'sovrn.com',
+  'lijit.com', 'media.net', 'revcontent.com', 'yieldmo.com',
+  'spotxchange.com', 'spotx.tv', 'smaato.net', 'inmobi.com',
+  'adsafeprotected.com', 'moatads.com', 'doubleverify.com', 'iasds01.com',
 ]);
 
 /**
@@ -664,9 +675,16 @@ function matchesAggressiveThreatHost(hostname) {
 
 function isStrictTrackerTaxonomy(trackerCategory, classification) {
   const taxonomy = classification?.taxonomy || 'generic';
+  if (
+    trackerCategory === 'ads' ||
+    taxonomy === 'video-ads' ||
+    taxonomy === 'adult-ad-network' ||
+    taxonomy === 'ad-exchange' ||
+    taxonomy === 'native-ads'
+  ) return true;
   if (taxonomy === 'fingerprinting' || taxonomy === 'session-replay') return true;
-  if (taxonomy === 'tag-manager' || taxonomy === 'social-pixel' || taxonomy === 'redirect-tracker') return true;
-  return trackerCategory === 'trackers' && taxonomy === 'generic';
+  if (taxonomy === 'social-pixel' || taxonomy === 'redirect-tracker') return true;
+  return false;
 }
 
 export function inferSiteVertical(hostname) {

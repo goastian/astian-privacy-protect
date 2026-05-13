@@ -1,4 +1,22 @@
 export function createSiteDomainHandlers(ctx) {
+  const TRUSTED_SCRIPTLET_HOSTS = new Set([
+    'youtube.com', 'youtu.be', 'reddit.com', 'twitch.tv',
+    'forbes.com', 'cnn.com', 'bbc.com',
+  ]);
+
+  function hostMatches(hostname, domain) {
+    return hostname === domain || hostname.endsWith('.' + domain);
+  }
+
+  function allowsTrustedScriptlets(hostname) {
+    const host = String(hostname || '').toLowerCase();
+    if (!host) return false;
+    for (const domain of TRUSTED_SCRIPTLET_HOSTS) {
+      if (hostMatches(host, domain)) return true;
+    }
+    return false;
+  }
+
   function popupAllowedForHost(hostname, allowlist) {
     const host = String(hostname || '').toLowerCase();
     if (!host || !allowlist || typeof allowlist !== 'object') return false;
@@ -228,11 +246,14 @@ export function createSiteDomainHandlers(ctx) {
       }
 
       const cosmetics = ctx.ghosteryEngine.getFullCosmetics(hostname);
+      const compiledScripts = allowsTrustedScriptlets(hostname)
+        ? (cosmetics.scripts || []).slice(0, 100)
+        : [];
       return {
         enabled: true,
         selectors: [],
         styles: cosmetics.styles || '',
-        compiledScripts: (cosmetics.scripts || []).slice(0, 100),
+        compiledScripts,
       };
     },
 

@@ -1,6 +1,7 @@
 import { getOptions } from './storage.js';
 import {
   collectHighConfidenceDomains,
+  getTrackerCategory,
   getTrackerDbMeta,
   getTrackerEntityMetadata,
 } from './trackerdb.js';
@@ -8,6 +9,13 @@ import {
 const TRACKERDB_RULE_ID_MIN = 800001;
 const TRACKERDB_RULE_ID_MAX = 800500;
 const TRACKERDB_MAX_RULES = TRACKERDB_RULE_ID_MAX - TRACKERDB_RULE_ID_MIN + 1;
+const TRACKERDB_LOW_RISK_RESOURCE_TYPES = ['image', 'sub_frame', 'ping', 'media', 'object', 'other'];
+const TRACKERDB_SAFE_INITIATORS = [
+  'gmail.com', 'googlemail.com', 'mail.google.com', 'drive.google.com',
+  'docs.google.com', 'calendar.google.com', 'accounts.google.com',
+  'outlook.com', 'live.com', 'office.com', 'office365.com', 'sharepoint.com',
+  'youtube.com', 'youtu.be', 'twitch.tv', 'reddit.com',
+];
 
 export function createTrackerDbDnrController({ isChromium, protectionLevels, getEffectiveRolloutFlags }) {
   function shouldEnableTrackerDbAssisted(options) {
@@ -57,17 +65,16 @@ export function createTrackerDbDnrController({ isChromium, protectionLevels, get
     for (const domain of candidates) {
       if (whitelist[domain]) continue;
       if (ruleId > TRACKERDB_RULE_ID_MAX) break;
+      const category = getTrackerCategory(domain);
       addRules.push({
         id: ruleId++,
-        priority: 1,
+        priority: category === 'ads' ? 12 : 6,
         action: { type: 'block' },
         condition: {
           requestDomains: [domain],
           domainType: 'thirdParty',
-          resourceTypes: [
-            'script', 'xmlhttprequest', 'image', 'sub_frame',
-            'font', 'object', 'ping', 'media', 'websocket', 'other',
-          ],
+          resourceTypes: TRACKERDB_LOW_RISK_RESOURCE_TYPES,
+          excludedInitiatorDomains: TRACKERDB_SAFE_INITIATORS,
         },
       });
     }
@@ -109,21 +116,22 @@ export function createTrackerDbDnrController({ isChromium, protectionLevels, get
 
       addRules.push({
         id: nextRuleId++,
-        priority: 3,
+        priority: 35,
         action: { type: 'allow' },
         condition: {
           initiatorDomains: domains,
           requestDomains: domains,
-          resourceTypes: ['image', 'stylesheet', 'font', 'other'],
+          resourceTypes: ['image', 'stylesheet', 'font', 'media', 'other'],
         },
       });
 
       addRules.push({
         id: nextRuleId++,
-        priority: 2,
+        priority: 15,
         action: { type: 'block' },
         condition: {
           requestDomains: domains,
+          domainType: 'thirdParty',
           resourceTypes: [
             'sub_frame', 'stylesheet', 'script', 'image',
             'font', 'object', 'xmlhttprequest', 'ping', 'media', 'websocket', 'other',

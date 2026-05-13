@@ -18,6 +18,7 @@ import {
   resolveSiteProfile,
   invalidateSiteProfileCache,
   FIRST_PARTY_CDN_MAP,
+  KNOWN_AD_DOMAINS,
   isCriticalFirstPartySite,
   CRITICAL_FIRST_PARTY_SITES,
   getAntiFingerprintMode,
@@ -1389,6 +1390,27 @@ async function applyFirstPartyCdnAllowRules() {
           domainType: 'firstParty',
           resourceTypes: [
             'main_frame', 'sub_frame', 'stylesheet', 'script', 'image',
+            'font', 'object', 'xmlhttprequest', 'ping', 'media', 'websocket', 'other',
+          ],
+        },
+      });
+    }
+
+    // Phase 1: confirmed ad-tech block layer. These rules sit above the
+    // converted list rules and below only explicit first-party self/CDN allows.
+    // They are third-party scoped and category-curated, so analytics-only
+    // trackers do not get promoted into hard ad blocking.
+    for (const domain of KNOWN_AD_DOMAINS) {
+      if (!domain || nextId >= 929990) break;
+      addRules.push({
+        id: nextId++,
+        priority: 30,
+        action: { type: 'block' },
+        condition: {
+          requestDomains: [domain],
+          domainType: 'thirdParty',
+          resourceTypes: [
+            'sub_frame', 'stylesheet', 'script', 'image',
             'font', 'object', 'xmlhttprequest', 'ping', 'media', 'websocket', 'other',
           ],
         },

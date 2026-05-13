@@ -99,6 +99,11 @@ const CAT_MAP = {
   'ad_motivated_tracking': 'ads',
   'ad_tech': 'ads',
   'native_advertising': 'ads',
+  'ad_exchange': 'ads',
+  'ad_network': 'ads',
+  'ad_server': 'ads',
+  'demand_side_platform': 'ads',
+  'supply_side_platform': 'ads',
   // Tracking / Analytics
   'analytics': 'trackers',
   'audience_measurement': 'trackers',
@@ -144,7 +149,8 @@ function mapCategory(rawCategory) {
 const AD_HINT_PATTERNS = [
   'ad', 'ads', 'adservice', 'adserver', 'adnxs', 'doubleclick', 'googlesyndication',
   'advert', 'banner', 'prebid', 'criteo', 'rubicon', 'pubmatic', 'taboola', 'outbrain',
-  'openx', 'sharethrough', 'revcontent', 'mgid', 'yield', 'moat',
+  'openx', 'sharethrough', 'revcontent', 'mgid', 'yield', 'moat', 'teads', 'msads',
+  'amazon-adsystem', 'googlesyndication', 'googleadservices',
 ];
 
 function inferRadarCategory(domain, summary) {
@@ -568,14 +574,17 @@ export function isTrackerFingerprinter(domain) {
 
 function isAssistedBlockingTaxonomy(entry) {
   const category = String(entry?.category || '').toLowerCase();
+  if (entry?.midoriCat === 'ads') return true;
   if (!category) return entry?.midoriCat === 'trackers';
-  return category.includes('track') ||
+  return category.includes('ad tech') ||
+    category.includes('advert') ||
+    category.includes('ad exchange') ||
+    category.includes('ad network') ||
     category.includes('fingerprint') ||
     category.includes('session') ||
     category.includes('replay') ||
-    category.includes('analytics') ||
-    category.includes('tag manager') ||
-    category.includes('pixel');
+    category.includes('pixel') ||
+    category.includes('redirect');
 }
 
 // ── Phase 8: Entity Enrichment API (Tracker Metadata) ───────────────────────
