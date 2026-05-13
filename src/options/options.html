@@ -290,8 +290,8 @@
           <div class="option-divider"></div>
           <div class="option-row">
             <div class="option-info">
-              <div class="font-semibold">IA Shield</div>
-              <div class="text-sm text-secondary">Prompt-injection guardrails for AI sites</div>
+              <div class="font-semibold">IA Shield auto-protect</div>
+              <div class="text-sm text-secondary">Automatically enables IA Shield on major AI platforms</div>
             </div>
             <label class="toggle">
               <input type="checkbox" id="exp-ia-shield">
@@ -810,8 +810,8 @@ example.com##+js(abort-on-property-read, adBlockDetected)
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
             </div>
             <div class="diff-module-info">
-              <div class="font-semibold">IA Shield</div>
-              <div class="text-xs text-secondary">Prompt-injection guardrails for AI sites (ChatGPT, Gemini, Copilot, Claude…)</div>
+              <div class="font-semibold">IA Shield auto-protect</div>
+              <div class="text-xs text-secondary">Automatically enables IA Shield on major AI platforms and user-protected sites</div>
             </div>
             <label class="toggle">
               <input type="checkbox" id="ds-ia-shield">
@@ -923,12 +923,13 @@ example.com##+js(abort-on-property-read, adBlockDetected)
         <div class="option-card mb-3">
           <div class="p-3">
             <h3 class="font-semibold mb-1">Functional Exceptions</h3>
-            <div class="text-xs text-tertiary mb-3">Create site-specific exceptions for video/adult compatibility or to bypass IA Shield when needed.</div>
+            <div class="text-xs text-tertiary mb-3">Create site-specific exceptions for video/adult compatibility, IA Shield bypass, or extra IA Shield protected sites.</div>
             <div class="ds-grid-3">
               <input type="text" id="ds-exception-domain" class="text-input" placeholder="example.com">
               <select id="ds-exception-mode" class="text-input">
                 <option value="video-balanced">Video safe mode</option>
                 <option value="adult-balanced">Adult safe mode</option>
+                <option value="ia-protect">IA Shield protected site</option>
                 <option value="ia-bypass">IA Shield bypass</option>
               </select>
               <button class="btn btn-secondary btn-sm" id="ds-exception-add">Add exception</button>

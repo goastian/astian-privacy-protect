@@ -1084,31 +1084,41 @@ function setupListeners() {
   });
 
   $('#mc-toggle-ia-shield')?.addEventListener('change', async (e) => {
+    if (!currentHostname) return;
+    const current = await sendMessage({ action: 'get-ia-shield-config', hostname: currentHostname });
+    const config = current?.config || {};
+    if (e.target.checked) {
+      await sendMessage({
+        action: 'set-ia-shield-site-policy',
+        hostname: currentHostname,
+        iaShieldBypass: false,
+        iaShieldProtected: config.aiHost === true ? false : true,
+      });
+    } else {
+      await sendMessage({
+        action: 'set-ia-shield-site-policy',
+        hostname: currentHostname,
+        iaShieldBypass: true,
+      });
+    }
     const opts = await sendMessage({ action: 'get-options' });
-    const experiments = { ...(opts.experiments || {}), iaShield: e.target.checked };
-    const updated = { ...opts, experiments };
-    const storage = (typeof browser !== 'undefined' && browser.storage?.local) ? browser.storage.local : chrome.storage.local;
-    await new Promise(r => {
-      const p = storage.set({ options: updated });
-      if (p && typeof p.then === 'function') p.then(r, r); else r();
-    });
-    updateModuleCards(updated);
-    await updateIaShieldPanel(updated);
+    updateModuleCards(opts || {});
+    await updateIaShieldPanel(opts || {});
   });
 
   $('#ia-btn-enable')?.addEventListener('click', async () => {
     if (!currentHostname) return;
-    const opts = await sendMessage({ action: 'get-options' });
-    const experiments = { ...(opts.experiments || {}), iaShield: true };
-    const updated = { ...opts, experiments };
-    const storage = (typeof browser !== 'undefined' && browser.storage?.local) ? browser.storage.local : chrome.storage.local;
-    await new Promise(r => {
-      const p = storage.set({ options: updated });
-      if (p && typeof p.then === 'function') p.then(r, r); else r();
+    const current = await sendMessage({ action: 'get-ia-shield-config', hostname: currentHostname });
+    const config = current?.config || {};
+    await sendMessage({
+      action: 'set-ia-shield-site-policy',
+      hostname: currentHostname,
+      iaShieldBypass: false,
+      iaShieldProtected: config.aiHost === true ? false : true,
     });
-    await sendMessage({ action: 'set-ia-shield-site-policy', hostname: currentHostname, iaShieldBypass: false });
-    updateModuleCards(updated);
-    await updateIaShieldPanel(updated);
+    const opts = await sendMessage({ action: 'get-options' });
+    updateModuleCards(opts || {});
+    await updateIaShieldPanel(opts || {});
   });
 
   $('#ia-btn-strict')?.addEventListener('click', async () => {
@@ -1161,6 +1171,16 @@ function updateModuleCards(options) {
   applyCard('mc-ia-shield', 'mc-toggle-ia-shield', 'mc-ia-shield-state', iaShieldOn);
 }
 
+function applyIaShieldEffectiveCard(config) {
+  const enabled = config?.enabled === true;
+  const card = $('#mc-ia-shield');
+  const toggle = $('#mc-toggle-ia-shield');
+  const state = $('#mc-ia-shield-state');
+  if (card) card.classList.toggle('active', enabled);
+  if (toggle) toggle.checked = enabled;
+  if (state) state.textContent = enabled ? 'On' : 'Off';
+}
+
 async function updateIaShieldPanel(options) {
   const panel = $('#ia-shield-panel');
   if (!panel) return;
@@ -1172,16 +1192,15 @@ async function updateIaShieldPanel(options) {
     .filter(event => !event.hostname || event.hostname === currentHostname)
     .slice(0, 4);
 
-  const experiments = options?.experiments || {};
   const enabled = config.enabled === true;
   const strict = config.strict === true;
   const bypassed = config.bypassed === true;
-  const globallyOn = experiments.iaShield === true;
-  if (!globallyOn && !enabled && !bypassed) {
+  applyIaShieldEffectiveCard(config);
+  if (!enabled && !bypassed) {
     panel.classList.add('hidden');
     return;
   }
-  const stateText = bypassed ? 'bypassed' : (enabled ? 'enabled' : (globallyOn ? 'standby' : 'disabled'));
+  const stateText = bypassed ? 'bypassed' : (enabled ? 'enabled' : 'disabled');
   const modeText = strict ? 'strict' : 'normal';
 
   panel.classList.remove('hidden');

@@ -123,40 +123,54 @@ export function buildIaShieldConfig(options, hostname) {
   const chatbotHost = matchesAnyHost(host, CHATBOT_HOST_PATTERNS);
   const documentHost = matchesAnyHost(host, DOCUMENT_HOST_PATTERNS);
   const experimentEnabled = experiments.iaShield === true;
+  const autoProtect = experiments.iaShieldAutoProtect !== false;
   const bypassed = overrideConfig.iaShieldBypass === true;
+  const protectedHost = overrideConfig.iaShieldProtected === true;
   const siteWhitelisted = !!whitelist[host];
-  const enabled = aiHost && experimentEnabled && !bypassed && !siteWhitelisted;
+  const targetHost = aiHost || protectedHost;
+  const enabled = targetHost && !bypassed && !siteWhitelisted && (
+    experimentEnabled ||
+    protectedHost ||
+    (autoProtect && chatbotHost)
+  );
   const strict = enabled && (options?.iaShieldStrict === true || overrideConfig.iaShieldStrict === true);
+  const promptHost = chatbotHost || protectedHost;
 
   return {
     enabled,
     aiHost,
     chatbotHost,
     documentHost,
+    protectedHost,
+    autoProtect,
     strict,
-    sanitizeOnPaste: enabled && chatbotHost && options?.iaShieldSanitizeOnPaste !== false,
+    sanitizeOnPaste: enabled && promptHost && options?.iaShieldSanitizeOnPaste !== false,
     monitor: {
-      paste: enabled && chatbotHost,
-      input: enabled && chatbotHost,
-      dom: enabled && chatbotHost,
+      paste: enabled && promptHost,
+      input: enabled && promptHost,
+      dom: enabled && promptHost,
       copy: enabled && documentHost,
     },
     isolate: {
-      enabled: enabled && chatbotHost,
+      enabled: enabled && promptHost,
       mode: strict ? 'block' : 'warn',
     },
     bypassed,
     hostname: host,
     matchedOverrideDomain: override?.domain || '',
-    reason: !aiHost
+    reason: !targetHost
       ? 'not-ai-host'
-      : !experimentEnabled
-        ? 'disabled'
-        : bypassed
-          ? 'bypassed'
-          : siteWhitelisted
-            ? 'site-whitelisted'
-            : 'enabled',
+      : bypassed
+        ? 'bypassed'
+        : siteWhitelisted
+          ? 'site-whitelisted'
+          : protectedHost
+            ? 'custom-protected'
+            : experimentEnabled
+              ? 'globally-enabled'
+              : autoProtect && chatbotHost
+                ? 'auto-ai-platform'
+                : 'disabled',
   };
 }
 

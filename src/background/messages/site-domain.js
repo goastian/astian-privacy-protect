@@ -159,6 +159,7 @@ export function createSiteDomainHandlers(ctx) {
 
       if (typeof msg.iaShieldBypass === 'boolean') patch.iaShieldBypass = msg.iaShieldBypass;
       if (typeof msg.iaShieldStrict === 'boolean') patch.iaShieldStrict = msg.iaShieldStrict;
+      if (typeof msg.iaShieldProtected === 'boolean') patch.iaShieldProtected = msg.iaShieldProtected;
 
       domainOverrides[hostname] = {
         ...existing,

@@ -270,7 +270,7 @@
     var strict = config.strict === true;
     var monitor = config.monitor || {};
     var isolate = config.isolate || {};
-    var chatbotHost = config.chatbotHost !== false && config.documentHost !== true;
+    var chatbotHost = config.chatbotHost === true || config.protectedHost === true;
     var documentHost = config.documentHost === true;
     var sanitizeOnPaste = config.sanitizeOnPaste !== false;
     var lastBannerAt = 0;

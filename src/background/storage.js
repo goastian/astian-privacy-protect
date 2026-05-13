@@ -75,6 +75,7 @@ const DEFAULTS = {
     // Aggressive paths are opt-in via Options.
     trackerDbAssisted: false,
     iaShield: false,
+    iaShieldAutoProtect: true,
     aggressiveVerticalRules: false,
     aggressiveThreatBlocking: false,
     rolloutTransparency: true,

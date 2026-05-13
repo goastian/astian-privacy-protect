@@ -353,7 +353,7 @@ function renderGeneral() {
 
   $('#exp-trackerdb-assisted').checked = experiments.trackerDbAssisted === true;
   $('#exp-trackerdb-assisted').disabled = !rolloutEntityBlocking;
-  $('#exp-ia-shield').checked = experiments.iaShield === true;
+  $('#exp-ia-shield').checked = experiments.iaShieldAutoProtect !== false;
   $('#exp-aggressive-vertical-rules').checked = experiments.aggressiveVerticalRules === true;
   $('#exp-aggressive-vertical-rules').disabled = !rolloutVerticalProfiles;
   $('#opt-theme').value = currentOptions.theme || 'system';
@@ -1677,7 +1677,7 @@ function renderDifficultSites() {
   const rolloutVerticalProfiles = rolloutEntityBlocking && experiments.rolloutVerticalProfiles === true;
 
   const ds = (id, val) => { const el = $(`#${id}`); if (el) el.checked = !!val; };
-  ds('ds-ia-shield', experiments.iaShield);
+  ds('ds-ia-shield', experiments.iaShieldAutoProtect !== false);
   ds('ds-ia-strict', currentOptions.iaShieldStrict);
   ds('ds-ia-sanitize', currentOptions.iaShieldSanitizeOnPaste !== false);
   ds('ds-youtube', lists['ublock-quick-fixes']?.enabled !== false);
@@ -1883,6 +1883,16 @@ function renderVerticalProfiles() {
 }
 
 function buildFunctionalException(mode) {
+  if (mode === 'ia-protect') {
+    return {
+      functionalException: true,
+      exceptionMode: 'ia-protect',
+      vertical: 'ai',
+      iaShieldProtected: true,
+      iaShieldBypass: false,
+    };
+  }
+
   if (mode === 'ia-bypass') {
     return {
       functionalException: true,
@@ -2147,7 +2157,7 @@ function setupListeners() {
       rolloutCosmeticAudit,
       serpBar: serpToggle ? serpToggle.checked : (currentOptions.experiments?.serpBar === true),
       trackerDbAssisted: rolloutEntityBlocking && $('#exp-trackerdb-assisted').checked,
-      iaShield: $('#exp-ia-shield').checked,
+      iaShieldAutoProtect: $('#exp-ia-shield').checked,
       aggressiveVerticalRules: rolloutVerticalProfiles && $('#exp-aggressive-vertical-rules').checked,
     };
     currentOptions = await saveOptions({ experiments });
@@ -2391,7 +2401,7 @@ function setupListeners() {
     const serpBarOn = $('#ds-serp-bar')?.checked;
     const tdbAsstOn = $('#ds-trackerdb-assisted')?.checked;
 
-    experiments.iaShield = !!iaOn;
+    experiments.iaShieldAutoProtect = !!iaOn;
     experiments.aggressiveVerticalRules = rolloutVerticalProfiles && !!aggrOn;
     experiments.serpBar = !!serpBarOn;
     experiments.trackerDbAssisted = rolloutEntityBlocking && !!tdbAsstOn;
