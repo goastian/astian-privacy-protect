@@ -33,6 +33,19 @@ export function createSiteDomainHandlers(ctx) {
     return false;
   }
 
+  function resolveHostname(msg, sender) {
+    const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
+    return String(msg?.hostname || tabHostname || '').toLowerCase();
+  }
+
+  function emptyCosmeticsResponse() {
+    return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
+  }
+
+  function emptyScriptletsResponse() {
+    return { enabled: false, scriptlets: [] };
+  }
+
   function disabledPopupConfig(reason = 'disabled') {
     return {
       enabled: false,
@@ -49,8 +62,7 @@ export function createSiteDomainHandlers(ctx) {
 
   return {
     'get-popup-defense-config': async (msg, sender) => {
-      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
-      const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
+      const hostname = resolveHostname(msg, sender);
       const runtime = ctx.getRuntimeOptions();
       if (ctx.isProtectionBypassedForHost(hostname, runtime)) {
         return { config: disabledPopupConfig('site-bypassed') };
@@ -62,8 +74,7 @@ export function createSiteDomainHandlers(ctx) {
     },
 
     'get-site-protection-state': async (msg, sender) => {
-      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
-      const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
+      const hostname = resolveHostname(msg, sender);
       const runtime = ctx.getRuntimeOptions();
       const globalEnabled = runtime?.enabled !== false;
       const whitelisted = ctx.isHostnameWhitelisted(hostname, runtime?.whitelist || {});
@@ -131,8 +142,7 @@ export function createSiteDomainHandlers(ctx) {
     },
 
     'get-site-profile': async (msg, sender) => {
-      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
-      const host = String(msg.hostname || tabHostname || '').toLowerCase();
+      const host = resolveHostname(msg, sender);
       if (!host) return { vertical: 'general', profile: null };
       const siteContext = ctx.resolveSiteProfile(host, ctx.getRuntimeOptions());
       return {
@@ -143,8 +153,7 @@ export function createSiteDomainHandlers(ctx) {
     },
 
     'get-ia-shield-config': async (msg, sender) => {
-      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
-      const hostname = String(msg.hostname || tabHostname || '').toLowerCase();
+      const hostname = resolveHostname(msg, sender);
       const opts = await ctx.getOptions();
       if (ctx.isProtectionBypassedForHost(hostname, opts)) {
         return {
@@ -165,8 +174,8 @@ export function createSiteDomainHandlers(ctx) {
 
     'ia-shield-risk-event': async (msg, sender) => {
       const opts = await ctx.getOptions();
-      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
-      const event = ctx.normalizeIaRiskEvent(msg.event || null, msg.hostname || tabHostname || '');
+      const hostname = resolveHostname(msg, sender);
+      const event = ctx.normalizeIaRiskEvent(msg.event || null, hostname);
       if (!event) {
         return { success: false, error: 'invalid-event' };
       }
@@ -194,8 +203,7 @@ export function createSiteDomainHandlers(ctx) {
 
     'set-ia-shield-site-policy': async (msg, sender) => {
       const opts = await ctx.getOptions();
-      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
-      const hostname = String(msg.hostname || tabHostname || '').trim().toLowerCase();
+      const hostname = resolveHostname(msg, sender).trim();
       if (!hostname) return { success: false, error: 'missing-hostname' };
 
       const domainOverrides = {
@@ -227,22 +235,22 @@ export function createSiteDomainHandlers(ctx) {
     },
 
     'get-cosmetics': async (msg) => {
-      const hostname = msg.hostname || '';
+      const hostname = resolveHostname(msg);
       const runtime = ctx.getRuntimeOptions();
       if (ctx.isProtectionBypassedForHost(hostname, runtime)) {
-        return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
+        return emptyCosmeticsResponse();
       }
       // Critical first-party sites (Gmail, Outlook, iCloud, banking, etc.)
       // are highly sensitive to cosmetic-rule false positives — skip cosmetic
       // injection entirely on these hosts. User can still toggle protection
       // off per-site if needed.
       if (ctx.isCriticalFirstPartySite?.(hostname)) {
-        return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
+        return emptyCosmeticsResponse();
       }
       const siteContext = ctx.resolveSiteProfile(hostname, ctx.getRuntimeOptions());
       const cosmeticsEnabled = siteContext.profile?.cosmeticsEnabled !== false;
       if (!cosmeticsEnabled) {
-        return { enabled: false, selectors: [], styles: '', compiledScripts: [] };
+        return emptyCosmeticsResponse();
       }
 
       const cosmetics = ctx.ghosteryEngine.getFullCosmetics(hostname);
@@ -258,13 +266,13 @@ export function createSiteDomainHandlers(ctx) {
     },
 
     'get-scriptlets': async (msg) => {
-      const hostname = msg.hostname || '';
+      const hostname = resolveHostname(msg);
       const runtime = ctx.getRuntimeOptions();
       if (ctx.isProtectionBypassedForHost(hostname, runtime)) {
-        return { enabled: false, scriptlets: [] };
+        return emptyScriptletsResponse();
       }
       if (ctx.isCriticalFirstPartySite?.(hostname)) {
-        return { enabled: false, scriptlets: [] };
+        return emptyScriptletsResponse();
       }
       return {
         enabled: true,
@@ -273,7 +281,7 @@ export function createSiteDomainHandlers(ctx) {
     },
 
     'get-anti-fingerprint': async (_msg, sender) => {
-      const tabHostname = sender?.tab?.url ? ctx.extractDomain(sender.tab.url) : '';
+      const tabHostname = resolveHostname({}, sender);
       const runtime = ctx.getRuntimeOptions();
       if (ctx.isProtectionBypassedForHost(tabHostname, runtime)) {
         return { enabled: false };

@@ -290,13 +290,7 @@ export const KNOWN_AD_DOMAINS = new Set([
  * @param {string} requestDomain
  */
 export function isKnownAdDomain(requestDomain) {
-  const host = String(requestDomain || '').toLowerCase();
-  if (!host) return false;
-  if (KNOWN_AD_DOMAINS.has(host)) return true;
-  for (const ad of KNOWN_AD_DOMAINS) {
-    if (host.endsWith('.' + ad)) return true;
-  }
-  return false;
+  return hasExactOrSuffixMatch(requestDomain, KNOWN_AD_DOMAINS);
 }
 
 /**
@@ -308,23 +302,11 @@ export function isKnownAdDomain(requestDomain) {
  * @returns {boolean}
  */
 export function isCriticalFirstPartySite(hostname) {
-  const host = String(hostname || '').toLowerCase();
-  if (!host) return false;
-  if (CRITICAL_FIRST_PARTY_SITES.has(host)) return true;
-  for (const reg of CRITICAL_FIRST_PARTY_SITES) {
-    if (host.endsWith('.' + reg)) return true;
-  }
-  return false;
+  return hasExactOrSuffixMatch(hostname, CRITICAL_FIRST_PARTY_SITES);
 }
 
 export function shouldDisableAntiFingerprint(hostname) {
-  const host = String(hostname || '').toLowerCase();
-  if (!host) return false;
-  if (ANTI_FINGERPRINT_EXCLUDED_SITES.has(host)) return true;
-  for (const reg of ANTI_FINGERPRINT_EXCLUDED_SITES) {
-    if (host.endsWith('.' + reg)) return true;
-  }
-  return false;
+  return hasExactOrSuffixMatch(hostname, ANTI_FINGERPRINT_EXCLUDED_SITES);
 }
 
 export function getAntiFingerprintMode(hostname, options = {}) {
@@ -662,6 +644,50 @@ function domainMatches(hostname, pattern) {
   return hostname === pattern || hostname.endsWith(`.${pattern}`);
 }
 
+function toNormalizedHost(hostname) {
+  return String(hostname || '').toLowerCase();
+}
+
+function hasExactOrSuffixMatch(hostname, patterns) {
+  const host = toNormalizedHost(hostname);
+  if (!host) return false;
+  if (patterns.has(host)) return true;
+  for (const pattern of patterns) {
+    if (host.endsWith(`.${pattern}`)) return true;
+  }
+  return false;
+}
+
+function resolveEngineBlockDecision({ matchResult, engine, url, pageHostname, resourceType }) {
+  let blocked = false;
+  let reason = 'rule-match';
+
+  if (matchResult) {
+    blocked = !!(matchResult.match && !matchResult.redirect && !matchResult.exception);
+    if (matchResult.redirect) reason = 'rule-match';
+    return { blocked, reason };
+  }
+
+  if (engine?.matchRequest) {
+    const nextMatch = engine.matchRequest(url, pageHostname, resourceType);
+    blocked = !!(nextMatch.match && !nextMatch.redirect && !nextMatch.exception);
+    if (nextMatch.redirect) reason = 'rule-match';
+    return { blocked, reason };
+  }
+
+  blocked = !!engine?.shouldBlock?.(url, pageHostname, resourceType);
+  return { blocked, reason };
+}
+
+function getDefaultSiteContext(pageHostname) {
+  return {
+    hostname: toNormalizedHost(pageHostname),
+    vertical: VERTICALS.GENERAL,
+    profile: DEFAULT_SITE_POLICY.verticalProfiles.general,
+    override: null,
+  };
+}
+
 function matchesAggressiveThreatHost(hostname) {
   if (!hostname) return false;
   if (AGGRESSIVE_THREAT_EXACT_HOSTS.has(hostname)) return true;
@@ -688,7 +714,7 @@ function isStrictTrackerTaxonomy(trackerCategory, classification) {
 }
 
 export function inferSiteVertical(hostname) {
-  const host = String(hostname || '').toLowerCase();
+  const host = toNormalizedHost(hostname);
   if (!host) return VERTICALS.GENERAL;
 
   for (const pattern of ADULT_HOST_PATTERNS) {
@@ -753,7 +779,7 @@ function asSensitivity(value, fallback) {
 }
 
 function isVideoStrictAllowlistedHost(hostname) {
-  const host = String(hostname || '').toLowerCase();
+  const host = toNormalizedHost(hostname);
   if (!host) return false;
   for (const pattern of VIDEO_STRICT_ALLOWLIST) {
     if (domainMatches(host, pattern)) return true;
@@ -821,12 +847,7 @@ export function evaluateRequestPolicy({
   const protectionConfig = PROTECTION_CONFIG[protectionLevel];
   const siteContext = rollout.verticalProfiles
     ? resolveSiteProfile(pageHostname, options)
-    : {
-        hostname: String(pageHostname || '').toLowerCase(),
-        vertical: VERTICALS.GENERAL,
-        profile: DEFAULT_SITE_POLICY.verticalProfiles.general,
-        override: null,
-      };
+    : getDefaultSiteContext(pageHostname);
   const requestDomain = extractDomain(url);
   const requestOwnerId = requestDomain ? getTrackerOwnerId(requestDomain) : '';
   const blockedEntities = options?.blockedEntities || {};
@@ -851,19 +872,15 @@ export function evaluateRequestPolicy({
     !pageHostname.endsWith(`.${requestDomain}`)
   );
 
-  let engineBlocked = false;
-  let engineReason = 'rule-match';
-
-  if (matchResult) {
-    engineBlocked = !!(matchResult.match && !matchResult.redirect && !matchResult.exception);
-    if (matchResult.redirect) engineReason = 'rule-match';
-  } else if (engine?.matchRequest) {
-    const nextMatch = engine.matchRequest(url, pageHostname, resourceType);
-    engineBlocked = !!(nextMatch.match && !nextMatch.redirect && !nextMatch.exception);
-    if (nextMatch.redirect) engineReason = 'rule-match';
-  } else {
-    engineBlocked = !!engine?.shouldBlock?.(url, pageHostname, resourceType);
-  }
+  const engineDecision = resolveEngineBlockDecision({
+    matchResult,
+    engine,
+    url,
+    pageHostname,
+    resourceType,
+  });
+  const engineBlocked = engineDecision.blocked;
+  const engineReason = engineDecision.reason;
 
   const aggressiveVerticalRules = rollout.verticalProfiles && options?.experiments?.aggressiveVerticalRules === true;
   const signalScore = Math.min(1, computeTrackerSignalScore({
@@ -1012,12 +1029,7 @@ export function getPopupDefenseConfig(pageHostname, options) {
   const protectionConfig = PROTECTION_CONFIG[protectionLevel];
   const siteContext = rollout.verticalProfiles
     ? resolveSiteProfile(pageHostname, options)
-    : {
-        hostname: String(pageHostname || '').toLowerCase(),
-        vertical: VERTICALS.GENERAL,
-        profile: DEFAULT_SITE_POLICY.verticalProfiles.general,
-        override: null,
-      };
+    : getDefaultSiteContext(pageHostname);
   const popupDefense = protectionLevel === 'basic'
     ? (siteContext.override?.popupDefense || 'relaxed')
     : (siteContext.profile.popupDefense || protectionConfig.popupBase);
