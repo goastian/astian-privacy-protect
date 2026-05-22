@@ -15,6 +15,17 @@ async function updateEnabledRulesetsFromFlags(flags) {
   });
 }
 
+async function syncDnrRulesForOptions(ctx, options, reason = 'settings-change') {
+  if (!ctx.IS_CHROMIUM) return;
+  if (typeof ctx.syncChromiumDnrForOptions === 'function') {
+    await ctx.syncChromiumDnrForOptions(options, reason);
+    return;
+  }
+  await updateEnabledRulesetsFromFlags(Object.fromEntries(
+    Object.entries(options?.lists || {}).map(([key, value]) => [key, value?.enabled])
+  ));
+}
+
 export function createSettingsDomainHandlers(ctx) {
   return {
     'get-rollout-flags': async () => {
@@ -26,9 +37,10 @@ export function createSettingsDomainHandlers(ctx) {
 
     'toggle-site': async (msg) => {
       const nowWhitelisted = await ctx.toggleWhitelist(msg.hostname);
-      ctx.refreshRuntimeOptions(await ctx.getOptions());
+      const updatedOptions = await ctx.getOptions();
+      ctx.refreshRuntimeOptions(updatedOptions);
       if (ctx.IS_CHROMIUM) {
-        await ctx.updateDnrWhitelist();
+        await syncDnrRulesForOptions(ctx, updatedOptions, 'toggle-site');
       }
       return { whitelisted: nowWhitelisted };
     },
@@ -53,7 +65,7 @@ export function createSettingsDomainHandlers(ctx) {
       ctx.refreshRuntimeOptions(updatedOptions);
 
       if (ctx.IS_CHROMIUM) {
-        await ctx.updateDnrEntityBlockRules(updatedOptions);
+        await syncDnrRulesForOptions(ctx, updatedOptions, 'toggle-entity-block');
       }
 
       return { success: true, blocked: nextBlocked, ownerId };
@@ -64,15 +76,11 @@ export function createSettingsDomainHandlers(ctx) {
       const enabled = !options.enabled;
       ctx.setEnabled(enabled);
       await ctx.setOptions({ enabled });
-      ctx.refreshRuntimeOptions({ ...options, enabled });
+      const updatedOptions = { ...options, enabled };
+      ctx.refreshRuntimeOptions(updatedOptions);
 
       if (ctx.IS_CHROMIUM) {
-        const rulesetIds = getDnrRulesets();
-        if (enabled) {
-          await chrome.declarativeNetRequest.updateEnabledRulesets({ enableRulesetIds: rulesetIds });
-        } else {
-          await chrome.declarativeNetRequest.updateEnabledRulesets({ disableRulesetIds: rulesetIds });
-        }
+        await syncDnrRulesForOptions(ctx, updatedOptions, 'toggle-enabled');
       }
 
       return { enabled };
@@ -104,28 +112,19 @@ export function createSettingsDomainHandlers(ctx) {
         }
       }
 
-      await ctx.setOptions({
+      const updatedOptions = await ctx.setOptions({
         protectionLevel: level,
         antiFingerprint: preset.antiFingerprint,
         lists,
       });
-      ctx.refreshRuntimeOptions({
-        ...opts,
-        protectionLevel: level,
-        antiFingerprint: preset.antiFingerprint,
-        lists,
-      });
+      ctx.refreshRuntimeOptions(updatedOptions);
 
-      const assisted = ctx.shouldEnableTrackerDbAssisted({
-        ...opts,
-        protectionLevel: level,
-      });
+      const assisted = ctx.shouldEnableTrackerDbAssisted(updatedOptions);
       ctx.setTrackerDbAssistedEnabled(assisted);
 
       if (ctx.IS_CHROMIUM) {
         try {
-          await updateEnabledRulesetsFromFlags(preset.lists);
-          await ctx.applyTrackerDbDynamicRules(assisted);
+          await syncDnrRulesForOptions(ctx, updatedOptions, 'change-protection-level');
         } catch (e) {
           console.warn('[midori] Failed to update DNR rulesets:', e);
         }
@@ -133,12 +132,7 @@ export function createSettingsDomainHandlers(ctx) {
 
       if (!ctx.IS_CHROMIUM) {
         try {
-          await ctx.reloadFirefoxEngineForOptions({
-            ...opts,
-            protectionLevel: level,
-            antiFingerprint: preset.antiFingerprint,
-            lists,
-          }, 'change-protection-level');
+          await ctx.reloadFirefoxEngineForOptions(updatedOptions, 'change-protection-level');
         } catch (e) {
           console.warn('[midori] Failed to reload engine:', e);
         }
@@ -159,10 +153,7 @@ export function createSettingsDomainHandlers(ctx) {
 
       if (ctx.IS_CHROMIUM && config.lists) {
         try {
-          await updateEnabledRulesetsFromFlags(Object.fromEntries(
-            Object.entries(config.lists).map(([key, value]) => [key, value?.enabled])
-          ));
-          await ctx.applyTrackerDbDynamicRules(ctx.isTrackerDbAssistedEnabled());
+          await syncDnrRulesForOptions(ctx, nextOptions, 'save-setup');
         } catch (e) {
           console.warn('[midori] Failed to update DNR rulesets from setup:', e);
         }
@@ -184,7 +175,9 @@ export function createSettingsDomainHandlers(ctx) {
       const whitelist = { ...(opts.whitelist || {}), [msg.hostname]: true };
       await ctx.setOptions({ whitelist, pauseUntil: msg.pauseUntil, pausedHostname: msg.hostname });
       ctx.refreshRuntimeOptions({ ...opts, whitelist, pauseUntil: msg.pauseUntil, pausedHostname: msg.hostname });
-      if (ctx.IS_CHROMIUM) await ctx.updateDnrWhitelist();
+      if (ctx.IS_CHROMIUM) {
+        await syncDnrRulesForOptions(ctx, { ...opts, whitelist, pauseUntil: msg.pauseUntil, pausedHostname: msg.hostname }, 'pause-protection');
+      }
       const mins = msg.minutes || 5;
       chrome.alarms.create('resume-protection', { delayInMinutes: mins });
       return { success: true };
@@ -226,7 +219,9 @@ export function createSettingsDomainHandlers(ctx) {
       if (pausedHost && !msg.hostname) delete whitelist[pausedHost];
       await ctx.setOptions({ whitelist, pauseUntil: 0, pausedHostname: '' });
       ctx.refreshRuntimeOptions({ ...opts, whitelist, pauseUntil: 0, pausedHostname: '' });
-      if (ctx.IS_CHROMIUM) await ctx.updateDnrWhitelist();
+      if (ctx.IS_CHROMIUM) {
+        await syncDnrRulesForOptions(ctx, { ...opts, whitelist, pauseUntil: 0, pausedHostname: '' }, 'resume-protection');
+      }
       chrome.alarms.clear('resume-protection');
       return { success: true };
     },
@@ -248,9 +243,7 @@ export function createSettingsDomainHandlers(ctx) {
 
       if (ctx.IS_CHROMIUM) {
         try {
-          await updateEnabledRulesetsFromFlags(Object.fromEntries(
-            Object.entries(lists).map(([key, value]) => [key, value?.enabled])
-          ));
+          await syncDnrRulesForOptions(ctx, { ...opts, ...savePayload }, 'toggle-category');
         } catch (e) {
           console.warn('[midori] Failed to update DNR rulesets:', e);
         }
@@ -275,15 +268,21 @@ export function createSettingsDomainHandlers(ctx) {
         if (Object.prototype.hasOwnProperty.call(msg.options, 'localTelemetry')) {
           ctx.telemetry.applyRawState(msg.options.localTelemetry);
         }
-        if (
+        const affectsDnr = (
+          msg.options.enabled !== undefined ||
+          msg.options.lists !== undefined ||
+          msg.options.whitelist !== undefined ||
+          msg.options.popupAllowlist !== undefined ||
+          msg.options.blockedEntities !== undefined ||
           msg.options.experiments?.trackerDbAssisted !== undefined ||
           msg.options.protectionLevel !== undefined ||
           msg.options.trackerDbEnabled !== undefined
-        ) {
+        );
+        if (affectsDnr) {
           ctx.setTrackerDbAssistedEnabled(ctx.shouldEnableTrackerDbAssisted(updatedOptions));
           if (ctx.IS_CHROMIUM) {
-            await ctx.applyTrackerDbDynamicRules(ctx.isTrackerDbAssistedEnabled()).catch((e) =>
-              console.warn('[midori] applyTrackerDbDynamicRules:', e)
+            await syncDnrRulesForOptions(ctx, updatedOptions, 'save-options-partial').catch((e) =>
+              console.warn('[midori] syncChromiumDnrForOptions:', e)
             );
           }
         }

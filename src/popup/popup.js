@@ -958,6 +958,15 @@ function inferFalsePositiveCategory() {
   return 'unknown';
 }
 
+async function reloadCurrentTab() {
+  if (!currentTabId) return;
+  try {
+    await api.tabs.reload(currentTabId);
+  } catch (err) {
+    // Ignore reload failures (tab closed/navigated)
+  }
+}
+
 async function pauseProtection(minutes) {
   if (!currentHostname) return;
   pauseEndTime = Date.now() + minutes * 60000;
@@ -973,6 +982,7 @@ async function pauseProtection(minutes) {
   isWhitelisted = true;
   updateStatusUI();
   startPauseCountdown();
+  await reloadCurrentTab();
 }
 
 async function resumeProtection() {
@@ -987,6 +997,7 @@ async function resumeProtection() {
   isWhitelisted = false;
   updateStatusUI();
   updatePauseUI();
+  await reloadCurrentTab();
 }
 
 // ── Event Listeners ─────────────────────────────────────────────────────────
@@ -1004,13 +1015,7 @@ function setupListeners() {
     isWhitelisted = result?.whitelisted || false;
     updateStatusUI();
 
-    if (currentTabId) {
-      try {
-        await api.tabs.reload(currentTabId);
-      } catch (err) {
-        // Ignore reload failures (tab closed/navigated)
-      }
-    }
+    await reloadCurrentTab();
   });
 
   // Protection level buttons

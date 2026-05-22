@@ -57,6 +57,18 @@ export const FIRST_PARTY_CDN_MAP = {
   'ytimg.com': ['youtube.com', 'youtu.be'],
   'googlevideo.com': ['youtube.com', 'youtu.be'],
   'ggpht.com': ['youtube.com', 'youtu.be'],
+  'vk.com': ['vkvideo.ru', 'vk.ru'],
+  'vk.ru': ['vkvideo.ru', 'vk.com'],
+  'userapi.com': ['vkvideo.ru', 'vk.com', 'vk.ru'],
+  'vkuseraudio.net': ['vkvideo.ru', 'vk.com', 'vk.ru'],
+  'vkuserlive.net': ['vkvideo.ru', 'vk.com', 'vk.ru'],
+  'vkcdnservice.com': ['vkvideo.ru', 'vk.com', 'vk.ru'],
+  'vk-cdn.net': ['vkvideo.ru', 'vk.com', 'vk.ru'],
+  'vk-cdn.me': ['vkvideo.ru', 'vk.com', 'vk.ru'],
+  'vkuser.net': ['vkvideo.ru', 'vk.com', 'vk.ru'],
+  'mycdn.me': ['vkvideo.ru', 'vk.com', 'vk.ru'],
+  'vk-portal.net': ['vkvideo.ru', 'vk.com', 'vk.ru'],
+  'vkanalytics.net': ['vkvideo.ru', 'vk.com', 'vk.ru'],
   'ttwstatic.com': ['twitch.tv'],
   'jtvnw.net': ['twitch.tv'],
   'ttvnw.net': ['twitch.tv'],
@@ -386,6 +398,7 @@ const AI_HOST_PATTERNS = [
 const VIDEO_HOST_PATTERNS = [
   'youtube.com', 'youtu.be', 'youtube-nocookie.com', 'ytimg.com',
   'googlevideo.com', 'vimeo.com', 'dailymotion.com', 'twitch.tv', 'kick.com',
+  'vkvideo.ru', 'vk.com', 'vk.ru',
   'netflix.com', 'primevideo.com', 'hulu.com', 'max.com', 'disneyplus.com',
 ];
 
@@ -402,6 +415,18 @@ const VIDEO_STRICT_ALLOWLIST = [
   'ytimg.com',
   'i.ytimg.com',
   'youtube-nocookie.com',
+  'vkvideo.ru',
+  'vk.com',
+  'vk.ru',
+  'userapi.com',
+  'vkuseraudio.net',
+  'vkuserlive.net',
+  'vkcdnservice.com',
+  'vk-cdn.net',
+  'vk-cdn.me',
+  'vkuser.net',
+  'mycdn.me',
+  'vk-portal.net',
   'vimeocdn.com',
   'ttvnw.net',
   'hls.ttvnw.net',
@@ -920,9 +945,9 @@ export function evaluateRequestPolicy({
     blockedEntities[requestOwnerId] === true
   );
 
+  const inferredPageVertical = inferSiteVertical(pageHostname);
   const videoStrictGuardrail = (
-    siteContext.vertical === VERTICALS.VIDEO &&
-    siteContext.profile?.popupDefense === 'strict' &&
+    inferredPageVertical === VERTICALS.VIDEO &&
     isVideoStrictAllowlistedHost(requestDomain)
   );
 

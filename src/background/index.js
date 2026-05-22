@@ -5,7 +5,7 @@
  * License: MPL-2.0
  */
 
-import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock, applyPhaseCSafeDefaults, applyV223Cleanup } from './storage.js';
+import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock, applyPhaseCSafeDefaults, applyV223Cleanup, applyV226StabilityDefaults } from './storage.js';
 import { extractDomain, categorizeRequest } from './filter-utils.js';
 import { GhosteryEngine, wipeEngineCache } from './ghostery-engine.js';
 import { downloadAllListsWithStatus } from './lists-manager.js';
@@ -50,6 +50,28 @@ import {
   recordUrlCleanerRemoval,
 } from './local-reputation.js';
 
+const CHROMIUM_STATIC_RULESET_IDS = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
+const VK_DEBUG_SITE_HOSTS = ['vkvideo.ru', 'vk.com', 'vk.ru'];
+const VK_DEBUG_REQUEST_HOSTS = ['vk.com', 'vk.ru', 'ms.vk.com', 'ms.vk.ru', 'login.vk.com', 'vkanalytics.net', 'userapi.com'];
+const FIREFOX_NETWORK_RESCUE_BYPASS_HOSTS = ['vkvideo.ru', 'vk.com', 'vk.ru'];
+
+function hostMatchesAny(hostname, patterns) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host) return false;
+  return patterns.some(pattern => host === pattern || host.endsWith(`.${pattern}`));
+}
+
+function shouldLogVkDecision(pageHostname, requestHostname, url, shouldBlock) {
+  if (!hostMatchesAny(pageHostname, VK_DEBUG_SITE_HOSTS)) return false;
+  if (hostMatchesAny(requestHostname, VK_DEBUG_REQUEST_HOSTS)) return true;
+  if (typeof url === 'string' && url.includes('act=get_anon_token')) return true;
+  return !!shouldBlock;
+}
+
+function shouldBypassFirefoxNetworkForHost(hostname) {
+  return hostMatchesAny(hostname, FIREFOX_NETWORK_RESCUE_BYPASS_HOSTS);
+}
+
 // ── Single engine: Ghostery (primary and only runtime engine) ──
 const ghosteryEngine = new GhosteryEngine();
 let engine = ghosteryEngine;
@@ -77,11 +99,12 @@ function isHostnameWhitelisted(hostname, whitelist = whitelistCache) {
   const host = String(hostname || '').toLowerCase();
   if (!host || !whitelist || typeof whitelist !== 'object') return false;
   if (whitelist[host]) return true;
+  if (whitelist[`*.${host}`]) return true;
 
   const parts = host.split('.');
   for (let i = 1; i < parts.length - 1; i++) {
     const parent = parts.slice(i).join('.');
-    if (whitelist[parent]) return true;
+    if (whitelist[parent] || whitelist[`*.${parent}`]) return true;
   }
 
   return false;
@@ -447,7 +470,7 @@ const PROTECTION_LEVELS = {
       trackerDbAssisted: false,
     lists: {
       'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
-      'ublock-privacy': true, 'peter-lowe': true, 'ublock-quick-fixes': true,
+      'ublock-privacy': true, 'peter-lowe': false, 'ublock-quick-fixes': true,
       'ublock-unbreak': true,
       'ublock-annoyances-cookies': false, 'ublock-annoyances-others': false,
       'fanboy-social': false, 'fanboy-annoyance': false,
@@ -463,8 +486,8 @@ const PROTECTION_LEVELS = {
       trackerDbAssisted: false,
     lists: {
       'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
-      'ublock-privacy': true, 'peter-lowe': true, 'ublock-quick-fixes': true,
-      'ublock-unbreak': true, 'ublock-annoyances-cookies': true, 'fanboy-social': true,
+      'ublock-privacy': true, 'peter-lowe': false, 'ublock-quick-fixes': true,
+      'ublock-unbreak': true, 'ublock-annoyances-cookies': false, 'fanboy-social': false,
       'ublock-annoyances-others': false, 'fanboy-annoyance': false,
       'adguard-base': false, 'adguard-tracking': false, 'adguard-social': false,
       'adguard-annoyances': false, 'adguard-mobile': false,
@@ -530,6 +553,7 @@ const orchestrator = createBackgroundOrchestrator({
   applyFirstPartyCdnAllowRules,
   installDnrUrlCleanerRule,
   installPopunderDnrRules,
+  syncChromiumDnrForOptions,
   isTrackerDbAssistedEnabled: () => isTrackerDbAssistedEnabled,
 });
 
@@ -594,12 +618,31 @@ function setupWebRequestBlocking() {
       if (details.type === 'main_frame') return WR_PASS;
 
       const tab = getTab(details.tabId) || ensureTab(details.tabId);
-      const pageHostname = tab.hostname || '';
+      const contextHostname = extractDomain(
+        details.documentUrl || details.originUrl || details.initiator || ''
+      );
+      const pageHostname = tab.hostname || contextHostname || extractDomain(tab.url || '');
+
+      // Firefox can dispatch early subresource requests before tab.hostname is
+      // fully initialized. Without a page context, policy evaluation becomes
+      // overly aggressive (no first-party relaxation). Prefer fail-open here
+      // to avoid whole-site breakage.
+      if (!pageHostname) {
+        return WR_PASS;
+      }
+      if (!tab.hostname) tab.hostname = pageHostname;
+
+      // Emergency compatibility bypass for known high-breakage hosts on
+      // Firefox MV2 webRequest path. We keep cosmetic/scriptlet defenses,
+      // but skip network cancel decisions to guarantee page load.
+      if (shouldBypassFirefoxNetworkForHost(pageHostname)) {
+        return WR_PASS;
+      }
 
       if (pageHostname && isWhitelistedSync(pageHostname)) return WR_PASS;
 
       const requestHostname = extractDomain(url);
-      if (requestHostname && isConfirmedPopunderDomain(requestHostname) && !isPopupAllowedForHost(pageHostname)) {
+      if (requestHostname && isConfirmedPopunderDomain(requestHostname) && pageHostname && !isPopupAllowedForHost(pageHostname)) {
         recordBlock(details.tabId, url, {
           category: 'popups',
           reason: 'popunder-network',
@@ -628,6 +671,19 @@ function setupWebRequestBlocking() {
         engine,
       });
       const matchElapsed = performance.now() - tMatchStart;
+
+      if (shouldLogVkDecision(pageHostname, requestHostname, url, policy.shouldBlock)) {
+        console.log('[midori][vk-debug]', {
+          pageHostname,
+          requestHostname,
+          type: details.type,
+          shouldBlock: policy.shouldBlock,
+          reason: policy.reason,
+          category: policy.category,
+          sources: policy.sources,
+          url,
+        });
+      }
 
       if (policy.shouldBlock) {
         recordBlock(details.tabId, url, {
@@ -1188,6 +1244,7 @@ const dispatchMessage = createMessageDispatcher({
   recordIaShieldRiskEvent,
   toggleWhitelist,
   updateDnrWhitelist,
+  syncChromiumDnrForOptions,
   getBlockedEntitiesMap,
   updateDnrEntityBlockRules,
   setEnabled: (enabled) => {
@@ -1232,8 +1289,15 @@ async function updateDnrWhitelist() {
   if (!IS_CHROMIUM) return;
 
   const options = await getOptions();
+  if (options.enabled === false) {
+    await clearMidoriSessionDnrRules();
+    return;
+  }
   const whitelist = options.whitelist || {};
-  const domains = Object.keys(whitelist).filter(d => whitelist[d]);
+  const domains = [...new Set(Object.keys(whitelist)
+    .filter(d => whitelist[d])
+    .map(d => String(d || '').toLowerCase().replace(/^\*\./, ''))
+    .filter(Boolean))];
 
   const existingRules = await chrome.declarativeNetRequest.getSessionRules();
   const removeIds = existingRules
@@ -1259,6 +1323,63 @@ async function updateDnrWhitelist() {
   });
 }
 
+async function clearMidoriSessionDnrRules() {
+  if (!IS_CHROMIUM) return;
+  const existingRules = await chrome.declarativeNetRequest.getSessionRules();
+  const removeRuleIds = existingRules
+    .filter((rule) => (
+      (rule.id >= 900000 && rule.id < 930000) ||
+      (rule.id >= 950000 && rule.id < 970000)
+    ))
+    .map((rule) => rule.id);
+
+  if (removeRuleIds.length > 0) {
+    await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds });
+  }
+}
+
+async function updateStaticRulesetsForOptions(options) {
+  if (!IS_CHROMIUM) return;
+  if (options?.enabled === false) {
+    await chrome.declarativeNetRequest.updateEnabledRulesets({
+      disableRulesetIds: CHROMIUM_STATIC_RULESET_IDS,
+    });
+    return;
+  }
+
+  const lists = options?.lists || {};
+  const enableRulesetIds = [];
+  const disableRulesetIds = [];
+  for (const id of CHROMIUM_STATIC_RULESET_IDS) {
+    if (lists[id]?.enabled !== false) enableRulesetIds.push(id);
+    else disableRulesetIds.push(id);
+  }
+  await chrome.declarativeNetRequest.updateEnabledRulesets({
+    enableRulesetIds,
+    disableRulesetIds,
+  });
+}
+
+async function syncChromiumDnrForOptions(options, reason = 'runtime') {
+  if (!IS_CHROMIUM) return;
+
+  await updateStaticRulesetsForOptions(options);
+
+  if (options?.enabled === false) {
+    await clearMidoriSessionDnrRules();
+    await applyTrackerDbDynamicRules(false);
+    console.log(`[midori] Chromium DNR fully disabled (${reason})`);
+    return;
+  }
+
+  await updateDnrWhitelist();
+  await applyTrackerDbDynamicRules(shouldEnableTrackerDbAssisted(options));
+  await updateDnrEntityBlockRules(options);
+  await applyFirstPartyCdnAllowRules();
+  await installDnrUrlCleanerRule();
+  await installPopunderDnrRules();
+}
+
 // ── Chromium: URL cleaner via dynamic DNR ───────────────────────────────────
 // Ghostery-style: strips known tracking query parameters from main_frame /
 // sub_frame navigations using a single redirect rule with queryTransform.
@@ -1267,10 +1388,17 @@ async function installDnrUrlCleanerRule() {
   if (!IS_CHROMIUM) return;
   const CLEANER_RULE_ID = 950001;
   try {
+    const options = await getOptions();
     const existing = await chrome.declarativeNetRequest.getSessionRules();
     const removeIds = existing
       .filter(r => r.id >= 950000 && r.id < 950100)
       .map(r => r.id);
+    if (options.enabled === false) {
+      if (removeIds.length > 0) {
+        await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: removeIds });
+      }
+      return;
+    }
     await chrome.declarativeNetRequest.updateSessionRules({
       removeRuleIds: removeIds,
       addRules: buildCleanerDnrRules(CLEANER_RULE_ID),
@@ -1287,6 +1415,16 @@ async function installPopunderDnrRules() {
   if (!IS_CHROMIUM) return;
   try {
     const options = await getOptions();
+    if (options.enabled === false) {
+      const existing = await chrome.declarativeNetRequest.getSessionRules();
+      const removeRuleIds = existing
+        .filter(r => r.id >= 960000 && r.id < 960300)
+        .map(r => r.id);
+      if (removeRuleIds.length > 0) {
+        await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds });
+      }
+      return;
+    }
     const now = Date.now();
     const popupAllowlist = options.popupAllowlist || {};
     const allowedInitiators = Object.entries(popupAllowlist)
@@ -1348,10 +1486,17 @@ async function applyFirstPartyCdnAllowRules() {
   if (!IS_CHROMIUM) return;
 
   try {
+    const options = await getOptions();
     const existingRules = await chrome.declarativeNetRequest.getSessionRules();
     const removeIds = existingRules
       .filter(r => r.id >= 920000 && r.id < 930000)
       .map(r => r.id);
+    if (options.enabled === false) {
+      if (removeIds.length > 0) {
+        await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: removeIds });
+      }
+      return;
+    }
 
     const addRules = [];
     let nextId = 920000;
@@ -1473,6 +1618,16 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     } catch (e) {
       console.warn('[midori] v2.2.3 cleanup failed:', e);
     }
+
+    // v2.2.6 (2026-05-21): reduce high-breakage defaults on existing installs.
+    try {
+      const stability = await applyV226StabilityDefaults();
+      if (stability.applied && stability.changed.length > 0) {
+        console.log('[midori] v2.2.6 stability defaults applied:', stability.changed.join(', '));
+      }
+    } catch (e) {
+      console.warn('[midori] v2.2.6 stability migration failed:', e);
+    }
   }
 });
 
@@ -1514,4 +1669,14 @@ if (chrome.runtime?.onSuspend) {
 
 loadLocalReputation()
   .catch((e) => console.warn('[midori] Local reputation startup failed:', e))
+  .then(async () => {
+    try {
+      const stability = await applyV226StabilityDefaults();
+      if (stability.applied && stability.changed.length > 0) {
+        console.log('[midori] v2.2.6 stability defaults applied on startup:', stability.changed.join(', '));
+      }
+    } catch (e) {
+      console.warn('[midori] Startup stability migration failed:', e);
+    }
+  })
   .finally(() => initialize());

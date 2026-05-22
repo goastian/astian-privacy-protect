@@ -20,10 +20,11 @@ function isHostnameInWhitelist(hostname, whitelist) {
   const host = String(hostname || '').toLowerCase();
   if (!host || !whitelist || typeof whitelist !== 'object') return false;
   if (whitelist[host]) return true;
+  if (whitelist[`*.${host}`]) return true;
   const parts = host.split('.');
   for (let i = 1; i < parts.length - 1; i++) {
     const parent = parts.slice(i).join('.');
-    if (whitelist[parent]) return true;
+    if (whitelist[parent] || whitelist[`*.${parent}`]) return true;
   }
   return false;
 }

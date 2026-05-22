@@ -1425,10 +1425,73 @@
         } catch(e) {}
       }
 
+      function isElementVisible(el) {
+        if (!el || !el.isConnected) return false;
+        try {
+          var style = getComputedStyle(el);
+          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+          var rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        } catch(e) {
+          return false;
+        }
+      }
+
+      function hasOpenNonEnforcementDialog() {
+        var dialogs = document.querySelectorAll([
+          'tp-yt-paper-dialog[opened]',
+          'tp-yt-paper-dialog[aria-hidden="false"]',
+          'ytd-popup-container tp-yt-paper-dialog',
+          'ytd-modal-with-title-and-button-renderer',
+          'ytd-confirm-dialog-renderer',
+          'ytd-unified-share-panel-renderer'
+        ].join(','));
+
+        for (var i = 0; i < dialogs.length; i++) {
+          var dialog = dialogs[i];
+          if (!isElementVisible(dialog)) continue;
+          if (dialog.querySelector('ytd-enforcement-message-view-model, .yt-about-this-ad-renderer')) continue;
+          return true;
+        }
+        return false;
+      }
+
+      function clearStaleScrollLock() {
+        if (hasOpenNonEnforcementDialog()) return;
+
+        var nodes = [
+          document.documentElement,
+          document.body,
+          document.querySelector('ytd-app'),
+          document.querySelector('ytd-page-manager')
+        ];
+
+        for (var i = 0; i < nodes.length; i++) {
+          var node = nodes[i];
+          if (!node || !node.style) continue;
+          try {
+            if (node.style.overflow === 'hidden') node.style.overflow = '';
+            if (node.style.overflowY === 'hidden') node.style.overflowY = '';
+            if (node.style.position === 'fixed' && (node === document.body || node === document.documentElement)) {
+              node.style.position = '';
+              node.style.top = '';
+              node.style.width = '';
+            }
+            if (node.classList) {
+              node.classList.remove('iron-overlay-no-scroll', 'no-scroll', 'scroll-disabled');
+            }
+          } catch(e) {}
+        }
+      }
+
       // ── ENFORCEMENT MODAL REMOVAL ──
       function removeEnforcement() {
+        var removed = false;
         var els = document.querySelectorAll('ytd-enforcement-message-view-model');
-        for (var i = 0; i < els.length; i++) els[i].remove();
+        for (var i = 0; i < els.length; i++) {
+          els[i].remove();
+          removed = true;
+        }
 
         // Compatibility hardening: only remove dialogs that explicitly contain
         // enforcement/ad-info components. Text-based sweeping was too broad
@@ -1437,10 +1500,17 @@
           'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model), ' +
           'tp-yt-paper-dialog:has(.yt-about-this-ad-renderer)'
         );
-        for (var d = 0; d < dialogs.length; d++) dialogs[d].remove();
+        for (var d = 0; d < dialogs.length; d++) {
+          dialogs[d].remove();
+          removed = true;
+        }
 
-        var bds = document.querySelectorAll('tp-yt-iron-overlay-backdrop[opened]');
-        for (var b = 0; b < bds.length; b++) bds[b].style.display = 'none';
+        if (removed) {
+          var bds = document.querySelectorAll('tp-yt-iron-overlay-backdrop[opened]');
+          for (var b = 0; b < bds.length; b++) bds[b].style.display = 'none';
+          clearStaleScrollLock();
+          setTimeout(clearStaleScrollLock, 50);
+        }
 
         // NOTE: Do NOT auto-play here — this observer fires on every DOM
         // mutation and would override the user's manual pause.

@@ -25,6 +25,7 @@ export function createBackgroundOrchestrator({
   applyFirstPartyCdnAllowRules,
   installDnrUrlCleanerRule,
   installPopunderDnrRules,
+  syncChromiumDnrForOptions,
   isTrackerDbAssistedEnabled,
 }) {
   async function loadEngine(lists) {
@@ -180,29 +181,35 @@ export function createBackgroundOrchestrator({
 
     try {
       const trackerDbCached = await loadTrackerDbFromCache();
-      if (trackerDbCached && isChromium && isTrackerDbAssistedEnabled()) {
+      if (trackerDbCached && isChromium && options.enabled !== false && isTrackerDbAssistedEnabled()) {
         applyTrackerDbDynamicRules(true).catch((e) =>
           console.warn('[midori] TrackerDB dynamic rules (startup):', e)
         );
       }
       if (isChromium) {
-        updateDnrEntityBlockRules(options).catch((e) =>
-          console.warn('[midori] Entity session rules (startup):', e)
-        );
-        if (typeof applyFirstPartyCdnAllowRules === 'function') {
-          applyFirstPartyCdnAllowRules().catch((e) =>
-            console.warn('[midori] First-party CDN allow rules (startup):', e)
+        if (typeof syncChromiumDnrForOptions === 'function') {
+          syncChromiumDnrForOptions(options, 'startup').catch((e) =>
+            console.warn('[midori] Chromium DNR sync (startup):', e)
           );
-        }
-        if (typeof installDnrUrlCleanerRule === 'function') {
-          installDnrUrlCleanerRule().catch((e) =>
-            console.warn('[midori] URL cleaner DNR rule (startup):', e)
+        } else {
+          updateDnrEntityBlockRules(options).catch((e) =>
+            console.warn('[midori] Entity session rules (startup):', e)
           );
-        }
-        if (typeof installPopunderDnrRules === 'function') {
-          installPopunderDnrRules().catch((e) =>
-            console.warn('[midori] Popunder DNR rules (startup):', e)
-          );
+          if (typeof applyFirstPartyCdnAllowRules === 'function') {
+            applyFirstPartyCdnAllowRules().catch((e) =>
+              console.warn('[midori] First-party CDN allow rules (startup):', e)
+            );
+          }
+          if (typeof installDnrUrlCleanerRule === 'function') {
+            installDnrUrlCleanerRule().catch((e) =>
+              console.warn('[midori] URL cleaner DNR rule (startup):', e)
+            );
+          }
+          if (typeof installPopunderDnrRules === 'function') {
+            installPopunderDnrRules().catch((e) =>
+              console.warn('[midori] Popunder DNR rules (startup):', e)
+            );
+          }
         }
       }
       scheduleTrackerDbUpdates(options.trackerDbUpdateIntervalHours || 24);

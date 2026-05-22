@@ -91,7 +91,7 @@ const DEFAULTS = {
     'ublock-filters': { enabled: true, url: 'https://ublockorigin.github.io/uAssets/filters/filters.txt' },
     'ublock-privacy': { enabled: true, url: 'https://ublockorigin.github.io/uAssets/filters/privacy.txt' },
     'ublock-unbreak': { enabled: true, url: 'https://ublockorigin.github.io/uAssets/filters/unbreak.txt' },
-    'peter-lowe': { enabled: true, url: 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext' },
+    'peter-lowe': { enabled: false, url: 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext' },
     // ── Annoyances ──
     'ublock-annoyances-cookies': { enabled: false, url: 'https://ublockorigin.github.io/uAssets/filters/annoyances-cookies.txt' },
     'ublock-annoyances-others': { enabled: false, url: 'https://ublockorigin.github.io/uAssets/filters/annoyances-others.txt' },
@@ -336,7 +336,15 @@ export async function getWhitelist() {
 
 export async function isWhitelisted(hostname) {
   const whitelist = await getWhitelist();
-  return !!whitelist[hostname];
+  const host = String(hostname || '').toLowerCase();
+  if (!host) return false;
+  if (whitelist[host] || whitelist[`*.${host}`]) return true;
+  const parts = host.split('.');
+  for (let i = 1; i < parts.length - 1; i++) {
+    const parent = parts.slice(i).join('.');
+    if (whitelist[parent] || whitelist[`*.${parent}`]) return true;
+  }
+  return false;
 }
 
 export async function toggleWhitelist(hostname) {
@@ -535,6 +543,47 @@ export async function applyV223Cleanup() {
   });
 
   return { applied: true, listRemoved, cacheCleaned };
+}
+
+// ── v2.2.6 stability cleanup (2026-05-21) ──────────────────────────────────
+// Existing installs may carry aggressive list toggles that were too brittle
+// for general browsing in Firefox (and some Chromium setups). On update,
+// gently move basic/standard users back to safer defaults.
+const V226_STABILITY_MIGRATION_FLAG = 'v226StabilityDefaultsApplied';
+
+export async function applyV226StabilityDefaults() {
+  const data = await storageLocal.get('options');
+  const opts = data?.options || {};
+  if (opts[V226_STABILITY_MIGRATION_FLAG]) {
+    return { applied: false, changed: [] };
+  }
+
+  const lists = { ...(opts.lists || {}) };
+  const changed = [];
+  const level = String(opts.protectionLevel || 'standard');
+
+  if (lists['peter-lowe']?.enabled === true) {
+    lists['peter-lowe'] = { ...lists['peter-lowe'], enabled: false };
+    changed.push('peter-lowe');
+  }
+
+  if (level === 'standard' || level === 'basic') {
+    if (lists['ublock-annoyances-cookies']?.enabled === true) {
+      lists['ublock-annoyances-cookies'] = { ...lists['ublock-annoyances-cookies'], enabled: false };
+      changed.push('ublock-annoyances-cookies');
+    }
+    if (lists['fanboy-social']?.enabled === true) {
+      lists['fanboy-social'] = { ...lists['fanboy-social'], enabled: false };
+      changed.push('fanboy-social');
+    }
+  }
+
+  await setOptions({
+    lists,
+    [V226_STABILITY_MIGRATION_FLAG]: true,
+  });
+
+  return { applied: true, changed };
 }
 
 export { DEFAULTS, storageLocal };

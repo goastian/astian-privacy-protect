@@ -15,6 +15,7 @@ const TRACKERDB_SAFE_INITIATORS = [
   'docs.google.com', 'calendar.google.com', 'accounts.google.com',
   'outlook.com', 'live.com', 'office.com', 'office365.com', 'sharepoint.com',
   'youtube.com', 'youtu.be', 'twitch.tv', 'reddit.com',
+  'vkvideo.ru', 'vk.com', 'vk.ru',
 ];
 
 export function createTrackerDbDnrController({ isChromium, protectionLevels, getEffectiveRolloutFlags }) {

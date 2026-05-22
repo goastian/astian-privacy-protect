@@ -154,7 +154,7 @@ const TAXONOMY_URL_PATTERNS = {
   'redirect-tracker': ['branch.', 'app.link', 'redirect=', 'redir=', 'out?', 'r?u=', '/away.php?', '/out.php?', '/go.php?', 'url='],
 };
 
-const VIDEO_CONTEXT_PATTERNS = ['youtube.com', 'youtu.be', 'googlevideo.com', 'ytimg.com', 'vimeo.com', 'dailymotion.com', 'twitch.tv'];
+const VIDEO_CONTEXT_PATTERNS = ['youtube.com', 'youtu.be', 'googlevideo.com', 'ytimg.com', 'vimeo.com', 'dailymotion.com', 'twitch.tv', 'vkvideo.ru', 'vk.com', 'vk.ru'];
 const ADULT_CONTEXT_PATTERNS = ['pornhub.com', 'redtube.com', 'youporn.com', 'xnxx.com', 'xvideos.com', 'xhamster.com', 'spankbang.com'];
 const ADULT_CONTEXT_CLONES = ['porntrex.com', 'thumbzilla.com', 'beeg.com', 'sunporno.com', 'drtuber.com', 'sexvid.xxx'];
 const AI_CONTEXT_PATTERNS = ['openai.com', 'chatgpt.com', 'claude.ai', 'anthropic.com', 'perplexity.ai', 'copilot.microsoft.com', 'gemini.google.com'];
