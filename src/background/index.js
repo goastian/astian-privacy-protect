@@ -5,7 +5,7 @@
  * License: MPL-2.0
  */
 
-import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock, applyPhaseCSafeDefaults, applyV223Cleanup, applyV226StabilityDefaults } from './storage.js';
+import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock, applyPhaseCSafeDefaults, applyV223Cleanup, applyV226StabilityDefaults, applyV227AdblockerUpgrade } from './storage.js';
 import { extractDomain, categorizeRequest } from './filter-utils.js';
 import { GhosteryEngine, wipeEngineCache } from './ghostery-engine.js';
 import { downloadAllListsWithStatus } from './lists-manager.js';
@@ -1627,6 +1627,20 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       }
     } catch (e) {
       console.warn('[midori] v2.2.6 stability migration failed:', e);
+    }
+
+    // v2.2.7 (2026-05-25): @ghostery/adblocker 2.14.1 -> 2.17.3 upgrade.
+    // Drops stale engine snapshots so users immediately get the
+    // 2.14.4 engine-size-mismatch fix, correct $removeparam merging
+    // and the new binary-merge / slicing-by-8 hashing perf gains.
+    try {
+      const upgrade = await applyV227AdblockerUpgrade();
+      if (upgrade.applied) {
+        console.log('[midori] v2.2.7 adblocker upgrade migration applied');
+        await wipeEngineCache();
+      }
+    } catch (e) {
+      console.warn('[midori] v2.2.7 adblocker upgrade migration failed:', e);
     }
   }
 });

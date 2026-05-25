@@ -586,4 +586,22 @@ export async function applyV226StabilityDefaults() {
   return { applied: true, changed };
 }
 
+// ── v2.2.7 adblocker upgrade (2026-05-25) ──────────────────────────────────
+// Bumps a flag so callers can run the one-shot Ghostery cache wipe after the
+// @ghostery/adblocker 2.14.1 -> 2.17.3 upgrade. The engine IndexedDB key was
+// also versioned (`ghostery-engine-v1` -> `ghostery-engine-v2-217`), so the
+// stale snapshot is ignored on first launch even if this migration races
+// with the engine restore.
+const V227_ADBLOCKER_UPGRADE_FLAG = 'v227AdblockerUpgradeApplied';
+
+export async function applyV227AdblockerUpgrade() {
+  const data = await storageLocal.get('options');
+  const opts = data?.options || {};
+  if (opts[V227_ADBLOCKER_UPGRADE_FLAG]) {
+    return { applied: false };
+  }
+  await setOptions({ [V227_ADBLOCKER_UPGRADE_FLAG]: true });
+  return { applied: true };
+}
+
 export { DEFAULTS, storageLocal };

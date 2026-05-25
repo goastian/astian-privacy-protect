@@ -9,7 +9,7 @@ import {
   loadTrackerDbFromCache,
   scheduleTrackerDbUpdates,
 } from './trackerdb.js';
-import { applyV223Cleanup } from './storage.js';
+import { applyV223Cleanup, applyV227AdblockerUpgrade } from './storage.js';
 import { wipeEngineCache } from './ghostery-engine.js';
 
 export function createBackgroundOrchestrator({
@@ -108,6 +108,20 @@ export function createBackgroundOrchestrator({
       }
     } catch (e) {
       console.warn('[midori] v2.2.3 cleanup at startup failed:', e);
+    }
+
+    // v2.2.7 (2026-05-25): @ghostery/adblocker 2.14.1 -> 2.17.3 upgrade.
+    // The engine cache key was bumped, so stale snapshots are ignored
+    // automatically; this also drops legacy v1 IDB entries so users do not
+    // carry two snapshots side by side after the upgrade.
+    try {
+      const upgrade = await applyV227AdblockerUpgrade();
+      if (upgrade.applied) {
+        console.log('[midori] v2.2.7 adblocker upgrade migration applied');
+        await wipeEngineCache();
+      }
+    } catch (e) {
+      console.warn('[midori] v2.2.7 adblocker upgrade migration failed:', e);
     }
 
     const options = await getOptions();

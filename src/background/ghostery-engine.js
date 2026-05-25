@@ -20,10 +20,30 @@ import { extractDomain, categorizeRequest } from './filter-utils.js';
 
 const IDB_NAME = 'midori-privacy';
 const IDB_STORE = 'engine-cache';
-const IDB_KEY = 'ghostery-engine-v1';
-const IDB_PROFILE_PREFIX = 'ghostery-engine-profile:';
-const IDB_PROFILE_INDEX_KEY = 'ghostery-engine-profile-index';
+// v2-217: cache key bumped on @ghostery/adblocker 2.14.1 -> 2.17.3 upgrade so
+// users automatically rebuild a clean snapshot with the engine-size-mismatch
+// fix (2.14.4), case-sensitive filter id fix (2.14.3), correct $removeparam
+// merging (2.14.2), procedural-regex hardening (2.14.5) and the new binary
+// merge / slicing-by-8 hashing optimizations (2.16.0 / 2.17.0). Stale
+// snapshots from 2.14.1 are silently discarded by the new key.
+const IDB_KEY = 'ghostery-engine-v2-217';
+const IDB_PROFILE_PREFIX = 'ghostery-engine-profile-v2-217:';
+const IDB_PROFILE_INDEX_KEY = 'ghostery-engine-profile-index-v2-217';
+const LEGACY_IDB_KEYS = ['ghostery-engine-v1'];
+const LEGACY_PROFILE_PREFIXES = ['ghostery-engine-profile:'];
+const LEGACY_PROFILE_INDEX_KEYS = ['ghostery-engine-profile-index'];
 const MAX_PROFILE_SNAPSHOTS = 8;
+
+// Shared parse options used for every list and for the merged engine. Keeping
+// these identical is required by `FiltersEngine.merge({ useBinaryMerge: true })`,
+// which concatenates serialized buckets across engines built with the same
+// configuration.
+const ENGINE_PARSE_OPTIONS = Object.freeze({
+  enableCompression: false,
+  enableOptimizations: true,
+  loadCosmeticFilters: true,
+  loadNetworkFilters: true,
+});
 
 // Optimization 8.5: LRU cache for matching results
 class LRUCache {
@@ -70,11 +90,40 @@ export async function wipeEngineCache() {
       }
     }
     await idbDelete(IDB_PROFILE_INDEX_KEY);
+    await purgeLegacyEngineCache();
     matchResultCache.clear();
     console.log('[ghostery-engine] Cache wiped (main + profile snapshots)');
   } catch (e) {
     console.warn('[ghostery-engine] wipeEngineCache failed:', e);
   }
+}
+
+/**
+ * Best-effort cleanup of pre-2.17.3 engine snapshots. Old keys can otherwise
+ * grow IndexedDB usage indefinitely after the version bump.
+ */
+async function purgeLegacyEngineCache() {
+  for (const key of LEGACY_IDB_KEYS) {
+    try { await idbDelete(key); } catch { /* ignore */ }
+  }
+  for (const legacyIndexKey of LEGACY_PROFILE_INDEX_KEYS) {
+    try {
+      const legacyIndex = await idbGet(legacyIndexKey);
+      if (Array.isArray(legacyIndex)) {
+        for (const entry of legacyIndex) {
+          if (entry?.key) {
+            try { await idbDelete(entry.key); } catch { /* ignore */ }
+          }
+        }
+      }
+      await idbDelete(legacyIndexKey);
+    } catch { /* ignore */ }
+  }
+  // We cannot enumerate object store keys without an open cursor here; the
+  // legacy index above covers the common case. Any leftover blobs keyed under
+  // `LEGACY_PROFILE_PREFIXES` will simply be ignored by the new code paths
+  // because reads go through the v2-217 prefix only.
+  void LEGACY_PROFILE_PREFIXES;
 }
 
 function openIDB() {
@@ -251,23 +300,39 @@ export class GhosteryEngine {
    * @param {Object<string, string>} lists - Map of listId → raw text
    */
   loadLists(lists) {
-    const allFilters = [];
-    for (const [id, text] of Object.entries(lists)) {
-      allFilters.push(text);
-      this._listsLoaded.add(id);
-    }
+    const entries = Object.entries(lists).filter(([, text]) => typeof text === 'string' && text.length > 0);
+    for (const [id] of entries) this._listsLoaded.add(id);
 
-    const combinedText = allFilters.join('\n');
-    this._engine = FiltersEngine.parse(combinedText, {
-      enableCompression: false,
-      enableOptimizations: true,
-      loadCosmeticFilters: true,
-      loadNetworkFilters: true,
-    });
+    // Adblocker 2.17.0 ships a fast binary-level merge that concatenates the
+    // already-built reverse indexes of per-list engines instead of re-parsing
+    // the combined text. Combined with the slicing-by-8 hashing landed in
+    // 2.16.0, this is materially faster than the legacy single-parse path on
+    // engines with many lists (EasyList + EasyPrivacy + uBlock-*).
+    //
+    // We still fall back to the legacy single-parse path if only one list is
+    // present (no merge needed) or if the binary merge throws (e.g. an
+    // upstream parse divergence between lists).
+    if (entries.length <= 1) {
+      const combinedText = entries.map(([, text]) => text).join('\n');
+      this._engine = FiltersEngine.parse(combinedText, ENGINE_PARSE_OPTIONS);
+    } else {
+      try {
+        const perListEngines = entries.map(([, text]) =>
+          FiltersEngine.parse(text, ENGINE_PARSE_OPTIONS)
+        );
+        this._engine = FiltersEngine.merge(perListEngines, {
+          useBinaryMerge: true,
+        });
+      } catch (e) {
+        console.warn('[ghostery-engine] Binary merge failed, falling back to single parse:', e);
+        const combinedText = entries.map(([, text]) => text).join('\n');
+        this._engine = FiltersEngine.parse(combinedText, ENGINE_PARSE_OPTIONS);
+      }
+    }
 
     this._updateStats();
     matchResultCache.clear(); // Phase 6: Invalidate stale match results after reload
-    console.log(`[ghostery-engine] Loaded ${Object.keys(lists).length} lists, ${this.rulesCount} rules`);
+    console.log(`[ghostery-engine] Loaded ${entries.length} lists, ${this.rulesCount} rules`);
   }
 
   /**
@@ -276,12 +341,7 @@ export class GhosteryEngine {
    */
   addList(text) {
     if (!this._engine) {
-      this._engine = FiltersEngine.parse(text, {
-        enableCompression: false,
-        enableOptimizations: true,
-        loadCosmeticFilters: true,
-        loadNetworkFilters: true,
-      });
+      this._engine = FiltersEngine.parse(text, ENGINE_PARSE_OPTIONS);
     } else {
       const { networkFilters, cosmeticFilters } = parseFilters(text);
       this._engine.update({
