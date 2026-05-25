@@ -1,3 +1,4 @@
+import { DEFAULT_CATEGORY_STATE, OA_COLORS, OA_LABELS } from './popup-config.js';
 /**
  * Midori Privacy Blocker
  * Popup UI logic
@@ -21,7 +22,7 @@ let currentEntityControl = null;
 let currentPopupAllowlist = {};
 
 // ── Category toggle state ────────────────────────────────────────────────────
-let categoryState = { ads: true, trackers: true, fingerprinting: true };
+let categoryState = { ...DEFAULT_CATEGORY_STATE };
 
 // ── Pause timer state ────────────────────────────────────────────────────────
 let pauseEndTime = 0;
@@ -541,20 +542,6 @@ function buildTrackerMetaLine(item) {
 }
 
 // ── OA Panel — dona de categorías ──────────────────────────────────────────
-
-const OA_COLORS = {
-  ads:      '#e74c3c',
-  trackers: '#f39c12',
-  popups:   '#8e44ad',
-  other:    '#34dbc2',
-};
-
-const OA_LABELS = {
-  ads:      'Advertising',
-  trackers: 'Site Analytics',
-  popups:   'Popups',
-  other:    'Other',
-};
 
 let lastDonutCounts = null;
 let lastOACatsKey = '';

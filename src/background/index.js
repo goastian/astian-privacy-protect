@@ -5,6 +5,7 @@
  * License: MPL-2.0
  */
 
+import { CHROMIUM_STATIC_RULESET_IDS, CHROMIUM_BLOCK_DEDUPE_TTL_MS, DNR_RECORD_RATE_LIMIT_PER_TAB, EXTERNAL_ALLOWED_ACTIONS, FIREFOX_NETWORK_RESCUE_BYPASS_HOSTS, MAX_COSMETIC_BLOCKS_PER_REPORT, PROTECTION_LEVELS, VK_DEBUG_REQUEST_HOSTS, VK_DEBUG_SITE_HOSTS } from './background-config.js';
 import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, recordHourlyBlock, applyPhaseCSafeDefaults, applyV223Cleanup, applyV226StabilityDefaults, applyV227AdblockerUpgrade } from './storage.js';
 import { extractDomain, categorizeRequest } from './filter-utils.js';
 import { GhosteryEngine, wipeEngineCache } from './ghostery-engine.js';
@@ -50,10 +51,6 @@ import {
   recordUrlCleanerRemoval,
 } from './local-reputation.js';
 
-const CHROMIUM_STATIC_RULESET_IDS = ['easylist', 'easyprivacy', 'ublock-filters', 'ublock-privacy', 'peter-lowe'];
-const VK_DEBUG_SITE_HOSTS = ['vkvideo.ru', 'vk.com', 'vk.ru'];
-const VK_DEBUG_REQUEST_HOSTS = ['vk.com', 'vk.ru', 'ms.vk.com', 'ms.vk.ru', 'login.vk.com', 'vkanalytics.net', 'userapi.com'];
-const FIREFOX_NETWORK_RESCUE_BYPASS_HOSTS = ['vkvideo.ru', 'vk.com', 'vk.ru'];
 
 function hostMatchesAny(hostname, patterns) {
   const host = String(hostname || '').toLowerCase();
@@ -463,55 +460,6 @@ function trackPopupRedirect(tabId, url) {
 }
 
 // ── Protection level presets ─────────────────────────────────────────────────
-const PROTECTION_LEVELS = {
-  basic: {
-    label: 'Basic',
-    antiFingerprint: false,
-      trackerDbAssisted: false,
-    lists: {
-      'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
-      'ublock-privacy': true, 'peter-lowe': false, 'ublock-quick-fixes': true,
-      'ublock-unbreak': true,
-      'ublock-annoyances-cookies': false, 'ublock-annoyances-others': false,
-      'fanboy-social': false, 'fanboy-annoyance': false,
-      'adguard-base': false, 'adguard-tracking': false, 'adguard-social': false,
-      'adguard-annoyances': false, 'adguard-mobile': false,
-      'adguard-spyware-firstparty': false,
-      'easylist-spanish': false, 'easylist-germany': false, 'easylist-france': false,
-    },
-  },
-  standard: {
-    label: 'Standard',
-    antiFingerprint: true,
-      trackerDbAssisted: false,
-    lists: {
-      'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
-      'ublock-privacy': true, 'peter-lowe': false, 'ublock-quick-fixes': true,
-      'ublock-unbreak': true, 'ublock-annoyances-cookies': false, 'fanboy-social': false,
-      'ublock-annoyances-others': false, 'fanboy-annoyance': false,
-      'adguard-base': false, 'adguard-tracking': false, 'adguard-social': false,
-      'adguard-annoyances': false, 'adguard-mobile': false,
-      'adguard-spyware-firstparty': false,
-      'easylist-spanish': false, 'easylist-germany': false, 'easylist-france': false,
-    },
-  },
-  strict: {
-    label: 'Strict',
-      trackerDbAssisted: true,
-    antiFingerprint: true,
-    lists: {
-      'easylist': true, 'easyprivacy': true, 'ublock-filters': true,
-      'ublock-privacy': true, 'peter-lowe': true, 'ublock-quick-fixes': true,
-      'ublock-unbreak': true, 'ublock-annoyances-cookies': true,
-      'ublock-annoyances-others': true, 'fanboy-social': true, 'fanboy-annoyance': true,
-      'adguard-base': true, 'adguard-tracking': true, 'adguard-social': true,
-      'adguard-annoyances': true, 'adguard-spyware-firstparty': true,
-      'adguard-mobile': false,
-      'easylist-spanish': false, 'easylist-germany': false, 'easylist-france': false,
-    },
-  },
-};
-
 // Cross-browser helpers
 const webRequestAPI = (typeof browser !== 'undefined' && browser.webRequest) ? browser.webRequest : chrome.webRequest;
 
@@ -761,11 +709,8 @@ const chromiumTabTrackers = new Map(); // tabId -> { hostname, domains: Set, blo
 // Phase D: throttle per-tab recordBlock/updateBadge/notifyPopupStatsChange so
 // high-traffic pages can't drown the background in O(N) work. The DNR badge
 // is already kept fresh by the platform; we just cap our diagnostic capture.
-const DNR_RECORD_RATE_LIMIT_PER_TAB = 30; // events / sec / tab
 const dnrRateState = new Map(); // tabId -> { windowStart, count }
 const recentChromiumBlockedUrls = new Map(); // tabId -> Map(url -> timestamp)
-const CHROMIUM_BLOCK_DEDUPE_TTL_MS = 1500;
-const MAX_COSMETIC_BLOCKS_PER_REPORT = 50;
 
 function dnrRateLimited(tabId) {
   const now = Date.now();
@@ -1190,11 +1135,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // ── External message handler (New Tab extension / external consumers) ───────
 // Only expose read-only stats actions for security
-const EXTERNAL_ALLOWED_ACTIONS = new Set([
-  'get-stats-summary', 'get-report-stats', 'get-report-categories',
-  'get-weekly-trend', 'get-privacy-summary', 'get-hourly-heatmap',
-]);
-
 if (chrome.runtime.onMessageExternal) {
   chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
     if (!msg?.action || !EXTERNAL_ALLOWED_ACTIONS.has(msg.action)) {
