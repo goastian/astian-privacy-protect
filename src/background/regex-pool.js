@@ -15,6 +15,14 @@ function remember(key, value) {
   }
 }
 
+function getCachedRegex(key) {
+  if (!regexCache.has(key)) return null;
+  const cached = regexCache.get(key);
+  regexCache.delete(key);
+  regexCache.set(key, cached);
+  return cached;
+}
+
 export function getPooledRegex(source, flags = '') {
   const pattern = String(source || '');
   const normalizedFlags = String(flags || '');
@@ -23,12 +31,8 @@ export function getPooledRegex(source, flags = '') {
   if (hasUnsafeNestedQuantifier(pattern)) return null;
 
   const key = `${normalizedFlags}/${pattern}`;
-  if (regexCache.has(key)) {
-    const cached = regexCache.get(key);
-    regexCache.delete(key);
-    regexCache.set(key, cached);
-    return cached;
-  }
+  const cached = getCachedRegex(key);
+  if (cached) return cached;
 
   try {
     const regex = new RegExp(pattern, normalizedFlags);

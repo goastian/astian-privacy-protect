@@ -37,6 +37,8 @@ const LEGACY_PROFILE_INDEX_KEYS = ['ghostery-engine-profile-index'];
 const MAX_PROFILE_SNAPSHOTS = 8;
 
 const HAS_TEXT_RULE_RE = String.raw`^\s*(.+?)\s*:has-text\((['"]?)(.{1,120})\2\)\s*$`;
+const PROCEDURAL_STRING_FIELDS = ['selector', 'raw', 'rawLine', 'cosmetic', 'rule', 'body'];
+const PROCEDURAL_CHILD_FIELDS = ['tasks', 'procedural', 'extended'];
 
 // Optimization 8.5: LRU cache for matching results
 class LRUCache {
@@ -101,11 +103,10 @@ function collectProceduralCandidateStrings(rule, out) {
     return;
   }
   if (typeof rule !== 'object') return;
-  const directFields = ['selector', 'raw', 'rawLine', 'cosmetic', 'rule', 'body'];
-  for (const field of directFields) {
+  for (const field of PROCEDURAL_STRING_FIELDS) {
     if (typeof rule[field] === 'string') out.push(rule[field]);
   }
-  for (const field of ['tasks', 'procedural', 'extended']) {
+  for (const field of PROCEDURAL_CHILD_FIELDS) {
     collectProceduralCandidateStrings(rule[field], out);
   }
 }

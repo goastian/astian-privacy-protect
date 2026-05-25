@@ -111,11 +111,37 @@ import scriptletRuleList from '../rules/scriptlets.json';
     }, APPLIED_RULES_DEBOUNCE_MS);
   }
 
+  function addAppliedRulesSource(source, count) {
+    appliedRulesBuffer.sources[source] = (appliedRulesBuffer.sources[source] || 0) + count;
+  }
+
+  function hasAppliedRulesTelemetry() {
+    return !!(
+      appliedRulesBuffer.selectorCount ||
+      appliedRulesBuffer.scriptletCount ||
+      appliedRulesBuffer.discardedSelectorCount
+    );
+  }
+
+  function resetAppliedRulesBuffer() {
+    appliedRulesBuffer.selectorCount = 0;
+    appliedRulesBuffer.scriptletCount = 0;
+    appliedRulesBuffer.discardedSelectorCount = 0;
+    appliedRulesBuffer.selectorsSample.length = 0;
+    appliedRulesBuffer.scriptletsSample.length = 0;
+    appliedRulesBuffer.discardedSelectorsSample.length = 0;
+    appliedRulesBuffer.selectorSet.clear();
+    appliedRulesBuffer.scriptletSet.clear();
+    appliedRulesBuffer.discardedSelectorSet.clear();
+    appliedRulesBuffer.sources = Object.create(null);
+    appliedRulesBuffer.discardedReasons = Object.create(null);
+  }
+
   function queueAppliedSelectors(selectors, source) {
     if (!cosmeticAuditEnabled) return;
     if (!Array.isArray(selectors) || selectors.length === 0) return;
     appliedRulesBuffer.selectorCount += selectors.length;
-    appliedRulesBuffer.sources[source] = (appliedRulesBuffer.sources[source] || 0) + selectors.length;
+    addAppliedRulesSource(source, selectors.length);
 
     for (const sel of selectors) {
       maybePushSample(
@@ -133,7 +159,7 @@ import scriptletRuleList from '../rules/scriptlets.json';
     if (!cosmeticAuditEnabled) return;
     if (!Array.isArray(scriptlets) || scriptlets.length === 0) return;
     appliedRulesBuffer.scriptletCount += scriptlets.length;
-    appliedRulesBuffer.sources[source] = (appliedRulesBuffer.sources[source] || 0) + scriptlets.length;
+    addAppliedRulesSource(source, scriptlets.length);
 
     for (const item of scriptlets) {
       const name = typeof item === 'string' ? item : item?.name;
@@ -153,7 +179,7 @@ import scriptletRuleList from '../rules/scriptlets.json';
     if (!Array.isArray(items) || items.length === 0) return;
     appliedRulesBuffer.discardedSelectorCount += items.length;
     const sourceKey = `discarded:${source || 'selector'}`;
-    appliedRulesBuffer.sources[sourceKey] = (appliedRulesBuffer.sources[sourceKey] || 0) + items.length;
+    addAppliedRulesSource(sourceKey, items.length);
 
     for (const item of items) {
       const selector = typeof item === 'string' ? item : item?.selector;
@@ -175,7 +201,7 @@ import scriptletRuleList from '../rules/scriptlets.json';
     const numeric = Number(count) || 0;
     if (numeric <= 0) return;
     appliedRulesBuffer.scriptletCount += numeric;
-    appliedRulesBuffer.sources[source] = (appliedRulesBuffer.sources[source] || 0) + numeric;
+    addAppliedRulesSource(source, numeric);
     maybePushSample(
       appliedRulesBuffer.scriptletsSample,
       appliedRulesBuffer.scriptletSet,
@@ -188,7 +214,7 @@ import scriptletRuleList from '../rules/scriptlets.json';
 
   function flushAppliedRulesTelemetry() {
     if (!cosmeticAuditEnabled) return;
-    if (!appliedRulesBuffer.selectorCount && !appliedRulesBuffer.scriptletCount && !appliedRulesBuffer.discardedSelectorCount) return;
+    if (!hasAppliedRulesTelemetry()) return;
 
     const payload = {
       action: 'record-applied-rules-event',
@@ -203,17 +229,7 @@ import scriptletRuleList from '../rules/scriptlets.json';
       discardedReasons: { ...appliedRulesBuffer.discardedReasons },
     };
 
-    appliedRulesBuffer.selectorCount = 0;
-    appliedRulesBuffer.scriptletCount = 0;
-    appliedRulesBuffer.discardedSelectorCount = 0;
-    appliedRulesBuffer.selectorsSample.length = 0;
-    appliedRulesBuffer.scriptletsSample.length = 0;
-    appliedRulesBuffer.discardedSelectorsSample.length = 0;
-    appliedRulesBuffer.selectorSet.clear();
-    appliedRulesBuffer.scriptletSet.clear();
-    appliedRulesBuffer.discardedSelectorSet.clear();
-    appliedRulesBuffer.sources = Object.create(null);
-    appliedRulesBuffer.discardedReasons = Object.create(null);
+    resetAppliedRulesBuffer();
 
     sendMsg(payload).catch(() => {});
   }
@@ -977,15 +993,10 @@ import scriptletRuleList from '../rules/scriptlets.json';
       appliedStyle.parentNode.removeChild(appliedStyle);
     }
 
-    const cssRules = [];
-
-    for (const s of valid) {
-      cssRules.push(s + ' { ' + COLLAPSE_CSS + ' }');
-    }
-
+    const cssRules = valid.map(s => s + ' { ' + COLLAPSE_CSS + ' }');
     if (cssRules.length === 0) return;
 
-    reportSelectorMatches(cssRules.map(rule => rule.slice(0, rule.indexOf(' {'))));
+    reportSelectorMatches(valid);
 
     const style = document.createElement('style');
     style.setAttribute('data-midori-privacy', 'cosmetic');
@@ -993,7 +1004,7 @@ import scriptletRuleList from '../rules/scriptlets.json';
     (document.head || document.documentElement).appendChild(style);
     appliedStyle = style;
 
-    queueAppliedSelectors(cssRules.map(rule => rule.slice(0, rule.indexOf(' {'))), 'cosmetic-selectors');
+    queueAppliedSelectors(valid, 'cosmetic-selectors');
   }
 
   function reportSelectorMatches(selectors) {
@@ -1329,14 +1340,18 @@ import scriptletRuleList from '../rules/scriptlets.json';
     ? scriptletRuleList.rules.map(parseUboScriptletRule).filter(Boolean)
     : [];
 
+  function scriptletDomainMatchesHost(host, domain) {
+    const normalized = String(domain || '').toLowerCase();
+    return !!normalized && (host === normalized || host.endsWith('.' + normalized));
+  }
+
   function getBuiltinScriptlets(hostname) {
     const rules = [];
     const host = String(hostname || '').toLowerCase();
     if (!host) return rules;
     for (const rule of BUILTIN_SCRIPTLET_RULES) {
       for (const domain of rule.domains) {
-        const normalized = String(domain || '').toLowerCase();
-        if (host === normalized || host.endsWith('.' + normalized)) {
+        if (scriptletDomainMatchesHost(host, domain)) {
           rules.push({ name: rule.name, args: rule.args });
           break;
         }
