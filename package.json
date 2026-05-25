@@ -26,7 +26,7 @@
   },
   "license": "MPL-2.0",
   "dependencies": {
-    "@ghostery/adblocker": "^2.14.1",
-    "@ghostery/adblocker-webextension": "^2.14.1"
+    "@ghostery/adblocker": "^2.17.3",
+    "@ghostery/adblocker-webextension": "^2.17.3"
   }
 }
