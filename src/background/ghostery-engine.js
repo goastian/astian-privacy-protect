@@ -15,6 +15,8 @@
 
 import { FiltersEngine, Request, parseFilters } from '@ghostery/adblocker-webextension';
 import { extractDomain, categorizeRequest } from './filter-utils.js';
+import { buildIncrementalMergedEngine, ENGINE_PARSE_OPTIONS } from './lists-manager.js';
+import { execPooledRegex } from './regex-pool.js';
 
 // ── IndexedDB helpers for engine serialization ──────────────────────────────
 
@@ -34,16 +36,7 @@ const LEGACY_PROFILE_PREFIXES = ['ghostery-engine-profile:'];
 const LEGACY_PROFILE_INDEX_KEYS = ['ghostery-engine-profile-index'];
 const MAX_PROFILE_SNAPSHOTS = 8;
 
-// Shared parse options used for every list and for the merged engine. Keeping
-// these identical is required by `FiltersEngine.merge({ useBinaryMerge: true })`,
-// which concatenates serialized buckets across engines built with the same
-// configuration.
-const ENGINE_PARSE_OPTIONS = Object.freeze({
-  enableCompression: false,
-  enableOptimizations: true,
-  loadCosmeticFilters: true,
-  loadNetworkFilters: true,
-});
+const HAS_TEXT_RULE_RE = String.raw`^\s*(.+?)\s*:has-text\((['"]?)(.{1,120})\2\)\s*$`;
 
 // Optimization 8.5: LRU cache for matching results
 class LRUCache {
@@ -75,6 +68,66 @@ class LRUCache {
 }
 
 const matchResultCache = new LRUCache(10000);
+
+function stripRuleQuotes(raw) {
+  const value = String(raw || '').trim();
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      return value.slice(1, -1).replace(/\\(["'\\])/g, '$1');
+    }
+  }
+  return value;
+}
+
+function proceduralRuleFromText(text) {
+  const match = execPooledRegex(HAS_TEXT_RULE_RE, text);
+  if (!match) return null;
+  const selector = String(match[1] || '').trim();
+  const needle = stripRuleQuotes(match[3]);
+  if (!selector || !needle) return null;
+  return { type: 'has-text', selector, text: needle };
+}
+
+function collectProceduralCandidateStrings(rule, out) {
+  if (!rule || out.length >= 120) return;
+  if (typeof rule === 'string') {
+    out.push(rule);
+    return;
+  }
+  if (Array.isArray(rule)) {
+    for (const item of rule) collectProceduralCandidateStrings(item, out);
+    return;
+  }
+  if (typeof rule !== 'object') return;
+  const directFields = ['selector', 'raw', 'rawLine', 'cosmetic', 'rule', 'body'];
+  for (const field of directFields) {
+    if (typeof rule[field] === 'string') out.push(rule[field]);
+  }
+  for (const field of ['tasks', 'procedural', 'extended']) {
+    collectProceduralCandidateStrings(rule[field], out);
+  }
+}
+
+function normalizeProceduralCosmetics(extendedRules) {
+  const candidates = [];
+  collectProceduralCandidateStrings(extendedRules, candidates);
+  if (candidates.length === 0) return [];
+
+  const rules = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const rule = proceduralRuleFromText(candidate);
+    if (!rule) continue;
+    const key = `${rule.type}|${rule.selector}|${rule.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rules.push(rule);
+    if (rules.length >= 80) break;
+  }
+  return rules;
+}
 
 /**
  * Wipe ALL cached engine snapshots (main + per-profile + index).
@@ -303,32 +356,7 @@ export class GhosteryEngine {
     const entries = Object.entries(lists).filter(([, text]) => typeof text === 'string' && text.length > 0);
     for (const [id] of entries) this._listsLoaded.add(id);
 
-    // Adblocker 2.17.0 ships a fast binary-level merge that concatenates the
-    // already-built reverse indexes of per-list engines instead of re-parsing
-    // the combined text. Combined with the slicing-by-8 hashing landed in
-    // 2.16.0, this is materially faster than the legacy single-parse path on
-    // engines with many lists (EasyList + EasyPrivacy + uBlock-*).
-    //
-    // We still fall back to the legacy single-parse path if only one list is
-    // present (no merge needed) or if the binary merge throws (e.g. an
-    // upstream parse divergence between lists).
-    if (entries.length <= 1) {
-      const combinedText = entries.map(([, text]) => text).join('\n');
-      this._engine = FiltersEngine.parse(combinedText, ENGINE_PARSE_OPTIONS);
-    } else {
-      try {
-        const perListEngines = entries.map(([, text]) =>
-          FiltersEngine.parse(text, ENGINE_PARSE_OPTIONS)
-        );
-        this._engine = FiltersEngine.merge(perListEngines, {
-          useBinaryMerge: true,
-        });
-      } catch (e) {
-        console.warn('[ghostery-engine] Binary merge failed, falling back to single parse:', e);
-        const combinedText = entries.map(([, text]) => text).join('\n');
-        this._engine = FiltersEngine.parse(combinedText, ENGINE_PARSE_OPTIONS);
-      }
-    }
+    this._engine = buildIncrementalMergedEngine(lists);
 
     this._updateStats();
     matchResultCache.clear(); // Phase 6: Invalidate stale match results after reload
@@ -485,7 +513,7 @@ export class GhosteryEngine {
       //Inline domain extraction (removed _getDomain dead code)
       const parts = hostname.split('.');
       const domain = parts.length <= 2 ? hostname : parts.slice(-2).join('.');
-      return this._engine.getCosmeticsFilters({
+      const result = this._engine.getCosmeticsFilters({
         url: `https://${hostname}/`,
         hostname,
         domain,
@@ -498,9 +526,13 @@ export class GhosteryEngine {
         ids: opts.ids,
         hrefs: opts.hrefs,
       });
+      return {
+        ...result,
+        procedural: normalizeProceduralCosmetics(result.extended),
+      };
     } catch (e) {
       console.warn('[ghostery-engine] getFullCosmetics error:', e);
-      return { styles: '', scripts: [], extended: [] };
+      return { styles: '', scripts: [], extended: [], procedural: [] };
     }
   }
 

@@ -5,12 +5,23 @@
  * License: MPL-2.0
  */
 
+import { FiltersEngine } from '@ghostery/adblocker-webextension';
 import { getOptions, setOptions, storageLocal } from './storage.js';
 
 const LIST_CACHE_KEY = 'filter_lists_cache';
 const LIST_STATS_KEY = 'filter_lists_stats';
 const FETCH_TIMEOUT_MS = 30000;
 const RETRY_DELAYS = [5000, 15000, 30000]; // 3 retries with backoff
+const MAX_INCREMENTAL_ENGINE_CACHE = 16;
+
+export const ENGINE_PARSE_OPTIONS = Object.freeze({
+  enableCompression: false,
+  enableOptimizations: true,
+  loadCosmeticFilters: true,
+  loadNetworkFilters: true,
+});
+
+const parsedListEngineCache = new Map();
 
 function fastHash(input) {
   let h = 2166136261;
@@ -19,6 +30,55 @@ function fastHash(input) {
     h = Math.imul(h, 16777619);
   }
   return (h >>> 0).toString(36);
+}
+
+function rememberParsedListEngine(id, fingerprint, engine) {
+  if (parsedListEngineCache.has(id)) parsedListEngineCache.delete(id);
+  parsedListEngineCache.set(id, { fingerprint, engine, lastUsedAt: Date.now() });
+  if (parsedListEngineCache.size <= MAX_INCREMENTAL_ENGINE_CACHE) return;
+
+  const overflow = [...parsedListEngineCache.entries()]
+    .sort((left, right) => (left[1].lastUsedAt || 0) - (right[1].lastUsedAt || 0))
+    .slice(0, parsedListEngineCache.size - MAX_INCREMENTAL_ENGINE_CACHE);
+  for (const [oldId] of overflow) parsedListEngineCache.delete(oldId);
+}
+
+function getParsedListEngine(id, text) {
+  const fingerprint = `${text.length}:${fastHash(text)}`;
+  const cached = parsedListEngineCache.get(id);
+  if (cached?.fingerprint === fingerprint && cached.engine) {
+    cached.lastUsedAt = Date.now();
+    return cached.engine;
+  }
+
+  const engine = FiltersEngine.parse(text, ENGINE_PARSE_OPTIONS);
+  rememberParsedListEngine(id, fingerprint, engine);
+  return engine;
+}
+
+export function buildIncrementalMergedEngine(lists) {
+  const entries = Object.entries(lists || {}).filter(([, text]) => typeof text === 'string' && text.length > 0);
+  if (entries.length === 0) {
+    return FiltersEngine.parse('', ENGINE_PARSE_OPTIONS);
+  }
+
+  if (entries.length === 1) {
+    const [id, text] = entries[0];
+    return getParsedListEngine(id, text);
+  }
+
+  try {
+    const perListEngines = entries.map(([id, text]) => getParsedListEngine(id, text));
+    return FiltersEngine.merge(perListEngines, { useBinaryMerge: true });
+  } catch (e) {
+    console.warn('[lists] Incremental binary merge failed, falling back to single parse:', e);
+    const combinedText = entries.map(([, text]) => text).join('\n');
+    return FiltersEngine.parse(combinedText, ENGINE_PARSE_OPTIONS);
+  }
+}
+
+export function clearIncrementalEngineCache() {
+  parsedListEngineCache.clear();
 }
 
 function countLinesFast(text) {

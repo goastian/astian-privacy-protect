@@ -247,10 +247,13 @@ export async function getAppliedRulesDiagnostics(limit = 20) {
       eventCount: Number(entry.eventCount) || 0,
       selectorCount: Number(entry.selectorCount) || 0,
       scriptletCount: Number(entry.scriptletCount) || 0,
+      discardedSelectorCount: Number(entry.discardedSelectorCount) || 0,
       lastSeenAt: Number(entry.lastSeenAt) || 0,
       selectorsSample: Array.isArray(entry.selectorsSample) ? entry.selectorsSample.slice(0, 12) : [],
       scriptletsSample: Array.isArray(entry.scriptletsSample) ? entry.scriptletsSample.slice(0, 12) : [],
+      discardedSelectorsSample: Array.isArray(entry.discardedSelectorsSample) ? entry.discardedSelectorsSample.slice(0, 12) : [],
       sources: entry.sources && typeof entry.sources === 'object' ? entry.sources : {},
+      discardedReasons: entry.discardedReasons && typeof entry.discardedReasons === 'object' ? entry.discardedReasons : {},
     }));
 
   const hostTotals = Object.create(null);

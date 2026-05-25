@@ -1,3 +1,5 @@
+import scriptletRuleList from '../rules/scriptlets.json';
+
 /**
  * Midori Privacy Blocker
  * Content script - cosmetic filtering (element hiding + ad collapse)
@@ -24,6 +26,7 @@
   const APPLIED_RULES_DEBOUNCE_MS = 1200;
   const MAX_APPLIED_SELECTOR_SAMPLES = 24;
   const MAX_APPLIED_SCRIPTLET_SAMPLES = 24;
+  const MAX_DISCARDED_SELECTOR_SAMPLES = 24;
   const SELECTOR_SAMPLE_RATE = 0.12;
   const SCRIPTLET_SAMPLE_RATE = 0.2;
   const COSMETIC_BLOCK_FLUSH_MS = 800;
@@ -38,11 +41,15 @@
   const appliedRulesBuffer = {
     selectorCount: 0,
     scriptletCount: 0,
+    discardedSelectorCount: 0,
     selectorsSample: [],
     scriptletsSample: [],
+    discardedSelectorsSample: [],
     selectorSet: new Set(),
     scriptletSet: new Set(),
+    discardedSelectorSet: new Set(),
     sources: Object.create(null),
+    discardedReasons: Object.create(null),
   };
 
   // ── Cross-browser sendMessage wrapper ────────────────────────────────────
@@ -141,6 +148,28 @@
     scheduleAppliedRulesFlush();
   }
 
+  function queueDiscardedSelectors(items, source) {
+    if (!cosmeticAuditEnabled) return;
+    if (!Array.isArray(items) || items.length === 0) return;
+    appliedRulesBuffer.discardedSelectorCount += items.length;
+    const sourceKey = `discarded:${source || 'selector'}`;
+    appliedRulesBuffer.sources[sourceKey] = (appliedRulesBuffer.sources[sourceKey] || 0) + items.length;
+
+    for (const item of items) {
+      const selector = typeof item === 'string' ? item : item?.selector;
+      const reason = typeof item === 'object' && item ? String(item.reason || 'invalid') : 'invalid';
+      appliedRulesBuffer.discardedReasons[reason] = (appliedRulesBuffer.discardedReasons[reason] || 0) + 1;
+      maybePushSample(
+        appliedRulesBuffer.discardedSelectorsSample,
+        appliedRulesBuffer.discardedSelectorSet,
+        selector,
+        MAX_DISCARDED_SELECTOR_SAMPLES,
+        SELECTOR_SAMPLE_RATE,
+      );
+    }
+    scheduleAppliedRulesFlush();
+  }
+
   function queueCompiledScriptlets(count, source) {
     if (!cosmeticAuditEnabled) return;
     const numeric = Number(count) || 0;
@@ -159,25 +188,32 @@
 
   function flushAppliedRulesTelemetry() {
     if (!cosmeticAuditEnabled) return;
-    if (!appliedRulesBuffer.selectorCount && !appliedRulesBuffer.scriptletCount) return;
+    if (!appliedRulesBuffer.selectorCount && !appliedRulesBuffer.scriptletCount && !appliedRulesBuffer.discardedSelectorCount) return;
 
     const payload = {
       action: 'record-applied-rules-event',
       hostname: window.location.hostname || '',
       selectorCount: appliedRulesBuffer.selectorCount,
       scriptletCount: appliedRulesBuffer.scriptletCount,
+      discardedSelectorCount: appliedRulesBuffer.discardedSelectorCount,
       selectorsSample: appliedRulesBuffer.selectorsSample.slice(0, MAX_APPLIED_SELECTOR_SAMPLES),
       scriptletsSample: appliedRulesBuffer.scriptletsSample.slice(0, MAX_APPLIED_SCRIPTLET_SAMPLES),
+      discardedSelectorsSample: appliedRulesBuffer.discardedSelectorsSample.slice(0, MAX_DISCARDED_SELECTOR_SAMPLES),
       sources: { ...appliedRulesBuffer.sources },
+      discardedReasons: { ...appliedRulesBuffer.discardedReasons },
     };
 
     appliedRulesBuffer.selectorCount = 0;
     appliedRulesBuffer.scriptletCount = 0;
+    appliedRulesBuffer.discardedSelectorCount = 0;
     appliedRulesBuffer.selectorsSample.length = 0;
     appliedRulesBuffer.scriptletsSample.length = 0;
+    appliedRulesBuffer.discardedSelectorsSample.length = 0;
     appliedRulesBuffer.selectorSet.clear();
     appliedRulesBuffer.scriptletSet.clear();
+    appliedRulesBuffer.discardedSelectorSet.clear();
     appliedRulesBuffer.sources = Object.create(null);
+    appliedRulesBuffer.discardedReasons = Object.create(null);
 
     sendMsg(payload).catch(() => {});
   }
@@ -778,13 +814,160 @@
   // ══════════════════════════════════════════════════════════════════════════
 
   let appliedSelectorsKey = '';
+  let proceduralRulesKey = '';
+
+  function stripCssStringQuotes(raw) {
+    const value = String(raw || '').trim();
+    if (value.length >= 2) {
+      const first = value[0];
+      const last = value[value.length - 1];
+      if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+        return value.slice(1, -1).replace(/\\(["'\\])/g, '$1');
+      }
+    }
+    return value;
+  }
+
+  function extractHasTextProcedural(selector) {
+    const input = String(selector || '').trim();
+    if (!input.includes(':has-text(')) return null;
+    const marker = ':has-text(';
+    const markerIndex = input.indexOf(marker);
+    const start = markerIndex + marker.length;
+    let depth = 1;
+    let quote = '';
+    let end = -1;
+    for (let i = start; i < input.length; i++) {
+      const ch = input[i];
+      const prev = input[i - 1];
+      if (quote) {
+        if (ch === quote && prev !== '\\') quote = '';
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        quote = ch;
+        continue;
+      }
+      if (ch === '(') depth++;
+      if (ch === ')') {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    if (end < 0) return null;
+
+    const before = input.slice(0, markerIndex).trim();
+    const after = input.slice(end + 1).trim();
+    if (after) return null;
+
+    const baseSelector = before || '*';
+    const text = stripCssStringQuotes(input.slice(start, end));
+    if (!text || text.length > 120) return null;
+    return { type: 'has-text', selector: baseSelector, text };
+  }
+
+  function isCssSelectorSupported(selector) {
+    const s = String(selector || '').trim();
+    if (!s || s.length > 1000) return false;
+    if (s.includes('{') || s.includes('}')) return false;
+    try {
+      if (window.CSS && typeof CSS.supports === 'function' && CSS.supports(`selector(${s})`)) {
+        return true;
+      }
+    } catch {}
+    try {
+      document.documentElement.matches(s);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function validateCosmeticSelectors(selectors, source) {
+    const valid = [];
+    const procedural = [];
+    const discarded = [];
+    const seen = new Set();
+    const proceduralSeen = new Set();
+
+    for (const raw of selectors || []) {
+      const selector = String(raw || '').trim();
+      if (!selector) continue;
+      if (seen.has(selector)) continue;
+
+      if (selector.includes('{') || selector.includes('}')) {
+        discarded.push({ selector, reason: 'css-block' });
+        continue;
+      }
+
+      const proceduralRule = extractHasTextProcedural(selector);
+      if (proceduralRule) {
+        const key = `${proceduralRule.type}|${proceduralRule.selector}|${proceduralRule.text}`;
+        if (!proceduralSeen.has(key) && isCssSelectorSupported(proceduralRule.selector)) {
+          proceduralSeen.add(key);
+          procedural.push(proceduralRule);
+        } else {
+          discarded.push({ selector, reason: 'invalid-procedural-base' });
+        }
+        seen.add(selector);
+        continue;
+      }
+
+      if (!isCssSelectorSupported(selector)) {
+        discarded.push({ selector, reason: selector.length > 1000 ? 'too-long' : 'invalid-selector' });
+        seen.add(selector);
+        continue;
+      }
+
+      seen.add(selector);
+      valid.push(selector);
+    }
+
+    if (discarded.length > 0) queueDiscardedSelectors(discarded, source);
+    return { valid, procedural };
+  }
+
+  function applyProceduralRules(rules) {
+    if (!Array.isArray(rules) || rules.length === 0) return;
+    const key = rules.map(rule => `${rule.type}|${rule.selector}|${rule.text || rule.pattern || ''}`).join('|');
+    if (key === proceduralRulesKey) return;
+    proceduralRulesKey = key;
+
+    let matches = 0;
+    for (const rule of rules.slice(0, 80)) {
+      if (!rule || rule.type !== 'has-text' || !rule.selector || !rule.text) continue;
+      let elements = [];
+      try {
+        elements = document.querySelectorAll(rule.selector);
+      } catch {
+        continue;
+      }
+      const needle = String(rule.text).toLowerCase();
+      const limit = Math.min(elements.length, 120);
+      for (let i = 0; i < limit; i++) {
+        const el = elements[i];
+        if (!el || SAFE_TAGS.has(el.tagName) || el.hasAttribute(ATTR_COLLAPSED)) continue;
+        const text = String(el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!text || !text.includes(needle)) continue;
+        collapseElement(el, 'procedural-has-text');
+        matches++;
+        if (matches >= MAX_COSMETIC_BLOCK_REPORT) return;
+      }
+    }
+  }
 
   function applySelectors(selectors) {
     if (!selectors || selectors.length === 0) return;
 
+    const { valid, procedural } = validateCosmeticSelectors(selectors, 'cosmetic-selectors');
+    if (procedural.length > 0) applyProceduralRules(procedural);
+
     // Cache check: skip re-injection if selectors haven't changed and the
     // <style> element is still in the DOM (common during SPA navigations).
-    const key = selectors.join('|');
+    const key = valid.join('|');
     if (key === appliedSelectorsKey && appliedStyle && appliedStyle.parentNode) {
       return;
     }
@@ -796,10 +979,7 @@
 
     const cssRules = [];
 
-    for (const sel of selectors) {
-      const s = String(sel || '').trim();
-      if (!s) continue;
-      if (s.includes('{') || s.includes('}')) continue;
+    for (const s of valid) {
       cssRules.push(s + ' { ' + COLLAPSE_CSS + ' }');
     }
 
@@ -1099,34 +1279,67 @@
     }, '*');
   }
 
-  const BUILTIN_SCRIPTLETS = {
-    'youtube.com': [
-      // Single scriptlet handles: auto-skip ads + enforcement modal removal.
-      // Does NOT hook into YouTube internal APIs to avoid breaking playback.
-      { name: 'yt-ad-pruner', args: [] },
-    ],
-    'twitch.tv': [
-      { name: 'twitch-ad-mute', args: [] },
-      { name: 'set-constant', args: ['__twilightBuildID', ''] },
-      { name: 'abort-on-property-read', args: ['navigator.brave'] },
-    ],
-    'forbes.com': [
-      { name: 'set-constant', args: ['fbs_settings.ad.blocking.enabled', 'false'] },
-      { name: 'abort-on-property-read', args: ['forbes_ABTest'] },
-      { name: 'abort-on-property-read', args: ['detectBlocker'] },
-    ],
-  };
+  function splitUboArgs(input) {
+    const args = [];
+    let current = '';
+    let quote = '';
+    for (let i = 0; i < input.length; i++) {
+      const ch = input[i];
+      const prev = input[i - 1];
+      if (quote) {
+        current += ch;
+        if (ch === quote && prev !== '\\') quote = '';
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        quote = ch;
+        current += ch;
+        continue;
+      }
+      if (ch === ',') {
+        args.push(stripCssStringQuotes(current.trim()));
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    if (current.trim()) args.push(stripCssStringQuotes(current.trim()));
+    return args;
+  }
+
+  function parseUboScriptletRule(ruleText) {
+    const text = String(ruleText || '').trim();
+    const marker = '##+js(';
+    const markerIndex = text.indexOf(marker);
+    if (markerIndex <= 0 || !text.endsWith(')')) return null;
+    const domainText = text.slice(0, markerIndex).trim();
+    const body = text.slice(markerIndex + marker.length, -1).trim();
+    if (!domainText || !body) return null;
+    const parts = splitUboArgs(body);
+    const name = parts.shift();
+    if (!name) return null;
+    return {
+      domains: domainText.split(',').map(d => d.trim()).filter(Boolean),
+      name,
+      args: parts,
+    };
+  }
+
+  const BUILTIN_SCRIPTLET_RULES = Array.isArray(scriptletRuleList?.rules)
+    ? scriptletRuleList.rules.map(parseUboScriptletRule).filter(Boolean)
+    : [];
 
   function getBuiltinScriptlets(hostname) {
     const rules = [];
-    if (BUILTIN_SCRIPTLETS[hostname]) {
-      rules.push(...BUILTIN_SCRIPTLETS[hostname]);
-    }
-    const parts = hostname.split('.');
-    for (let i = 1; i < parts.length - 1; i++) {
-      const parent = parts.slice(i).join('.');
-      if (BUILTIN_SCRIPTLETS[parent]) {
-        rules.push(...BUILTIN_SCRIPTLETS[parent]);
+    const host = String(hostname || '').toLowerCase();
+    if (!host) return rules;
+    for (const rule of BUILTIN_SCRIPTLET_RULES) {
+      for (const domain of rule.domains) {
+        const normalized = String(domain || '').toLowerCase();
+        if (host === normalized || host.endsWith('.' + normalized)) {
+          rules.push({ name: rule.name, args: rule.args });
+          break;
+        }
       }
     }
     return rules;
@@ -1207,6 +1420,9 @@
       ghosteryStyle.textContent = msg.styles;
       (document.head || document.documentElement).appendChild(ghosteryStyle);
     }
+    if (msg.action === 'apply-procedural-cosmetics' && msg.procedural && cosmeticsRuntimeEnabled) {
+      applyProceduralRules(msg.procedural);
+    }
     // Ghostery engine: pre-compiled scriptlet code (inject directly into page)
     if (msg.action === 'apply-compiled-scriptlets' && msg.scripts) {
       const validScripts = msg.scripts.filter(c => c && typeof c === 'string');
@@ -1253,6 +1469,9 @@
           queueCompiledScriptlets(validScripts.length, 'compiled-scriptlets');
           window.postMessage({ type: 'midori-compiled-scriptlet-batch', scripts: validScripts }, '*');
         }
+      }
+      if (cosmeticsResponse?.procedural?.length > 0) {
+        applyProceduralRules(cosmeticsResponse.procedural);
       }
     }
 

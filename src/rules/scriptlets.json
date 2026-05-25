@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "format": "ubo-scriptlet-rules",
+  "rules": [
+    "youtube.com##+js(yt-ad-pruner)",
+    "twitch.tv##+js(twitch-ad-mute)",
+    "twitch.tv##+js(set-constant, __twilightBuildID, '')",
+    "twitch.tv##+js(abort-on-property-read, navigator.brave)",
+    "forbes.com##+js(set-constant, fbs_settings.ad.blocking.enabled, false)",
+    "forbes.com##+js(abort-on-property-read, forbes_ABTest)",
+    "forbes.com##+js(abort-on-property-read, detectBlocker)"
+  ]
+}

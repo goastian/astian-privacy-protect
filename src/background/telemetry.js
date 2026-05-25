@@ -281,7 +281,8 @@ export function createTelemetryController() {
 
       const selectorCount = Math.max(0, Number(msg?.selectorCount) || 0);
       const scriptletCount = Math.max(0, Number(msg?.scriptletCount) || 0);
-      if (selectorCount === 0 && scriptletCount === 0) return;
+      const discardedSelectorCount = Math.max(0, Number(msg?.discardedSelectorCount) || 0);
+      if (selectorCount === 0 && scriptletCount === 0 && discardedSelectorCount === 0) return;
 
       const diag = telemetryState.appliedRulesDiagnostics || {
         totalEvents: 0,
@@ -297,9 +298,12 @@ export function createTelemetryController() {
         eventCount: 0,
         selectorCount: 0,
         scriptletCount: 0,
+        discardedSelectorCount: 0,
         selectorsSample: [],
         scriptletsSample: [],
+        discardedSelectorsSample: [],
         sources: {},
+        discardedReasons: {},
         firstSeenAt: Date.now(),
         lastSeenAt: 0,
       };
@@ -307,16 +311,27 @@ export function createTelemetryController() {
       entry.eventCount += 1;
       entry.selectorCount += selectorCount;
       entry.scriptletCount += scriptletCount;
+      entry.discardedSelectorCount = (entry.discardedSelectorCount || 0) + discardedSelectorCount;
       entry.lastSeenAt = Date.now();
 
       pushUniqueSamples(entry.selectorsSample, msg?.selectorsSample || [], 24);
       pushUniqueSamples(entry.scriptletsSample, msg?.scriptletsSample || [], 24);
+      pushUniqueSamples(entry.discardedSelectorsSample, msg?.discardedSelectorsSample || [], 24);
 
       const sources = msg?.sources && typeof msg.sources === 'object' ? msg.sources : {};
       for (const [source, value] of Object.entries(sources)) {
         const n = Math.max(0, Number(value) || 0);
         if (!n) continue;
         entry.sources[source] = (entry.sources[source] || 0) + n;
+      }
+
+      const discardedReasons = msg?.discardedReasons && typeof msg.discardedReasons === 'object' ? msg.discardedReasons : {};
+      entry.discardedReasons = entry.discardedReasons || {};
+      for (const [reason, value] of Object.entries(discardedReasons)) {
+        const n = Math.max(0, Number(value) || 0);
+        if (!n) continue;
+        const key = String(reason || 'invalid').slice(0, 40);
+        entry.discardedReasons[key] = (entry.discardedReasons[key] || 0) + n;
       }
 
       byTabHost[key] = entry;

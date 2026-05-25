@@ -623,9 +623,11 @@ function renderAppliedRulesDiagnostics(diag) {
   for (const entry of entries) {
     const selectorsLabel = `${formatNumber(entry.selectorCount || 0)} selectors`;
     const scriptletsLabel = `${formatNumber(entry.scriptletCount || 0)} scriptlets`;
+    const discardedLabel = `${formatNumber(entry.discardedSelectorCount || 0)} discarded`;
     const samples = [
       ...(entry.selectorsSample || []).slice(0, 3),
       ...(entry.scriptletsSample || []).slice(0, 3),
+      ...(entry.discardedSelectorsSample || []).slice(0, 2),
     ].slice(0, 5);
 
     const row = document.createElement('div');
@@ -633,7 +635,7 @@ function renderAppliedRulesDiagnostics(diag) {
     row.innerHTML =
       `<div class="diag-item-main">` +
         `<div class="diag-host">${escapeHtml(entry.hostname || 'unknown-host')}</div>` +
-        `<div class="diag-meta">tab ${entry.tabId >= 0 ? entry.tabId : '?'} · ${formatNumber(entry.eventCount || 0)} events · ${selectorsLabel} · ${scriptletsLabel}</div>` +
+        `<div class="diag-meta">tab ${entry.tabId >= 0 ? entry.tabId : '?'} · ${formatNumber(entry.eventCount || 0)} events · ${selectorsLabel} · ${scriptletsLabel} · ${discardedLabel}</div>` +
       `</div>` +
       `<div class="diag-last-seen">${entry.lastSeenAt ? getTimeAgo(new Date(entry.lastSeenAt)) : 'No timestamp'}</div>` +
       (samples.length > 0

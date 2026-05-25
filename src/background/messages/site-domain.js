@@ -262,6 +262,7 @@ export function createSiteDomainHandlers(ctx) {
         selectors: [],
         styles: cosmetics.styles || '',
         compiledScripts,
+        procedural: Array.isArray(cosmetics.procedural) ? cosmetics.procedural.slice(0, 80) : [],
       };
     },
 
