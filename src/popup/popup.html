@@ -44,7 +44,7 @@
         </svg>
         <span class="popup-title">MIDORI PRIVACY</span>
       </div>
-      <button id="btn-settings" class="icon-btn" title="Settings">
+      <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Open Midori Privacy settings">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="2" y1="14" x2="6" y2="14"/><line x1="10" y1="8" x2="14" y2="8"/><line x1="18" y1="16" x2="22" y2="16"/>
         </svg>
@@ -74,10 +74,10 @@
       <div class="oa-header">
         <span class="oa-title">Observed activities</span>
         <div class="oa-view-btns">
-          <button class="oa-view-btn active" id="view-chart" title="Chart view">
+          <button class="oa-view-btn active" id="view-chart" title="Chart view" aria-label="Show activity chart view">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/></svg>
           </button>
-          <button class="oa-view-btn" id="view-list" title="List view">
+          <button class="oa-view-btn" id="view-list" title="List view" aria-label="Show activity list view">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
           </button>
         </div>
@@ -245,7 +245,7 @@
       </div>
       <div class="cstat-sep"></div>
       <div class="cstat">
-        <span class="cstat-val" id="eco-energy" style="color:var(--color-primary)">0 Wh</span>
+        <span class="cstat-val stat-energy" id="eco-energy">0 Wh</span>
         <span class="cstat-lbl">Energy</span>
       </div>
     </div>
@@ -272,8 +272,8 @@
     </div>
 
     <!-- ── Pause quick options ── -->
-    <div class="popup-section popup-pause-bar" style="display:flex; align-items:center; gap:6px;">
-      <span class="section-label" style="margin-bottom:0; margin-right:auto;">Pause for:</span>
+    <div class="popup-section popup-pause-bar">
+      <span class="section-label popup-pause-label">Pause for:</span>
       <button class="pause-opt" data-minutes="5">5m</button>
       <button class="pause-opt" data-minutes="15">15m</button>
       <button class="pause-opt" data-minutes="30">30m</button>

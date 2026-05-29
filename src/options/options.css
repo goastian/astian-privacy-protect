@@ -85,7 +85,7 @@ body {
   font-weight: 900;
   margin-bottom: 24px;
   color: var(--color-text);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 /* ── Option cards ── */
@@ -276,7 +276,7 @@ body {
   color: var(--color-primary);
   line-height: 1;
   margin-bottom: 6px;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 
 .stat-label {
@@ -1134,5 +1134,202 @@ body {
 
   .vp-slider {
     width: 100%;
+  }
+}
+
+/* Midori Browser / New Tab coherence layer */
+body {
+  background: var(--color-browser-chrome);
+}
+
+#app {
+  background: transparent;
+}
+
+#sidebar {
+  width: 252px;
+  margin: 16px 0 16px 16px;
+  height: calc(100vh - 32px);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface, var(--color-bg)) 82%, var(--color-primary-bg));
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-header {
+  margin: 0 12px 12px;
+  padding: 0 8px 18px;
+}
+
+.sidebar-header svg {
+  width: 34px;
+  height: 34px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  stroke: currentColor;
+}
+
+.nav-list {
+  padding: 0 10px 12px;
+}
+
+.nav-item {
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.nav-item:hover {
+  border-color: var(--color-border);
+  background: var(--color-bg);
+}
+
+.nav-item.active {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+  background: var(--color-primary-bg);
+  color: var(--color-primary-dark);
+}
+
+.nav-group-label {
+  padding-left: 12px;
+  letter-spacing: 0.08em;
+}
+
+#content {
+  width: min(100%, 1040px);
+  max-width: 1040px;
+  padding: 36px 48px 48px;
+}
+
+.section-title {
+  margin-bottom: 20px;
+  letter-spacing: 0;
+}
+
+.option-card,
+.stat-card,
+.dash-summary-card,
+.diag-item,
+.ta-alert,
+.vp-guardrail {
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface, var(--color-bg));
+  box-shadow: var(--shadow-sm);
+}
+
+.option-card {
+  overflow: clip;
+}
+
+.option-row {
+  min-height: 64px;
+}
+
+.option-divider {
+  margin: 0;
+  background: var(--color-border-light);
+}
+
+.kpi-item,
+.top-site-rank,
+.tdb-cat-badge,
+.tdb-chip,
+.syntax-code,
+.filter-editor,
+.select-input,
+.text-input,
+.tdb-search-input,
+.ds-pill-row,
+.ia-status-grid > div {
+  border-radius: var(--radius-sm);
+}
+
+.select-input,
+.text-input,
+.tdb-search-input,
+.filter-editor {
+  background: var(--color-surface-soft, var(--color-bg-secondary));
+}
+
+.select-input:focus,
+.text-input:focus,
+.tdb-search-input:focus,
+.filter-editor:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.btn,
+.report-period-btn,
+.tdb-chip,
+.tdb-pagination .btn,
+.ta-alert-cta {
+  border-radius: var(--radius-sm);
+}
+
+.stats-grid {
+  gap: 14px;
+}
+
+.stat-card {
+  background: color-mix(in srgb, var(--color-surface, var(--color-bg)) 90%, var(--color-primary-bg));
+}
+
+.tdb-table-header {
+  background: var(--color-surface-soft, var(--color-bg-secondary));
+}
+
+.tdb-row:hover,
+.filter-list-item:hover,
+.top-site-item:hover,
+.ta-domain-row:hover,
+.ta-site-rec:hover {
+  background: var(--color-surface-soft, var(--color-bg-secondary));
+}
+
+.diff-module-icon,
+.ta-rec-grade,
+.dash-grade-badge,
+.level-shield,
+.privacy-icon {
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 980px) {
+  #app {
+    flex-direction: column;
+  }
+
+  #sidebar {
+    position: relative;
+    width: auto;
+    height: auto;
+    margin: 12px;
+    padding: 14px 0;
+  }
+
+  .nav-list {
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 2px;
+  }
+
+  .nav-group-label {
+    display: none;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+  }
+
+  #content {
+    padding: 16px 12px 32px;
   }
 }
