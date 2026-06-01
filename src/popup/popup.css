@@ -1195,21 +1195,46 @@ body {
 /* Midori Browser / New Tab coherence layer */
 html {
   min-width: 460px;
+  width: 460px;
+  height: 760px;
   background: var(--color-browser-chrome);
+  overflow: hidden;
 }
 
 body {
   min-width: 460px;
+  width: 460px;
+  height: 760px;
   background: var(--color-browser-chrome);
   padding: 8px;
+  overflow: hidden;
 }
 
 #popup {
   gap: 8px;
+  height: calc(100vh - 16px);
+  max-height: 744px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   border: 1px solid rgba(0, 168, 132, 0.22);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-bg-secondary) 88%, var(--color-primary-bg));
   box-shadow: var(--shadow-md);
+}
+
+#popup::-webkit-scrollbar {
+  width: 6px;
+}
+
+#popup::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#popup::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 999px;
 }
 
 .popup-header,
