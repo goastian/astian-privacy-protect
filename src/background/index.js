@@ -71,6 +71,8 @@ function shouldBypassFirefoxNetworkForHost(hostname) {
 
 const GOOGLE_SITE_MONITOR_SUFFIXES = ['google.com', 'gmail.com', 'googlemail.com'];
 const GOOGLE_TELEMETRY_PATH_RE = /\/(?:gen_204|collect|log|client_204)(?:[/?]|$)/i;
+const GOOGLE_SEARCH_REDIRECT_PATH_RE = /\/url(?:[/?]|$)/i;
+const GOOGLE_SEARCH_TRACKING_PARAM_KEYS = ['sa', 'source', 'ved', 'usg', 'ei', 'vet'];
 
 function shouldObserveGoogleSite(hostname) {
   return hostMatchesAny(hostname, GOOGLE_SITE_MONITOR_SUFFIXES);
@@ -84,7 +86,17 @@ function looksLikeGoogleTelemetryRequest(url, requestDomain) {
   }
   try {
     const parsed = new URL(url);
-    return GOOGLE_TELEMETRY_PATH_RE.test(parsed.pathname || '');
+    const path = parsed.pathname || '';
+    if (GOOGLE_TELEMETRY_PATH_RE.test(path)) return true;
+
+    // Search click-redirect endpoint on google.com carries tracking params.
+    if (GOOGLE_SEARCH_REDIRECT_PATH_RE.test(path)) {
+      const hasRedirectTarget = parsed.searchParams.has('url') || parsed.searchParams.has('q');
+      const hasTrackingParam = GOOGLE_SEARCH_TRACKING_PARAM_KEYS.some((key) => parsed.searchParams.has(key));
+      if (hasRedirectTarget && hasTrackingParam) return true;
+    }
+
+    return false;
   } catch {
     return false;
   }
@@ -1658,10 +1670,12 @@ if (IS_CHROMIUM && webRequestAPI?.onBeforeRequest) {
       if (!details || details.tabId < 0) return;
       if (!details.url || !details.url.startsWith('http')) return;
       if (details.type === 'main_frame') return;
-      if (chromiumObservedRateLimited(details.tabId)) return;
 
       const tab = getTab(details.tabId) || ensureTab(details.tabId);
-      const pageHostname = tab?.hostname || extractDomain(details.documentUrl || details.initiator || '');
+      const contextHostname = extractDomain(
+        details.documentUrl || details.originUrl || details.initiator || tab?.url || ''
+      );
+      const pageHostname = tab?.hostname || contextHostname;
       if (!pageHostname || !shouldObserveGoogleSite(pageHostname)) return;
 
       const requestDomain = extractDomain(details.url);
@@ -1673,6 +1687,7 @@ if (IS_CHROMIUM && webRequestAPI?.onBeforeRequest) {
 
       if (!sameSite && category !== 'trackers' && category !== 'ads') return;
       if (sameSite && !telemetryLike) return;
+      if (chromiumObservedRateLimited(details.tabId)) return;
 
       if (category !== 'trackers' && category !== 'ads') {
         category = 'trackers';

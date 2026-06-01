@@ -1,4 +1,5 @@
 import { DEFAULT_CATEGORY_STATE, OA_COLORS, OA_LABELS } from './popup-config.js';
+import { resolveOAPanelModel } from './oa-panel-model.js';
 /**
  * Midori Privacy Blocker
  * Popup UI logic
@@ -556,37 +557,22 @@ let lastDonutCounts = null;
 let lastOACatsKey = '';
 
 function updateOAPanel(groups, blocked, blockedByCategory, observedByCategory) {
-  // Domain-unique counts (used only for donut segments proportions + domain list)
-  const domainCounts = {
-    ads:      (groups.ads      || []).length,
-    trackers: (groups.trackers || []).length,
-    other:    (groups.other    || []).length,
-  };
-  const domainTotal = domainCounts.ads + domainCounts.trackers + domainCounts.other;
-
-  // Per-category request counts (accurate total, same units as badge)
-  const hasBlockedCounts = blockedByCategory && ((blockedByCategory.ads || 0) + (blockedByCategory.trackers || 0) + (blockedByCategory.popups || 0) + (blockedByCategory.other || 0)) > 0;
-  const hasObservedCounts = observedByCategory && ((observedByCategory.ads || 0) + (observedByCategory.trackers || 0) + (observedByCategory.other || 0)) > 0;
-  const counts = hasBlockedCounts
-    ? blockedByCategory
-    : hasObservedCounts
-      ? { ads: observedByCategory.ads || 0, trackers: observedByCategory.trackers || 0, popups: 0, other: observedByCategory.other || 0 }
-      : { ads: domainCounts.ads, trackers: domainCounts.trackers, popups: 0, other: domainCounts.other };
-  if (!Object.prototype.hasOwnProperty.call(counts, 'popups')) counts.popups = 0;
-  const total = counts.ads + counts.trackers + counts.popups + counts.other;
+  const model = resolveOAPanelModel({ groups, blocked, blockedByCategory, observedByCategory });
+  const counts = model.counts;
+  const total = model.total;
 
   // Contador de blockeados en la fila inferior
   const blockedBadge = $('#oa-blocked-count');
-  if (blockedBadge) blockedBadge.textContent = blocked > 0 ? blocked : total;
+  if (blockedBadge) blockedBadge.textContent = model.badgeCount;
 
   const blockedLabel = document.querySelector('.oa-blocked-label');
   if (blockedLabel) {
-    blockedLabel.textContent = blocked > 0 ? 'Trackers blocked' : (total > 0 ? 'Trackers observed' : 'Trackers blocked');
+    blockedLabel.textContent = model.badgeLabel;
   }
 
   // Número central de la dona — muestra el total de requests bloqueadas (igual que el badge)
   const totalEl = $('#donut-total');
-  if (totalEl) totalEl.textContent = blocked > 0 ? blocked : total;
+  if (totalEl) totalEl.textContent = model.badgeCount;
 
   // Donut CSS vars — skip si counts idénticos
   const donutEl = $('#oa-donut-wrap');
@@ -594,6 +580,7 @@ function updateOAPanel(groups, blocked, blockedByCategory, observedByCategory) {
     const countsChanged = !lastDonutCounts ||
       lastDonutCounts.ads !== counts.ads ||
       lastDonutCounts.trackers !== counts.trackers ||
+      lastDonutCounts.popups !== counts.popups ||
       lastDonutCounts.other !== counts.other;
     if (countsChanged) {
       renderDonut(donutEl, counts, total);
