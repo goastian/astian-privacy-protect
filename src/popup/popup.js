@@ -99,6 +99,8 @@ function hasDataChanged(newData) {
 
   const prevCats = lastRenderedData.blockedByCategory || {};
   const nextCats = newData.blockedByCategory || {};
+  const prevObs = lastRenderedData.observedByCategory || {};
+  const nextObs = newData.observedByCategory || {};
   
   // Compare key fields for efficient diffing
   return (
@@ -111,7 +113,10 @@ function hasDataChanged(newData) {
     (nextCats.ads || 0) !== (prevCats.ads || 0) ||
     (nextCats.trackers || 0) !== (prevCats.trackers || 0) ||
     (nextCats.popups || 0) !== (prevCats.popups || 0) ||
-    (nextCats.other || 0) !== (prevCats.other || 0)
+    (nextCats.other || 0) !== (prevCats.other || 0) ||
+    (nextObs.ads || 0) !== (prevObs.ads || 0) ||
+    (nextObs.trackers || 0) !== (prevObs.trackers || 0) ||
+    (nextObs.other || 0) !== (prevObs.other || 0)
   );
 }
 
@@ -323,7 +328,7 @@ function renderTabStats(data) {
   }
 
   // OA Panel — dona + categorías
-  updateOAPanel(groups, blocked, data.blockedByCategory || null);
+  updateOAPanel(groups, blocked, data.blockedByCategory || null, data.observedByCategory || null);
 
   // Update live stream (skip if disabled by default)
   if (liveStreamEnabled) {
@@ -509,6 +514,10 @@ async function toggleEntityBlock() {
 
 function formatReasonLabel(reason) {
   switch (reason) {
+    case 'observed-tracker':
+      return 'Observed tracker';
+    case 'observed-telemetry':
+      return 'Observed telemetry';
     case 'entity-block':
       return 'Entity block';
     case 'first-party-relaxed':
@@ -546,7 +555,7 @@ function buildTrackerMetaLine(item) {
 let lastDonutCounts = null;
 let lastOACatsKey = '';
 
-function updateOAPanel(groups, blocked, blockedByCategory) {
+function updateOAPanel(groups, blocked, blockedByCategory, observedByCategory) {
   // Domain-unique counts (used only for donut segments proportions + domain list)
   const domainCounts = {
     ads:      (groups.ads      || []).length,
@@ -556,19 +565,28 @@ function updateOAPanel(groups, blocked, blockedByCategory) {
   const domainTotal = domainCounts.ads + domainCounts.trackers + domainCounts.other;
 
   // Per-category request counts (accurate total, same units as badge)
-  const counts = blockedByCategory && ((blockedByCategory.ads || 0) + (blockedByCategory.trackers || 0) + (blockedByCategory.popups || 0) + (blockedByCategory.other || 0)) > 0
+  const hasBlockedCounts = blockedByCategory && ((blockedByCategory.ads || 0) + (blockedByCategory.trackers || 0) + (blockedByCategory.popups || 0) + (blockedByCategory.other || 0)) > 0;
+  const hasObservedCounts = observedByCategory && ((observedByCategory.ads || 0) + (observedByCategory.trackers || 0) + (observedByCategory.other || 0)) > 0;
+  const counts = hasBlockedCounts
     ? blockedByCategory
-    : { ads: domainCounts.ads, trackers: domainCounts.trackers, other: domainCounts.other };
+    : hasObservedCounts
+      ? { ads: observedByCategory.ads || 0, trackers: observedByCategory.trackers || 0, popups: 0, other: observedByCategory.other || 0 }
+      : { ads: domainCounts.ads, trackers: domainCounts.trackers, popups: 0, other: domainCounts.other };
   if (!Object.prototype.hasOwnProperty.call(counts, 'popups')) counts.popups = 0;
   const total = counts.ads + counts.trackers + counts.popups + counts.other;
 
   // Contador de blockeados en la fila inferior
   const blockedBadge = $('#oa-blocked-count');
-  if (blockedBadge) blockedBadge.textContent = blocked;
+  if (blockedBadge) blockedBadge.textContent = blocked > 0 ? blocked : total;
+
+  const blockedLabel = document.querySelector('.oa-blocked-label');
+  if (blockedLabel) {
+    blockedLabel.textContent = blocked > 0 ? 'Trackers blocked' : (total > 0 ? 'Trackers observed' : 'Trackers blocked');
+  }
 
   // Número central de la dona — muestra el total de requests bloqueadas (igual que el badge)
   const totalEl = $('#donut-total');
-  if (totalEl) totalEl.textContent = blocked;
+  if (totalEl) totalEl.textContent = blocked > 0 ? blocked : total;
 
   // Donut CSS vars — skip si counts idénticos
   const donutEl = $('#oa-donut-wrap');

@@ -10,7 +10,7 @@ import { getOptions, setOptions, isWhitelisted, toggleWhitelist, addDailyStat, r
 import { extractDomain, categorizeRequest } from './filter-utils.js';
 import { GhosteryEngine, wipeEngineCache } from './ghostery-engine.js';
 import { downloadAllListsWithStatus } from './lists-manager.js';
-import { initTab, recordBlock, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
+import { initTab, recordBlock, recordObservation, removeTab, getTab, ensureTab, getGroupedRequests, getGroupedRequestsEnriched, getRecentRequests, getBlockedCount, getBlockedByCategory, getObservedByCategory, getDataSaved, updateBadge, getEcoStats } from './stats-collector.js';
 import { getTopTrackedSites, getBlockingStats, getCategoryDistribution, getHourlyHeatmap, getWeeklyTrend, getPrivacySummary, getAppliedRulesDiagnostics, exportReport } from './report-generator.js';
 import {
   evaluateRequestPolicy,
@@ -67,6 +67,27 @@ function shouldLogVkDecision(pageHostname, requestHostname, url, shouldBlock) {
 
 function shouldBypassFirefoxNetworkForHost(hostname) {
   return hostMatchesAny(hostname, FIREFOX_NETWORK_RESCUE_BYPASS_HOSTS);
+}
+
+const GOOGLE_SITE_MONITOR_SUFFIXES = ['google.com', 'gmail.com', 'googlemail.com'];
+const GOOGLE_TELEMETRY_PATH_RE = /\/(?:gen_204|collect|log|client_204)(?:[/?]|$)/i;
+
+function shouldObserveGoogleSite(hostname) {
+  return hostMatchesAny(hostname, GOOGLE_SITE_MONITOR_SUFFIXES);
+}
+
+function looksLikeGoogleTelemetryRequest(url, requestDomain) {
+  const host = String(requestDomain || '').toLowerCase();
+  if (!host) return false;
+  if (!(host === 'google.com' || host.endsWith('.google.com') || host.endsWith('.gstatic.com'))) {
+    return false;
+  }
+  try {
+    const parsed = new URL(url);
+    return GOOGLE_TELEMETRY_PATH_RE.test(parsed.pathname || '');
+  } catch {
+    return false;
+  }
 }
 
 // ── Single engine: Ghostery (primary and only runtime engine) ──
@@ -711,6 +732,18 @@ const chromiumTabTrackers = new Map(); // tabId -> { hostname, domains: Set, blo
 // is already kept fresh by the platform; we just cap our diagnostic capture.
 const dnrRateState = new Map(); // tabId -> { windowStart, count }
 const recentChromiumBlockedUrls = new Map(); // tabId -> Map(url -> timestamp)
+const chromiumObservedRateState = new Map(); // tabId -> { windowStart, count }
+
+function chromiumObservedRateLimited(tabId) {
+  const now = Date.now();
+  let s = chromiumObservedRateState.get(tabId);
+  if (!s || now - s.windowStart >= 1000) {
+    s = { windowStart: now, count: 0 };
+    chromiumObservedRateState.set(tabId, s);
+  }
+  s.count++;
+  return s.count > 30;
+}
 
 function dnrRateLimited(tabId) {
   const now = Date.now();
@@ -983,8 +1016,9 @@ async function getChromiumTabStats(tabId) {
   // Also calculate dataSaved
   const dataSaved = getDataSaved(tabId);
   const blockedByCategory = getBlockedByCategory(tabId);
+  const observedByCategory = getObservedByCategory(tabId);
 
-  return { hostname, blocked, groups, blockedByCategory, dataSaved, recentRequests: getRecentRequests(tabId, 10) };
+  return { hostname, blocked, groups, blockedByCategory, observedByCategory, dataSaved, recentRequests: getRecentRequests(tabId, 10) };
 }
 
 // ── Tab lifecycle ───────────────────────────────────────────────────────────
@@ -1166,6 +1200,7 @@ const dispatchMessage = createMessageDispatcher({
   getGroupedRequestsEnriched,
   getEntityControlForGroups,
   getBlockedByCategory,
+  getObservedByCategory,
   getTab,
   getDataSaved,
   getRecentRequests,
@@ -1607,6 +1642,48 @@ if (IS_CHROMIUM && webRequestAPI?.onErrorOccurred) {
 
       const tab = getTab(details.tabId);
       if (tab) recordChromiumBlockedRequest(details.tabId, details.url, { reason: 'rule-match' });
+    },
+    { urls: ['<all_urls>'] }
+  );
+}
+
+// ── Chromium: observe tracker-like requests on Google surfaces ─────────────
+// Critical Google apps (Gmail/Meet/Docs) are intentionally compatibility-
+// relaxed, so many telemetry endpoints are not blocked. We still surface
+// tracker-like activity in the popup as observed signals.
+if (IS_CHROMIUM && webRequestAPI?.onBeforeRequest) {
+  webRequestAPI.onBeforeRequest.addListener(
+    (details) => {
+      if (!isEnabled) return;
+      if (!details || details.tabId < 0) return;
+      if (!details.url || !details.url.startsWith('http')) return;
+      if (details.type === 'main_frame') return;
+      if (chromiumObservedRateLimited(details.tabId)) return;
+
+      const tab = getTab(details.tabId) || ensureTab(details.tabId);
+      const pageHostname = tab?.hostname || extractDomain(details.documentUrl || details.initiator || '');
+      if (!pageHostname || !shouldObserveGoogleSite(pageHostname)) return;
+
+      const requestDomain = extractDomain(details.url);
+      if (!requestDomain) return;
+
+      const sameSite = requestDomain === pageHostname || requestDomain.endsWith(`.${pageHostname}`) || pageHostname.endsWith(`.${requestDomain}`);
+      const telemetryLike = looksLikeGoogleTelemetryRequest(details.url, requestDomain);
+      let category = categorizeRequest(details.url);
+
+      if (!sameSite && category !== 'trackers' && category !== 'ads') return;
+      if (sameSite && !telemetryLike) return;
+
+      if (category !== 'trackers' && category !== 'ads') {
+        category = 'trackers';
+      }
+
+      recordObservation(details.tabId, details.url, {
+        category,
+        reason: sameSite ? 'observed-telemetry' : 'observed-tracker',
+        confidence: sameSite ? 0.01 : 0.03,
+      });
+      notifyPopupStatsChange(details.tabId);
     },
     { urls: ['<all_urls>'] }
   );

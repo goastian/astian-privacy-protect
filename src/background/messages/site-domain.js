@@ -121,6 +121,9 @@ export function createSiteDomainHandlers(ctx) {
           ? ctx.getEntityControlForGroups(stats.groups, runtimeOptions)
           : null;
         stats.blockedByCategory = ctx.getBlockedByCategory(msg.tabId);
+        stats.observedByCategory = ctx.getObservedByCategory
+          ? ctx.getObservedByCategory(msg.tabId)
+          : { ads: 0, trackers: 0, other: 0 };
         return { ...stats, ...eco };
       }
 
@@ -131,6 +134,9 @@ export function createSiteDomainHandlers(ctx) {
         hostname: tab?.hostname || '',
         blocked: tab?.blocked || 0,
         blockedByCategory: ctx.getBlockedByCategory(msg.tabId),
+        observedByCategory: ctx.getObservedByCategory
+          ? ctx.getObservedByCategory(msg.tabId)
+          : { ads: 0, trackers: 0, other: 0 },
         dataSaved: ctx.getDataSaved(msg.tabId),
         groups,
         entityControl: rollout.entityBlocking

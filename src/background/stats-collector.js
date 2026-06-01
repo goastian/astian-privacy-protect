@@ -34,6 +34,7 @@ export function initTab(tabId, hostname) {
     hostname,
     blocked: 0,
     blockedByCategory: { ads: 0, trackers: 0, popups: 0, other: 0 },
+    observedByCategory: { ads: 0, trackers: 0, other: 0 },
     dataSaved: 0,
     energySaved: 0, // In kWh
     co2Saved: 0,    // In grams
@@ -55,6 +56,7 @@ export function ensureTab(tabId) {
       hostname: '', 
       blocked: 0, 
       blockedByCategory: { ads: 0, trackers: 0, popups: 0, other: 0 },
+      observedByCategory: { ads: 0, trackers: 0, other: 0 },
       dataSaved: 0, 
       energySaved: 0, 
       co2Saved: 0, 
@@ -66,6 +68,47 @@ export function ensureTab(tabId) {
   }
   if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, popups: 0, other: 0 };
   if (!Object.prototype.hasOwnProperty.call(tab.blockedByCategory, 'popups')) tab.blockedByCategory.popups = 0;
+  if (!tab.observedByCategory) tab.observedByCategory = { ads: 0, trackers: 0, other: 0 };
+  return tab;
+}
+
+export function recordObservation(tabId, url, metadata = {}) {
+  const tab = ensureTab(tabId);
+
+  const domain = metadata.domain || extractDomain(url);
+  if (!domain) return tab;
+
+  const tracker = enrichTrackerWithOwner(domain) || {
+    domain,
+    owner: domain,
+    category: 'unknown',
+    confidence: 0,
+    fingerprintScore: 0,
+  };
+
+  const category = metadata.category || categorizeRequest(url);
+  const cat = (category === 'ads' || category === 'trackers') ? category : 'other';
+  const confidence = Number(metadata.confidence ?? tracker.confidence) || 0;
+  const fingerprinting = metadata.fingerprinting === true || Number(metadata.fingerprintScore ?? tracker.fingerprintScore) > 0;
+  const owner = metadata.owner || tracker.owner || domain;
+  const ownerId = metadata.ownerId || tracker.ownerId || domain;
+
+  if (!tab.observedByCategory) tab.observedByCategory = { ads: 0, trackers: 0, other: 0 };
+  tab.observedByCategory[cat] = (tab.observedByCategory[cat] || 0) + 1;
+
+  if (tab.requests.length < 150) {
+    tab.requests.push({
+      domain,
+      category: cat,
+      owner,
+      ownerId,
+      confidence,
+      fingerprinting,
+      reason: metadata.reason || 'observed-tracker',
+      observed: true,
+    });
+  }
+
   return tab;
 }
 
@@ -151,6 +194,13 @@ export function getBlockedByCategory(tabId) {
     : { ads: 0, trackers: 0, popups: 0, other: 0 };
 }
 
+export function getObservedByCategory(tabId) {
+  const tab = tabData.get(tabId);
+  return tab?.observedByCategory
+    ? { ads: 0, trackers: 0, other: 0, ...tab.observedByCategory }
+    : { ads: 0, trackers: 0, other: 0 };
+}
+
 export function getDataSaved(tabId) {
   const tab = tabData.get(tabId);
   if (!tab) return 0;
@@ -195,11 +245,20 @@ export function getGroupedRequests(tabId) {
   if (!tab) return { trackers: [], ads: [], other: [] };
 
   const groups = { trackers: [], ads: [], other: [] };
-  const seen = new Set();
+  const byDomain = new Map();
 
   for (const req of tab.requests) {
-    if (seen.has(req.domain)) continue;
-    seen.add(req.domain);
+    const existing = byDomain.get(req.domain);
+    if (!existing) {
+      byDomain.set(req.domain, req);
+      continue;
+    }
+    if (existing.observed === true && req.observed !== true) {
+      byDomain.set(req.domain, req);
+    }
+  }
+
+  for (const req of byDomain.values()) {
     const cat = req.category;
     if (groups[cat]) {
       groups[cat].push(req.domain);
@@ -224,11 +283,20 @@ export function getGroupedRequestsEnriched(tabId) {
   if (!tab) return { trackers: [], ads: [], other: [] };
 
   const groups = { trackers: [], ads: [], other: [] };
-  const seen = new Set();
+  const byDomain = new Map();
 
   for (const req of tab.requests) {
-    if (seen.has(req.domain)) continue;
-    seen.add(req.domain);
+    const existing = byDomain.get(req.domain);
+    if (!existing) {
+      byDomain.set(req.domain, req);
+      continue;
+    }
+    if (existing.observed === true && req.observed !== true) {
+      byDomain.set(req.domain, req);
+    }
+  }
+
+  for (const req of byDomain.values()) {
     const cat = req.category;
     const enriched = {
       domain: req.domain,
@@ -238,6 +306,7 @@ export function getGroupedRequestsEnriched(tabId) {
       reason: req.reason || 'rule-match',
       confidence: Number(req.confidence) || 0,
       fingerprinting: req.fingerprinting === true,
+      observed: req.observed === true,
     };
     if (groups[cat]) {
       groups[cat].push(enriched);
