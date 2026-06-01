@@ -807,12 +807,22 @@ import scriptletRuleList from '../rules/scriptlets.json';
     const args = [];
     let current = '';
     let quote = '';
+    let escaped = false;
     for (let i = 0; i < input.length; i++) {
       const ch = input[i];
-      const prev = input[i - 1];
+      if (escaped) {
+        current += ch;
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escaped = true;
+        current += ch;
+        continue;
+      }
       if (quote) {
         current += ch;
-        if (ch === quote && prev !== '\\') quote = '';
+        if (ch === quote) quote = '';
         continue;
       }
       if (ch === '"' || ch === "'") {
@@ -828,7 +838,57 @@ import scriptletRuleList from '../rules/scriptlets.json';
       current += ch;
     }
     if (current.trim()) args.push(stripCssStringQuotes(current.trim()));
-    return args;
+    return args.map(normalizeUboScriptletArg);
+  }
+
+  function normalizeUboScriptletArg(arg) {
+    return String(arg || '')
+      .replace(/\\,/g, ',')
+      .replace(/\\\\/g, '\\');
+  }
+
+  function normalizeScriptletDomainToken(domain) {
+    let token = String(domain || '').trim().toLowerCase();
+    if (!token) return '';
+    if (token === '*') return '*';
+    if (token.startsWith('||')) token = token.slice(2);
+    if (token.startsWith('.')) token = token.slice(1);
+    if (token.endsWith('^')) token = token.slice(0, -1);
+    return token;
+  }
+
+  function splitScriptletDomains(domains) {
+    const include = [];
+    const exclude = [];
+    for (const raw of domains || []) {
+      const token = String(raw || '').trim();
+      if (!token) continue;
+      if (token.startsWith('~')) {
+        const normalized = normalizeScriptletDomainToken(token.slice(1));
+        if (normalized) exclude.push(normalized);
+      } else {
+        const normalized = normalizeScriptletDomainToken(token);
+        if (normalized) include.push(normalized);
+      }
+    }
+    return { include, exclude };
+  }
+
+  function scriptletDomainApplies(host, normalizedDomain) {
+    if (!host || !normalizedDomain) return false;
+    if (normalizedDomain === '*') return true;
+    return host === normalizedDomain || host.endsWith('.' + normalizedDomain);
+  }
+
+  function shouldApplyBuiltinScriptletRule(host, rule) {
+    if (!host || !rule) return false;
+    const domains = splitScriptletDomains(rule.domains);
+    const included = domains.include.length === 0
+      ? true
+      : domains.include.some((domain) => scriptletDomainApplies(host, domain));
+    if (!included) return false;
+    const excluded = domains.exclude.some((domain) => scriptletDomainApplies(host, domain));
+    return !excluded;
   }
 
   function parseUboScriptletRule(ruleText) {
@@ -853,24 +913,102 @@ import scriptletRuleList from '../rules/scriptlets.json';
     ? scriptletRuleList.rules.map(parseUboScriptletRule).filter(Boolean)
     : [];
 
-  function scriptletDomainMatchesHost(host, domain) {
-    const normalized = String(domain || '').toLowerCase();
-    return !!normalized && (host === normalized || host.endsWith('.' + normalized));
-  }
-
   function getBuiltinScriptlets(hostname) {
     const rules = [];
     const host = String(hostname || '').toLowerCase();
     if (!host) return rules;
     for (const rule of BUILTIN_SCRIPTLET_RULES) {
-      for (const domain of rule.domains) {
-        if (scriptletDomainMatchesHost(host, domain)) {
-          rules.push({ name: rule.name, args: rule.args });
-          break;
-        }
+      if (shouldApplyBuiltinScriptletRule(host, rule)) {
+        rules.push({ name: rule.name, args: rule.args });
       }
     }
     return rules;
+  }
+
+  function isSerpTrackingHost(hostname) {
+    const host = String(hostname || '').toLowerCase();
+    return host === 'bing.com' || host.endsWith('.bing.com') || host === 'google.com' || host.endsWith('.google.com');
+  }
+
+  function extractGoogleRedirectTarget(href) {
+    if (!href) return null;
+    let parsed;
+    try {
+      parsed = new URL(href, window.location.href);
+    } catch {
+      return null;
+    }
+
+    const host = String(parsed.hostname || '').toLowerCase();
+    if (!(host === 'google.com' || host.endsWith('.google.com'))) return null;
+    if (parsed.pathname !== '/url') return null;
+
+    const target = parsed.searchParams.get('url') || parsed.searchParams.get('q');
+    if (!target) return null;
+
+    try {
+      const targetUrl = new URL(target, window.location.href);
+      if (targetUrl.protocol !== 'http:' && targetUrl.protocol !== 'https:') return null;
+      return targetUrl.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  function sanitizeSerpLink(link) {
+    if (!link || link.nodeType !== 1 || link.tagName !== 'A') return;
+
+    if (link.hasAttribute('ping')) {
+      link.removeAttribute('ping');
+    }
+
+    const onMouseDown = String(link.getAttribute('onmousedown') || '').toLowerCase();
+    if (onMouseDown.includes('rwt(') || onMouseDown.includes('return rwt(')) {
+      link.removeAttribute('onmousedown');
+    }
+
+    const directTarget = extractGoogleRedirectTarget(link.getAttribute('href'));
+    if (directTarget) {
+      link.setAttribute('href', directTarget);
+    }
+  }
+
+  function installSerpTrackingPrevention() {
+    if (!isSerpTrackingHost(window.location.hostname)) return;
+
+    const sanitizeEventTargetLink = (event) => {
+      const link = event?.target?.closest ? event.target.closest('a[href], a[ping], a[onmousedown]') : null;
+      if (link) sanitizeSerpLink(link);
+    };
+
+    const sanitizeNodeLinks = (root) => {
+      if (!root || !root.querySelectorAll) return;
+      const links = root.querySelectorAll('a[href], a[ping], a[onmousedown]');
+      const limit = Math.min(links.length, 300);
+      for (let i = 0; i < limit; i++) sanitizeSerpLink(links[i]);
+    };
+
+    sanitizeNodeLinks(document);
+    document.addEventListener('pointerdown', sanitizeEventTargetLink, true);
+    document.addEventListener('mousedown', sanitizeEventTargetLink, true);
+    document.addEventListener('click', sanitizeEventTargetLink, true);
+
+    const obs = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes || []) {
+          if (!node || node.nodeType !== 1) continue;
+          if (node.tagName === 'A') sanitizeSerpLink(node);
+          sanitizeNodeLinks(node);
+        }
+      }
+    });
+
+    obs.observe(document.documentElement || document.body || document, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['href', 'ping', 'onmousedown'],
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -963,6 +1101,8 @@ import scriptletRuleList from '../rules/scriptlets.json';
 
   const hostname = window.location.hostname;
   if (!hostname) return;
+
+  installSerpTrackingPrevention();
 
   async function initSiteProtection() {
     const state = await sendMsg({ action: 'get-site-protection-state', hostname });
