@@ -1381,6 +1381,159 @@ import { buildYoutubeAdPrunerScriptlet } from './scriptlets-youtube.js';
   };
 
   // ══════════════════════════════════════════════════════════════════════════
+  // SPOTIFY WEB AD DEFUSER
+  // Spotify inserts some ads through first-party playback paths. Blocking those
+  // paths is risky, so this keeps the response adaptive and UX-safe: mute while
+  // ad UI is visible, close known ad shells, and restore the user's audio state.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  SCRIPTLETS['spotify-ad-defuser'] = function () {
+    return `(function() {
+      if (window.__midoriSpotifyAdDefuserInstalled) return;
+      window.__midoriSpotifyAdDefuserInstalled = true;
+
+      var adActive = false;
+      var saved = { muted: false, volume: 1 };
+      var lastTickAt = 0;
+      var AD_RE = /\\b(ad|advertisement|sponsored|publicidad|anuncio|patrocinado|propaganda|pubblicit[aà]|annonce|werbung)\\b/i;
+      var AD_SELECTORS = [
+        '[data-testid*="advert" i]',
+        '[data-testid*="sponsored" i]',
+        '[aria-label*="Advertisement" i]',
+        '[aria-label*="Sponsored" i]',
+        '[aria-label*="Publicidad" i]',
+        '[aria-label*="Anuncio" i]',
+        'iframe[src*="doubleclick" i]',
+        'iframe[src*="googlesyndication" i]',
+        'iframe[src*="ads" i]',
+        '[class*="ad-container" i]',
+        '[class*="advertisement" i]',
+        '[id*="ad-container" i]'
+      ].join(',');
+      var HIDE_SELECTORS = [
+        '[data-testid*="advert" i]',
+        '[data-testid*="sponsored" i]',
+        '[aria-label*="Advertisement" i]',
+        '[aria-label*="Sponsored" i]',
+        '[aria-label*="Publicidad" i]',
+        '[aria-label*="Anuncio" i]',
+        'iframe[src*="doubleclick" i]',
+        'iframe[src*="googlesyndication" i]',
+        'iframe[src*="ads" i]'
+      ].join(',');
+
+      var style = document.createElement('style');
+      style.textContent = HIDE_SELECTORS + '{ display: none !important; visibility: hidden !important; }';
+      (document.head || document.documentElement).appendChild(style);
+
+      function isVisible(el) {
+        if (!el || !el.isConnected) return false;
+        try {
+          var rect = el.getBoundingClientRect();
+          var cs = getComputedStyle(el);
+          return rect.width > 0 && rect.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden';
+        } catch(e) {
+          return false;
+        }
+      }
+
+      function getAudio() {
+        var audio = document.querySelector('audio');
+        if (audio) return audio;
+        var media = document.querySelectorAll('video, audio');
+        var best = null;
+        for (var i = 0; i < media.length; i++) {
+          if (!best || media[i].duration > best.duration) best = media[i];
+        }
+        return best;
+      }
+
+      function hasAdUi() {
+        try {
+          var nodes = document.querySelectorAll(AD_SELECTORS);
+          for (var i = 0; i < nodes.length; i++) {
+            if (isVisible(nodes[i])) return true;
+          }
+          var nowPlaying = document.querySelector('[data-testid="now-playing-widget"], footer, [role="contentinfo"]');
+          if (nowPlaying && AD_RE.test(nowPlaying.textContent || '')) return true;
+        } catch(e) {}
+        return false;
+      }
+
+      function hideAdUi() {
+        try {
+          var nodes = document.querySelectorAll(HIDE_SELECTORS);
+          for (var i = 0; i < nodes.length; i++) {
+            nodes[i].style.setProperty('display', 'none', 'important');
+            nodes[i].style.setProperty('visibility', 'hidden', 'important');
+          }
+          var buttons = document.querySelectorAll('button, [role="button"]');
+          for (var j = 0; j < buttons.length; j++) {
+            var text = [
+              buttons[j].getAttribute('aria-label') || '',
+              buttons[j].getAttribute('title') || '',
+              buttons[j].textContent || ''
+            ].join(' ');
+            if (/\\b(close|dismiss|skip|cerrar|omitir|saltar)\\b/i.test(text) && AD_RE.test(text)) {
+              buttons[j].click();
+            }
+          }
+        } catch(e) {}
+      }
+
+      function muteAd() {
+        try {
+          var media = getAudio();
+          if (!media) return;
+          if (!adActive) {
+            saved.muted = media.muted;
+            saved.volume = media.volume;
+            adActive = true;
+          }
+          media.muted = true;
+        } catch(e) {}
+      }
+
+      function restoreAudio() {
+        if (!adActive) return;
+        try {
+          var media = getAudio();
+          if (!media) return;
+          media.muted = saved.muted;
+          if (Number.isFinite(saved.volume)) media.volume = saved.volume;
+          adActive = false;
+        } catch(e) {}
+      }
+
+      function tick() {
+        var now = Date.now();
+        if ((now - lastTickAt) < 250) return;
+        lastTickAt = now;
+        if (hasAdUi()) {
+          muteAd();
+          hideAdUi();
+        } else {
+          restoreAudio();
+        }
+      }
+
+      setInterval(tick, 1200);
+      function startObserver() {
+        var root = document.body || document.documentElement;
+        if (!root) { setTimeout(startObserver, 500); return; }
+        new MutationObserver(tick).observe(root, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['class', 'style', 'aria-label', 'data-testid']
+        });
+      }
+      startObserver();
+      setTimeout(tick, 0);
+    })();`;
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════
   // ANTI-FINGERPRINTING SCRIPTLETS
   // These randomize browser APIs used for fingerprinting to prevent tracking.
   // ══════════════════════════════════════════════════════════════════════════
@@ -1787,6 +1940,10 @@ import { buildYoutubeAdPrunerScriptlet } from './scriptlets-youtube.js';
     if (hn === 'www.youtube.com' || hn === 'youtube.com' || hn === 'm.youtube.com') {
       applyScriptlets([{ name: 'yt-ad-pruner', args: [] }]);
       _appliedScriptlets['yt-ad-pruner:'] = true;
+    }
+    if (hn === 'open.spotify.com' || hn === 'spotify.com' || hn === 'www.spotify.com') {
+      applyScriptlets([{ name: 'spotify-ad-defuser', args: [] }]);
+      _appliedScriptlets['spotify-ad-defuser:'] = true;
     }
   }).catch(function() {});
 

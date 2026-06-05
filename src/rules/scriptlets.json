@@ -3,6 +3,7 @@
   "format": "ubo-scriptlet-rules",
   "rules": [
     "youtube.com##+js(yt-ad-pruner)",
+    "spotify.com##+js(spotify-ad-defuser)",
     "twitch.tv##+js(twitch-ad-mute)",
     "twitch.tv##+js(set-constant, __twilightBuildID, '')",
     "twitch.tv##+js(abort-on-property-read, navigator.brave)",

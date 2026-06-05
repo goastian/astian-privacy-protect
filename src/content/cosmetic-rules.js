@@ -432,6 +432,17 @@ export const BUILTIN_COSMETICS = {
     '[data-a-target="video-ad-pause-overlay"]',
     '.ad-overlay', '.ad-notification',
   ],
+  'spotify.com': [
+    '[data-testid*="advert" i]',
+    '[data-testid*="sponsored" i]',
+    '[aria-label*="Advertisement" i]',
+    '[aria-label*="Sponsored" i]',
+    '[aria-label*="Publicidad" i]',
+    '[aria-label*="Anuncio" i]',
+    'iframe[src*="doubleclick" i]',
+    'iframe[src*="googlesyndication" i]',
+    'iframe[src*="ads" i]',
+  ],
   'facebook.com': [
     '[data-pagelet*="FeedUnit"]:has(a[href*="ads/about"])',
     '[data-pagelet*="FeedUnit"]:has(span:has-text("Sponsored"))',
