@@ -1465,3 +1465,191 @@ body {
 :root[data-theme="dark"] #popup {
   border-color: rgba(39, 217, 172, 0.22);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VISUAL POLISH LAYER (2026-06) — cleaner hierarchy, calmer chrome,
+   livelier feedback. Pure presentation: no selector/JS contract changes.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Header: tighter brand lockup */
+.popup-header {
+  padding: 9px 12px;
+}
+
+.popup-title {
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* Status: live pulse on the active dot so "Protection Active" feels real */
+.status-dot.active {
+  position: relative;
+  box-shadow: 0 0 0 4px var(--color-primary-bg);
+}
+
+.status-dot.active::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary);
+  opacity: 0;
+  animation: status-pulse 2.4s ease-out infinite;
+}
+
+@keyframes status-pulse {
+  0% { transform: scale(0.6); opacity: 0.55; }
+  70% { transform: scale(1.25); opacity: 0; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot.active::after { animation: none; }
+}
+
+/* Hostname as a quiet chip for better scannability */
+.status-host {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg) 72%, transparent);
+  border: 1px solid var(--color-border-light);
+  font-weight: 600;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Donut: slightly larger with a soft ring shadow */
+.oa-donut-wrap,
+.oa-donut {
+  width: 78px;
+  height: 78px;
+}
+
+.oa-donut {
+  box-shadow: inset 0 0 0 1px var(--color-border-light);
+}
+
+.oa-donut::after {
+  inset: 11px;
+}
+
+.donut-total {
+  font-size: 1.1rem;
+}
+
+/* Category rows: align counts with tabular numerals */
+.oa-cat-count,
+.oa-blocked-count,
+.cstat-val,
+.donut-total {
+  font-variant-numeric: tabular-nums;
+}
+
+.oa-cat-row {
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.oa-cat-row:hover {
+  background: var(--color-bg-secondary);
+}
+
+/* Blocked badge row as a subtle pill */
+.oa-blocked-row {
+  margin: 2px 10px 8px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-danger-light) 70%, transparent);
+  color: var(--color-text-secondary);
+}
+
+/* Module cards: tactile hover + pressed feedback */
+.module-card {
+  cursor: default;
+}
+
+.module-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+}
+
+.module-card .mc-icon {
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.module-card:hover .mc-icon {
+  transform: scale(1.06);
+}
+
+/* Compact stats: hover highlight per metric */
+.cstat {
+  transition: background var(--transition-fast);
+}
+
+.cstat:hover {
+  background: var(--color-bg-secondary);
+}
+
+.cstat-val {
+  font-size: 1.28rem;
+}
+
+/* Shield level: filled active state with stronger affordance */
+.level-btn {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.level-btn.active {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.level-btn.active:hover {
+  background: var(--color-primary-dark);
+}
+
+/* Pause quick options: equal-width tap targets */
+.popup-pause-bar .pause-opt {
+  min-width: 44px;
+  min-height: 28px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+/* Footer: clearer separation between the two actions */
+.popup-footer {
+  padding: 6px 8px;
+}
+
+.footer-link {
+  min-height: 32px;
+}
+
+/* Entity / popup-allow buttons: consistent press feedback */
+.entity-action-btn:active:not(:disabled),
+.popup-allow-btn:active:not(:disabled),
+.level-btn:active,
+.pause-opt:active,
+.footer-link:active,
+.ia-action-btn:active {
+  transform: translateY(1px);
+}
+
+/* Empty state: friendlier and centered */
+.oa-empty {
+  gap: 5px;
+  padding: 6px 0;
+}
+
+.oa-empty svg {
+  width: 24px;
+  height: 24px;
+  opacity: 0.7;
+}
