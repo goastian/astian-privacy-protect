@@ -138,6 +138,11 @@ export function buildYoutubeAdPrunerScriptlet() {
       'ytd-in-feed-ad-layout-renderer,',
       'ytd-ad-slot-renderer,',
       'ytd-rich-item-renderer:has(ytd-ad-slot-renderer),',
+      'ytd-companion-slot-renderer,',
+      'ytd-player-legacy-desktop-watch-ads-renderer,',
+      'ytd-merch-shelf-renderer,',
+      'ytd-brand-video-singleton-renderer,',
+      'ytd-brand-video-shelf-renderer,',
       '#masthead-ad,',
       '#player-ads,',
       '#panels .ytd-ads-engagement-panel-content-renderer,',
@@ -497,28 +502,45 @@ export function buildYoutubeAdPrunerScriptlet() {
     }
     startObserver();
 
-    // Enforcement modal observer (separate, on body)
+    // Enforcement modal observer (separate, on body).
+    // Perf: body-wide childList observers fire constantly on YouTube. Only
+    // run the heavy querySelectorAll sweeps when the added nodes can
+    // actually contain dialogs/ad renderers (ytd-*/tp-yt-* custom elements);
+    // plain div/span churn from the player UI is skipped outright.
+    function addedNodesLookRelevant(muts) {
+      for (var i = 0; i < muts.length; i++) {
+        var added = muts[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j];
+          if (!n || n.nodeType !== 1) continue;
+          var tag = n.tagName || '';
+          if (tag.indexOf('YTD-') === 0 || tag.indexOf('TP-YT-') === 0 || tag.indexOf('YTM-') === 0) return true;
+          var child = n.firstElementChild;
+          if (child) {
+            var childTag = child.tagName || '';
+            if (childTag.indexOf('YTD-') === 0 || childTag.indexOf('TP-YT-') === 0) return true;
+          }
+        }
+      }
+      return false;
+    }
+
     function startEnforcementObserver() {
       var body = document.body;
       if (!body) { setTimeout(startEnforcementObserver, 500); return; }
 
       if (enforcementObserver) enforcementObserver.disconnect();
       enforcementObserver = new MutationObserver(function(muts) {
-        var hasAdded = false;
-        for (var i = 0; i < muts.length; i++) {
-          if (muts[i].addedNodes.length > 0) { hasAdded = true; break; }
-        }
-        if (hasAdded) {
-          // Enforcement removal must be immediate (no rAF) for UX
-          removeEnforcement();
-          pruneAdaptiveAdNodes();
-          // Defer tick to next animation frame to reduce CPU churn
-          if (!pendingRAF) {
-            pendingRAF = requestAnimationFrame(function() {
-              pendingRAF = 0;
-              if (shouldRunTick(250)) tick();
-            });
-          }
+        if (!addedNodesLookRelevant(muts)) return;
+        // Enforcement removal must be immediate (no rAF) for UX
+        removeEnforcement();
+        pruneAdaptiveAdNodes();
+        // Defer tick to next animation frame to reduce CPU churn
+        if (!pendingRAF) {
+          pendingRAF = requestAnimationFrame(function() {
+            pendingRAF = 0;
+            if (shouldRunTick(250)) tick();
+          });
         }
       });
 

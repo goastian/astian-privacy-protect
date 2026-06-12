@@ -359,6 +359,10 @@ export const BUILTIN_COSMETICS = {
     'tp-yt-paper-dialog:has(> ytd-mealbar-promo-renderer)',
     'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
     'ytd-brand-video-singleton-renderer', 'ytd-brand-video-shelf-renderer',
+    'ytd-companion-slot-renderer', 'ytd-player-legacy-desktop-watch-ads-renderer',
+    // Mobile web (m.youtube.com) ad renderers
+    'ytm-promoted-video-renderer', 'ytm-companion-ad-renderer',
+    'ytm-promoted-sparkles-web-renderer',
     // ── Overlay ads on player (only leaf elements, not containers) ──
     '.ytp-ad-text-overlay', '.ytp-ad-image-overlay',
     '.ytp-ad-message-container',
@@ -402,6 +406,12 @@ export const BUILTIN_COSMETICS = {
     'iframe[src*="rad.msn.com"]', 'iframe[src*="msads.net"]',
     'msn-native-ad', '[data-module-id*="nativead" i]',
     '[data-adunit]', '[data-ad-unit]', '[data-testid*="ad" i][class*="card" i]',
+    // Current MSN web-component ad cards (tag names are explicit — low FP risk)
+    'cs-native-ad-card', 'cs-lite-display-ad', 'outstream-ad-card',
+    'native-ad-card', 'msft-content-card-ad', 'display-ad-unit',
+    'msn-display-ad', 'cs-super-ad-card', 'ad-poc',
+    '[data-t*="AdCard"]', '[data-id*="nativead" i]',
+    'div[id^="ad-tile-"]', 'div[id^="banner-ad"]',
   ],
   'bing.com': [
     '#b_results .b_ad', '#b_results .b_adTop', '#b_results .b_adBottom',
@@ -411,15 +421,24 @@ export const BUILTIN_COSMETICS = {
     '#b_results li:has([data-advertiserid])',
     '#b_results li:has([aria-label*="Sponsored" i])',
     '#b_context [data-advertiserid]',
+    // Product/multimedia ad carousels and sidebar ad blocks
+    '.adsMvCarousel', '.b_adSidebar', '.b_adCenter',
+    '#b_pole .b_ad', 'li.b_ad',
   ],
   'google.com': [
     '#tads', '#tadsb', '#bottomads', '#taw', '#rhsads', '#center_col > #taw',
+    '#tvcap',
     'div[data-text-ad="1"]', 'div[data-pcu]', 'div[data-rw][data-pcu]',
     'div[data-dtld]', 'a[data-rw][data-pcu]', '[aria-label="Ads"]',
     '[aria-label="Sponsored"]', '[aria-label="Publicidad"]',
     'div:has(> span[aria-label="Sponsored"])',
     '#rso div[data-text-ad]', '#rso div:has(> div > span[aria-label="Sponsored"])',
     'div[role="complementary"] div[data-text-ad="1"]',
+    // Shopping / product listing ads (PLA) — desktop + mobile units
+    '.commercial-unit-desktop-top', '.commercial-unit-desktop-rhs',
+    '.commercial-unit-mobile-top', '.commercial-unit-mobile-bottom',
+    '.cu-container', '.pla-unit-container', '.pla-aunit',
+    '#main div[data-text-ad]',
   ],
   'twitch.tv': [
     '[data-a-target="video-ad-label"]', '[data-a-target="video-ad-countdown"]',
