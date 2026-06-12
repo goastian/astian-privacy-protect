@@ -11,23 +11,31 @@ import { enrichTrackerWithOwner } from './trackerdb.js';
 // In-memory per-tab stats (fast access, no async)
 const tabData = new Map();
 
-// Average bytes saved per resource type (industry estimates)
-const AVG_BYTES_BY_CATEGORY = {
-  ads: 45000,       // Ad scripts/iframes ~45KB
-  trackers: 8000,   // Tracking pixels/beacons ~8KB
-  other: 25000,     // General blocked resources ~25KB
-};
+// Average bytes saved per blocked request (industry estimate, blended across
+// ad scripts ~45KB, tracking pixels ~8KB and general resources ~25KB)
+const AVG_BYTES_PER_BLOCK = 26000;
 
 // Eco-savings constants (conservative estimates)
 const ENERGY_SAVED_PER_BLOCK_KWH = 0.0005; // 0.5 Wh per block
 const CO2_SAVED_PER_BLOCK_G = 0.2;         // 0.2g CO2 per block
 
-// Badge update debounce — one timer per tab
+// Badge update debounce — leading edge paints immediately (no perceived
+// delay), trailing edge coalesces bursts so high-traffic pages still only
+// repaint a handful of times per second.
 const badgeTimers = new Map();
-const BADGE_DEBOUNCE_MS = 1000; // Increased from 500ms to 1000ms for 8.3 optimization
+const lastBadgePaint = new Map(); // tabId -> { at, count }
+const BADGE_TRAILING_MS = 250;
+const BADGE_MIN_PAINT_GAP_MS = 120;
 
-// Cache for last calculated eco stats (to avoid recalculating frequently)
-const lastEcoCache = new Map();
+// Resolved once — avoids re-detecting the browser API on every badge update.
+let cachedBadgeAPI;
+function getBadgeAPI() {
+  if (cachedBadgeAPI !== undefined) return cachedBadgeAPI;
+  cachedBadgeAPI = (typeof browser !== 'undefined' && browser.browserAction)
+    ? browser.browserAction
+    : (chrome.action || chrome.browserAction || null);
+  return cachedBadgeAPI;
+}
 
 export function initTab(tabId, hostname) {
   tabData.set(tabId, {
@@ -42,7 +50,9 @@ export function initTab(tabId, hostname) {
     _savedBlocked: 0,
     _savedRequestIdx: 0,
   });
-  lastEcoCache.delete(tabId); // Clear cache when tab is initialized
+  // Navigation reset: clear any stale badge count right away so the badge
+  // never shows the previous page's total on the new page.
+  paintBadge(tabId);
 }
 
 export function getTab(tabId) {
@@ -78,25 +88,26 @@ export function recordObservation(tabId, url, metadata = {}) {
   const domain = metadata.domain || extractDomain(url);
   if (!domain) return tab;
 
-  const tracker = enrichTrackerWithOwner(domain) || {
-    domain,
-    owner: domain,
-    category: 'unknown',
-    confidence: 0,
-    fingerprintScore: 0,
-  };
-
   const category = metadata.category || categorizeRequest(url);
   const cat = (category === 'ads' || category === 'trackers') ? category : 'other';
-  const confidence = Number(metadata.confidence ?? tracker.confidence) || 0;
-  const fingerprinting = metadata.fingerprinting === true || Number(metadata.fingerprintScore ?? tracker.fingerprintScore) > 0;
-  const owner = metadata.owner || tracker.owner || domain;
-  const ownerId = metadata.ownerId || tracker.ownerId || domain;
 
   if (!tab.observedByCategory) tab.observedByCategory = { ads: 0, trackers: 0, other: 0 };
   tab.observedByCategory[cat] = (tab.observedByCategory[cat] || 0) + 1;
 
   if (tab.requests.length < 150) {
+    // Owner enrichment is only needed when we actually store the entry,
+    // so skip the lookup entirely once the per-tab cap is reached.
+    const tracker = enrichTrackerWithOwner(domain) || {
+      domain,
+      owner: domain,
+      category: 'unknown',
+      confidence: 0,
+      fingerprintScore: 0,
+    };
+    const confidence = Number(metadata.confidence ?? tracker.confidence) || 0;
+    const fingerprinting = metadata.fingerprinting === true || Number(metadata.fingerprintScore ?? tracker.fingerprintScore) > 0;
+    const owner = metadata.owner || tracker.owner || domain;
+    const ownerId = metadata.ownerId || tracker.ownerId || domain;
     tab.requests.push({
       domain,
       category: cat,
@@ -126,20 +137,7 @@ export function recordBlock(tabId, url, metadata = {}) {
 
   tab.blocked++;
 
-  const domain = metadata.domain || extractDomain(url);
-  const tracker = enrichTrackerWithOwner(domain) || {
-    domain,
-    owner: domain,
-    category: 'unknown',
-    confidence: 0,
-    fingerprintScore: 0,
-  };
   const category = metadata.category || categorizeRequest(url);
-  const reason = metadata.reason || 'rule-match';
-  const confidence = Number(metadata.confidence ?? tracker.confidence) || 0;
-  const fingerprinting = metadata.fingerprinting === true || Number(metadata.fingerprintScore ?? tracker.fingerprintScore) > 0;
-  const owner = metadata.owner || tracker.owner || domain;
-  const ownerId = metadata.ownerId || tracker.ownerId || domain;
 
   // Track per-category blocked count (always accurate, regardless of requests cap)
   if (!tab.blockedByCategory) tab.blockedByCategory = { ads: 0, trackers: 0, popups: 0, other: 0 };
@@ -147,26 +145,26 @@ export function recordBlock(tabId, url, metadata = {}) {
   const cat = (category === 'ads' || category === 'trackers' || category === 'popups') ? category : 'other';
   tab.blockedByCategory[cat]++;
 
-  // Optimization 8.3: Batch eco-calculations — only recalculate every 10 blocks
-  if (tab.blocked % 10 === 0) {
-    tab.dataSaved += (AVG_BYTES_BY_CATEGORY[category] || AVG_BYTES_BY_CATEGORY.other) * 10;
-    tab.energySaved += ENERGY_SAVED_PER_BLOCK_KWH * 10;
-    tab.co2Saved += CO2_SAVED_PER_BLOCK_G * 10;
-    lastEcoCache.delete(tabId); // Invalidate cache
-  }
-
-  // Only store details for the first 100 unique domains (saves memory)
-  // Optimization 8.3: Skip storing if already have 100 requests
-  // Phase 8: Include owner information for popup display
+  // Only store details for the first 100 requests (saves memory). Domain
+  // extraction + owner enrichment are deferred behind the cap check so the
+  // hot path does no string/lookup work once the cap is reached.
   if (tab.requests.length < 100) {
+    const domain = metadata.domain || extractDomain(url);
+    const tracker = enrichTrackerWithOwner(domain) || {
+      domain,
+      owner: domain,
+      category: 'unknown',
+      confidence: 0,
+      fingerprintScore: 0,
+    };
     tab.requests.push({
       domain,
       category: cat,
-      owner,
-      ownerId,
-      confidence,
-      fingerprinting,
-      reason,
+      owner: metadata.owner || tracker.owner || domain,
+      ownerId: metadata.ownerId || tracker.ownerId || domain,
+      confidence: Number(metadata.confidence ?? tracker.confidence) || 0,
+      fingerprinting: metadata.fingerprinting === true || Number(metadata.fingerprintScore ?? tracker.fingerprintScore) > 0,
+      reason: metadata.reason || 'rule-match',
     });
   }
 
@@ -175,7 +173,7 @@ export function recordBlock(tabId, url, metadata = {}) {
 
 export function removeTab(tabId) {
   tabData.delete(tabId);
-  lastEcoCache.delete(tabId); // Clear eco cache on tab removal
+  lastBadgePaint.delete(tabId);
   if (badgeTimers.has(tabId)) {
     clearTimeout(badgeTimers.get(tabId));
     badgeTimers.delete(tabId);
@@ -204,10 +202,9 @@ export function getObservedByCategory(tabId) {
 export function getDataSaved(tabId) {
   const tab = tabData.get(tabId);
   if (!tab) return 0;
-  
-  // Optimization 8.3: Calculate on demand with estimated average
-  // Balance between batching in recordBlock and accuracy on retrieve
-  return tab.blocked * 26000; // Average across all categories ≈ (45K + 8K + 25K) / 3
+
+  // Calculated on demand from the always-accurate blocked counter.
+  return tab.blocked * AVG_BYTES_PER_BLOCK;
 }
 
 export function getEcoStats(tabId) {
@@ -319,33 +316,50 @@ export function getGroupedRequestsEnriched(tabId) {
 }
 
 /**
- * Update badge text for a tab (debounced to avoid excessive API calls)
+ * Paint the badge for a tab right now. Skips the API call when the count
+ * has not changed since the last paint for that tab.
+ */
+function paintBadge(tabId) {
+  const count = getBlockedCount(tabId);
+  const prev = lastBadgePaint.get(tabId);
+  if (prev && prev.count === count) {
+    prev.at = Date.now();
+    return;
+  }
+
+  try {
+    const badgeAPI = getBadgeAPI();
+    if (badgeAPI?.setBadgeText) {
+      const text = count > 0 ? String(count) : '';
+      const r1 = badgeAPI.setBadgeText({ text, tabId });
+      if (r1 && typeof r1.then === 'function') r1.catch(() => {});
+      if (count > 0 && (!prev || prev.count === 0)) {
+        const r2 = badgeAPI.setBadgeBackgroundColor({ color: '#e74c3c', tabId });
+        if (r2 && typeof r2.then === 'function') r2.catch(() => {});
+      }
+    }
+    lastBadgePaint.set(tabId, { at: Date.now(), count });
+  } catch (e) {
+    // Tab may have been closed
+  }
+}
+
+/**
+ * Update badge text for a tab.
+ * Leading edge: the first event after an idle window paints immediately so
+ * the user never perceives a counting delay. Trailing edge: a short timer
+ * coalesces bursts and guarantees the final value lands on the badge.
  */
 export function updateBadge(tabId) {
-  if (badgeTimers.has(tabId)) return; // Already scheduled
+  if (badgeTimers.has(tabId)) return; // Trailing repaint already scheduled
+
+  const last = lastBadgePaint.get(tabId);
+  if (!last || Date.now() - last.at >= BADGE_MIN_PAINT_GAP_MS) {
+    paintBadge(tabId);
+  }
 
   badgeTimers.set(tabId, setTimeout(() => {
     badgeTimers.delete(tabId);
-    const count = getBlockedCount(tabId);
-    const text = count > 0 ? String(count) : '';
-
-    try {
-      // Firefox: use browser.browserAction (native Promise API) or chrome.browserAction (callback)
-      // Chromium: use chrome.action (Promise API)
-      const badgeAPI = (typeof browser !== 'undefined' && browser.browserAction)
-        ? browser.browserAction
-        : (chrome.action || chrome.browserAction);
-
-      if (badgeAPI?.setBadgeText) {
-        const r1 = badgeAPI.setBadgeText({ text, tabId });
-        if (r1 && typeof r1.then === 'function') r1.catch(() => {});
-        if (count > 0) {
-          const r2 = badgeAPI.setBadgeBackgroundColor({ color: '#e74c3c', tabId });
-          if (r2 && typeof r2.then === 'function') r2.catch(() => {});
-        }
-      }
-    } catch (e) {
-      // Tab may have been closed
-    }
-  }, BADGE_DEBOUNCE_MS));
+    paintBadge(tabId);
+  }, BADGE_TRAILING_MS));
 }
