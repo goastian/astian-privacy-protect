@@ -247,23 +247,30 @@ function renderFilterLists() {
   const lists = currentOptions?.lists || {};
 
   for (const [groupName, groupLists] of Object.entries(FILTER_LIST_GROUPS)) {
-    // Group header
+    const ids = Object.keys(groupLists);
+    const enabledCount = ids.filter(id => lists[id]?.enabled).length;
+
+    // Group header with enabled-count summary
     const groupHeader = document.createElement('div');
     groupHeader.className = 'filter-list-group-header';
-    groupHeader.innerHTML = `<span class="font-semibold text-sm">${groupName}</span>`;
+    groupHeader.innerHTML =
+      `<span class="filter-list-group-title">${groupName}</span>` +
+      `<span class="filter-list-group-count" data-group-count>${enabledCount}/${ids.length} active</span>`;
     container.appendChild(groupHeader);
 
     for (const [id, meta] of Object.entries(groupLists)) {
       const config = lists[id] || { enabled: false };
       const item = document.createElement('div');
-      item.className = 'filter-list-item';
+      item.className = 'filter-list-item' + (config.enabled ? ' is-enabled' : '');
       item.innerHTML = `
+        <span class="filter-list-status-dot" aria-hidden="true"></span>
         <div class="filter-list-info">
           <div class="filter-list-name">${meta.name}</div>
           <div class="filter-list-meta">${meta.desc}</div>
         </div>
+        <span class="filter-list-state">${config.enabled ? 'On' : 'Off'}</span>
         <label class="toggle">
-          <input type="checkbox" data-list-id="${id}" ${config.enabled ? 'checked' : ''}>
+          <input type="checkbox" data-list-id="${id}" ${config.enabled ? 'checked' : ''} aria-label="Toggle ${meta.name}">
           <span class="toggle-slider"></span>
         </label>
       `;
@@ -283,6 +290,26 @@ function renderFilterLists() {
         const defaultUrl = getDefaultListUrl(listId);
         if (defaultUrl) {
           lists[listId] = { enabled: e.target.checked, url: defaultUrl };
+        }
+      }
+      // Reflect new state in the row + group counter without a full re-render
+      const row = e.target.closest('.filter-list-item');
+      if (row) {
+        row.classList.toggle('is-enabled', e.target.checked);
+        const state = row.querySelector('.filter-list-state');
+        if (state) state.textContent = e.target.checked ? 'On' : 'Off';
+        let header = row.previousElementSibling;
+        while (header && !header.classList.contains('filter-list-group-header')) {
+          header = header.previousElementSibling;
+        }
+        const countEl = header?.querySelector('[data-group-count]');
+        if (countEl) {
+          const groupEntry = Object.values(FILTER_LIST_GROUPS).find(g => listId in g);
+          if (groupEntry) {
+            const ids = Object.keys(groupEntry);
+            const enabled = ids.filter(id => id === listId ? e.target.checked : lists[id]?.enabled).length;
+            countEl.textContent = `${enabled}/${ids.length} active`;
+          }
         }
       }
       currentOptions = await saveOptions({ lists });
@@ -512,11 +539,40 @@ function renderWeeklyTrend(trend) {
 // Store chart metadata for tooltip interaction
 let chartMeta = null;
 
+// Resolve all theme colors once per render instead of per draw call.
+function getChartTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  return {
+    primary: cs.getPropertyValue('--color-primary').trim() || '#00A884',
+    primaryDark: cs.getPropertyValue('--color-primary-dark').trim() || '#008D70',
+    text: cs.getPropertyValue('--color-text').trim() || '#10201A',
+    textTertiary: cs.getPropertyValue('--color-text-tertiary').trim() || '#71847D',
+    border: cs.getPropertyValue('--color-border-light').trim() || '#EEF5F2',
+    bg: cs.getPropertyValue('--color-bg').trim() || '#FFFFFF',
+    surface: cs.getPropertyValue('--color-surface').trim() || '#FFFFFF',
+  };
+}
+
+function colorWithAlpha(color, alpha) {
+  // Works for hex colors (#RGB / #RRGGBB); falls back to the color itself.
+  const hex = color.replace('#', '');
+  if (hex.length === 3) {
+    const r = parseInt(hex[0] + hex[0], 16), g = parseInt(hex[1] + hex[1], 16), b = parseInt(hex[2] + hex[2], 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  if (hex.length === 6) {
+    const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return color;
+}
+
 function renderChart(stats) {
   const canvas = $('#chart-blocking');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
+  const theme = getChartTheme();
 
   canvas.width = canvas.offsetWidth * dpr;
   canvas.height = 200 * dpr;
@@ -531,8 +587,8 @@ function renderChart(stats) {
   ctx.clearRect(0, 0, w, h);
 
   if (stats.length === 0) {
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-text-tertiary');
-    ctx.font = '12px sans-serif';
+    ctx.fillStyle = theme.textTertiary;
+    ctx.font = '600 12px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('No data yet', w / 2, h / 2);
     chartMeta = null;
@@ -545,70 +601,92 @@ function renderChart(stats) {
   // Store metadata for tooltip
   chartMeta = { stats, padding, chartW, chartH, maxVal, barWidth, w, h };
 
-  // Grid lines
-  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-border-light');
+  // Grid lines + axis labels
+  ctx.strokeStyle = theme.border;
   ctx.lineWidth = 1;
+  ctx.font = '10px Inter, sans-serif';
   for (let i = 0; i <= 4; i++) {
     const y = padding.top + (chartH / 4) * i;
     ctx.beginPath();
+    ctx.setLineDash(i === 4 ? [] : [3, 4]);
     ctx.moveTo(padding.left, y);
     ctx.lineTo(w - padding.right, y);
     ctx.stroke();
 
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-text-tertiary');
-    ctx.font = '10px sans-serif';
+    ctx.fillStyle = theme.textTertiary;
     ctx.textAlign = 'right';
     const val = Math.round(maxVal * (1 - i / 4));
     ctx.fillText(formatNumber(val), padding.left - 6, y + 3);
   }
+  ctx.setLineDash([]);
 
-  // Bars
-  const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary');
+  // Bars with vertical gradient
+  const barGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+  barGradient.addColorStop(0, theme.primary);
+  barGradient.addColorStop(1, colorWithAlpha(theme.primary, 0.55));
+
   const barPositions = [];
   stats.forEach((d, i) => {
     const x = padding.left + (chartW / stats.length) * i + 2;
-    const barH = (d.blocked / maxVal) * chartH;
+    const barH = Math.max(d.blocked > 0 ? 2 : 0, (d.blocked / maxVal) * chartH);
     const y = padding.top + chartH - barH;
 
     barPositions.push({ x, y, w: barWidth, h: barH });
 
-    ctx.fillStyle = primaryColor;
-    ctx.beginPath();
-    ctx.roundRect(x, y, barWidth, barH, 2);
-    ctx.fill();
+    if (barH > 0) {
+      ctx.fillStyle = barGradient;
+      ctx.beginPath();
+      const r = Math.min(3, barWidth / 2, barH);
+      ctx.roundRect(x, y, barWidth, barH, [r, r, 0, 0]);
+      ctx.fill();
+    }
 
     if (stats.length <= 7 || i % Math.ceil(stats.length / 7) === 0) {
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-text-tertiary');
-      ctx.font = '9px sans-serif';
+      ctx.fillStyle = theme.textTertiary;
+      ctx.font = '9px Inter, sans-serif';
       ctx.textAlign = 'center';
       const label = d.date.slice(5);
       ctx.fillText(label, x + barWidth / 2, h - 8);
     }
   });
 
-  // Trend line overlay
+  // Trend line overlay with soft area fill
   if (stats.length > 1) {
+    const points = stats.map((d, i) => ({
+      x: barPositions[i].x + barWidth / 2,
+      y: padding.top + chartH - (d.blocked / maxVal) * chartH,
+    }));
+
+    // Area fill under the trend line
+    const areaGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+    areaGradient.addColorStop(0, colorWithAlpha(theme.primaryDark, 0.14));
+    areaGradient.addColorStop(1, colorWithAlpha(theme.primaryDark, 0));
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(26, 158, 111, 0.6)';
+    ctx.moveTo(points[0].x, padding.top + chartH);
+    points.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(points[points.length - 1].x, padding.top + chartH);
+    ctx.closePath();
+    ctx.fillStyle = areaGradient;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.strokeStyle = colorWithAlpha(theme.primaryDark, 0.75);
     ctx.lineWidth = 2;
     ctx.lineJoin = 'round';
-    stats.forEach((d, i) => {
-      const cx = barPositions[i].x + barWidth / 2;
-      const cy = padding.top + chartH - (d.blocked / maxVal) * chartH;
-      if (i === 0) ctx.moveTo(cx, cy);
-      else ctx.lineTo(cx, cy);
+    points.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
     });
     ctx.stroke();
 
     // Dots on line
-    stats.forEach((d, i) => {
-      const cx = barPositions[i].x + barWidth / 2;
-      const cy = padding.top + chartH - (d.blocked / maxVal) * chartH;
+    points.forEach((p) => {
       ctx.beginPath();
-      ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-      ctx.fillStyle = primaryColor;
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = theme.primary;
       ctx.fill();
-      ctx.strokeStyle = '#fff';
+      ctx.strokeStyle = theme.surface;
       ctx.lineWidth = 1.5;
       ctx.stroke();
     });
@@ -662,6 +740,7 @@ function renderCategoryDonut(categories) {
   if (!canvas || !categories) return;
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
+  const theme = getChartTheme();
 
   canvas.width = canvas.offsetWidth * dpr;
   canvas.height = 160 * dpr;
@@ -672,7 +751,8 @@ function renderCategoryDonut(categories) {
   const cx = w / 2;
   const cy = h / 2;
   const radius = Math.min(w, h) / 2 - 10;
-  const innerRadius = radius * 0.55;
+  const ringWidth = radius * 0.34;
+  const midRadius = radius - ringWidth / 2;
 
   ctx.clearRect(0, 0, w, h);
 
@@ -686,38 +766,47 @@ function renderCategoryDonut(categories) {
   const total = data.reduce((s, d) => s + d.value, 0);
 
   if (total === 0) {
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-text-tertiary');
-    ctx.font = '12px sans-serif';
+    // Empty ring placeholder
+    ctx.beginPath();
+    ctx.arc(cx, cy, midRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = theme.border;
+    ctx.lineWidth = ringWidth;
+    ctx.stroke();
+    ctx.fillStyle = theme.textTertiary;
+    ctx.font = '600 12px Inter, sans-serif';
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText('No data', cx, cy);
   } else {
+    // Stroke-based segments with small gaps between them — cleaner and
+    // lighter than filled wedges + hole overdraw.
+    const segments = data.filter(d => d.value > 0);
+    const gapAngle = segments.length > 1 ? 0.035 : 0;
     let startAngle = -Math.PI / 2;
-    for (const d of data) {
-      if (d.value === 0) continue;
+    ctx.lineWidth = ringWidth;
+    ctx.lineCap = segments.length > 1 ? 'round' : 'butt';
+    for (const d of segments) {
       const sliceAngle = (d.value / total) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
-      ctx.closePath();
-      ctx.fillStyle = d.color;
-      ctx.fill();
+      const from = startAngle + gapAngle / 2;
+      const to = startAngle + sliceAngle - gapAngle / 2;
+      if (to > from) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, midRadius, from, to);
+        ctx.strokeStyle = d.color;
+        ctx.stroke();
+      }
       startAngle += sliceAngle;
     }
-    // Inner circle (donut hole)
-    ctx.beginPath();
-    ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2);
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-bg');
-    ctx.fill();
 
     // Center text
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-text');
-    ctx.font = 'bold 18px sans-serif';
+    ctx.fillStyle = theme.text;
+    ctx.font = '800 19px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(formatNumber(total), cx, cy - 6);
-    ctx.font = '10px sans-serif';
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-text-tertiary');
-    ctx.fillText('total', cx, cy + 10);
+    ctx.font = '700 9px Inter, sans-serif';
+    ctx.fillStyle = theme.textTertiary;
+    ctx.fillText('TOTAL BLOCKED', cx, cy + 11);
   }
 
   // Legend
@@ -730,7 +819,8 @@ function renderCategoryDonut(categories) {
       item.className = 'cat-legend-item';
       item.innerHTML = `<span class="cat-legend-dot" style="background:${d.color}"></span>
         <span class="text-secondary">${d.label}</span>
-        <span class="cat-legend-value">${formatNumber(d.value)} (${pct}%)</span>`;
+        <span class="cat-legend-value">${formatNumber(d.value)} (${pct}%)</span>
+        <span class="cat-legend-bar"><span class="cat-legend-bar-fill" style="width:${pct}%;background:${d.color}"></span></span>`;
       legend.appendChild(item);
     }
   }
