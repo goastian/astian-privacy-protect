@@ -1,5 +1,5 @@
 export type SettingsStorage = {
-  version: 1.3
+  version: 1.4
   enabled: boolean
   lists: {
     common: boolean
@@ -9,11 +9,14 @@ export type SettingsStorage = {
     ipGrabbers: boolean
     annoyances: boolean
     cleanWeb: boolean
+    youtubeDistractions: boolean
+    youtubeRecommended: boolean
+    youtubeShorts: boolean
   }
 }
 
 export const DEFAULT_SETTINGS: SettingsStorage = {
-  version: 1.3,
+  version: 1.4,
   enabled: true,
   lists: {
     common: true,
@@ -23,7 +26,22 @@ export const DEFAULT_SETTINGS: SettingsStorage = {
     ipGrabbers: false,
     annoyances: false,
     cleanWeb: false,
+    youtubeDistractions: false,
+    youtubeRecommended: false,
+    youtubeShorts: false,
   },
 }
 
 export const LATEST_SETTINGS_VERSION = DEFAULT_SETTINGS.version
+
+export const normalizeSettings = (
+  settings: Partial<SettingsStorage> = {}
+): SettingsStorage => ({
+  ...DEFAULT_SETTINGS,
+  ...settings,
+  version: LATEST_SETTINGS_VERSION,
+  lists: {
+    ...DEFAULT_SETTINGS.lists,
+    ...(settings.lists || {}),
+  },
+})

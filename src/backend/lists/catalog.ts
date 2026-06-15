@@ -158,26 +158,57 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
         supportUrl: 'https://github.com/brave/adblock-lists',
       },
       {
-        title: 'Brave Youtube distraction',
-        url: 'https://github.com/brave/adblock-lists/blob/master/brave-lists/yt-distracting.txt',
-        format: 'Standard',
-        supportUrl: 'https://github.com/brave/adblock-lists',
-      },
-      {
-        title: 'Brave Youtube recommended',
-        url: 'https://github.com/brave/adblock-lists/blob/master/brave-lists/yt-recommended.txt',
-        format: 'Standard',
-        supportUrl: 'https://github.com/brave/adblock-lists',
-      },
-      {
-        title: 'Brave Youtube Shorts',
-        url: 'https://github.com/brave/adblock-lists/blob/master/brave-lists/yt-shorts.txt',
-        format: 'Standard',
-        supportUrl: 'https://github.com/brave/adblock-lists',
-      },
-      {
         title: 'Brave page visibility and video rules',
         url: 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-pageview.txt',
+        format: 'Standard',
+        supportUrl: 'https://github.com/brave/adblock-lists',
+      },
+    ],
+  },
+  {
+    id: 'youtubeDistractions',
+    name: 'Brave YouTube distractions',
+    description: 'Optional Brave rules for YouTube prompts and distractions.',
+    required: false,
+    defaultEnabled: false,
+    source: 'brave',
+    sources: [
+      {
+        title: 'Brave YouTube distractions',
+        url: 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-distracting.txt',
+        format: 'Standard',
+        supportUrl: 'https://github.com/brave/adblock-lists',
+      },
+    ],
+  },
+  {
+    id: 'youtubeRecommended',
+    name: 'Brave YouTube recommendations',
+    description:
+      'Optional Brave rules that reduce recommended YouTube surfaces.',
+    required: false,
+    defaultEnabled: false,
+    source: 'brave',
+    sources: [
+      {
+        title: 'Brave YouTube recommendations',
+        url: 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-recommended.txt',
+        format: 'Standard',
+        supportUrl: 'https://github.com/brave/adblock-lists',
+      },
+    ],
+  },
+  {
+    id: 'youtubeShorts',
+    name: 'Brave YouTube Shorts',
+    description: 'Optional Brave rules that hide YouTube Shorts surfaces.',
+    required: false,
+    defaultEnabled: false,
+    source: 'brave',
+    sources: [
+      {
+        title: 'Brave YouTube Shorts',
+        url: 'https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/yt-shorts.txt',
         format: 'Standard',
         supportUrl: 'https://github.com/brave/adblock-lists',
       },
@@ -265,6 +296,55 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
         format: 'Standard',
         supportUrl:
           'https://github.com/AdguardTeam/AdguardFilters#adguard-filters',
+      },
+    ],
+  },
+  {
+    id: 'ipGrabbers',
+    name: 'IP grabbers',
+    description:
+      'Midori legacy IP grabber protection until a Brave catalog equivalent is selected.',
+    required: false,
+    defaultEnabled: false,
+    source: 'midori',
+    sources: [
+      {
+        title: 'Dot Shield IP grabbers',
+        url: 'https://raw.githubusercontent.com/dothq-extensions/shield-db/main/out/ip_grabbers.txt',
+        format: 'Standard',
+        supportUrl: 'https://github.com/dothq-extensions/shield-db',
+      },
+    ],
+  },
+  {
+    id: 'fakeNews',
+    name: 'Fake news',
+    description: 'Midori legacy fake news protection list.',
+    required: false,
+    defaultEnabled: false,
+    source: 'midori',
+    sources: [
+      {
+        title: 'Dot Shield fake news',
+        url: 'https://raw.githubusercontent.com/dothq-extensions/shield-db/main/out/fake_news.txt',
+        format: 'Standard',
+        supportUrl: 'https://github.com/dothq-extensions/shield-db',
+      },
+    ],
+  },
+  {
+    id: 'gambling',
+    name: 'Gambling',
+    description: 'Midori legacy gambling protection list.',
+    required: false,
+    defaultEnabled: false,
+    source: 'midori',
+    sources: [
+      {
+        title: 'Dot Shield gambling',
+        url: 'https://raw.githubusercontent.com/dothq-extensions/shield-db/main/out/gambling.txt',
+        format: 'Standard',
+        supportUrl: 'https://github.com/dothq-extensions/shield-db',
       },
     ],
   },

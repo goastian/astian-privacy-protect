@@ -2,6 +2,7 @@ import {
   DEFAULT_SETTINGS,
   LATEST_SETTINGS_VERSION,
   SettingsStorage,
+  normalizeSettings,
 } from '../constants/settings'
 import { PermStore } from './permStore'
 
@@ -15,8 +16,9 @@ export class Settings extends PermStore<SettingsStorage> {
 
     // Update settings if it is outdated
     if (this.data.version < LATEST_SETTINGS_VERSION) {
-      this.data = { ...this.data, ...DEFAULT_SETTINGS }
-      this.data.version = LATEST_SETTINGS_VERSION
+      this.data = normalizeSettings(this.data)
+    } else {
+      this.data = normalizeSettings(this.data)
     }
   }
 

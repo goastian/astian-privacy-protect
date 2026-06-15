@@ -3,7 +3,11 @@
 import React, { Component } from 'react'
 import { remoteFn } from '../../../backend/lib/remoteFunctions'
 
-import { DEFAULT_SETTINGS, SettingsStorage } from '../../../constants/settings'
+import {
+  DEFAULT_SETTINGS,
+  SettingsStorage,
+  normalizeSettings,
+} from '../../../constants/settings'
 import { Button, Checkbox } from '../common'
 import styles from './settings.module.css'
 
@@ -35,7 +39,16 @@ class SettingsApp extends Component {
       await browser.storage.local.set({ settings })
     }
 
+    settings = normalizeSettings(settings)
+
     this.setState({ hasChanged: this.state.hasChanged, settings })
+  }
+
+  toggleList(listId: keyof SettingsStorage['lists']): void {
+    const settings = normalizeSettings(this.state.settings)
+
+    settings.lists[listId] = !settings.lists[listId]
+    this.setState({ hasChanged: true, settings })
   }
 
   render(): JSX.Element {
@@ -63,57 +76,57 @@ class SettingsApp extends Component {
             <div style={{ marginBottom: 16 }}>
               <Checkbox
                 value={settings.lists.fakeNews}
-                onChange={() => {
-                  settings.lists.fakeNews = !settings.lists.fakeNews
-                  this.setState({ hasChanged: true, settings })
-                }}
+                onChange={() => this.toggleList('fakeNews')}
               >
                 <>Fake news filter list</>
               </Checkbox>
               <Checkbox
                 value={settings.lists.gambling}
-                onChange={() => {
-                  settings.lists.gambling = !settings.lists.gambling
-                  this.setState({ hasChanged: true, settings })
-                }}
+                onChange={() => this.toggleList('gambling')}
               >
                 <>Gambling filter list</>
               </Checkbox>
               <Checkbox
                 value={settings.lists.social}
-                onChange={() => {
-                  settings.lists.social = !settings.lists.social
-                  this.setState({ hasChanged: true, settings })
-                }}
+                onChange={() => this.toggleList('social')}
               >
                 <>Social media filter list</>
               </Checkbox>
               <Checkbox
                 value={settings.lists.ipGrabbers}
-                onChange={() => {
-                  settings.lists.ipGrabbers = !settings.lists.ipGrabbers
-                  this.setState({ hasChanged: true, settings })
-                }}
+                onChange={() => this.toggleList('ipGrabbers')}
               >
                 <>IP Grabbers filter list</>
               </Checkbox>
               <Checkbox
                 value={settings.lists.annoyances}
-                onChange={() => {
-                  settings.lists.annoyances = !settings.lists.annoyances
-                  this.setState({ hasChanged: true, settings })
-                }}
+                onChange={() => this.toggleList('annoyances')}
               >
                 <>Annoyances</>
               </Checkbox>
               <Checkbox
                 value={settings.lists.cleanWeb}
-                onChange={() => {
-                  settings.lists.cleanWeb = !settings.lists.cleanWeb
-                  this.setState({ hasChanged: true, settings })
-                }}
+                onChange={() => this.toggleList('cleanWeb')}
               >
                 <>Clean web</>
+              </Checkbox>
+              <Checkbox
+                value={settings.lists.youtubeDistractions}
+                onChange={() => this.toggleList('youtubeDistractions')}
+              >
+                <>YouTube distractions</>
+              </Checkbox>
+              <Checkbox
+                value={settings.lists.youtubeRecommended}
+                onChange={() => this.toggleList('youtubeRecommended')}
+              >
+                <>YouTube recommendations</>
+              </Checkbox>
+              <Checkbox
+                value={settings.lists.youtubeShorts}
+                onChange={() => this.toggleList('youtubeShorts')}
+              >
+                <>YouTube Shorts</>
               </Checkbox>
             </div>
 

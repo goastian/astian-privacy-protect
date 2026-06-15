@@ -48,13 +48,39 @@ describe('filter list catalog', () => {
 
   it('enables optional lists only when their toggle is enabled', () => {
     const enabledLists = getEnabledFilterLists(
-      createSettings({ annoyances: true, social: true })
+      createSettings({ annoyances: true, social: true, youtubeShorts: true })
     )
 
     expect(enabledLists.map((list) => list.id)).toEqual([
       'common',
+      'youtubeShorts',
       'annoyances',
       'social',
     ])
+  })
+
+  it('keeps optional YouTube Brave lists out of the default common rules', () => {
+    const common = FILTER_LIST_CATALOG.find((list) => list.id === 'common')
+    const optionalYoutubeLists = FILTER_LIST_CATALOG.filter((list) =>
+      ['youtubeDistractions', 'youtubeRecommended', 'youtubeShorts'].includes(
+        list.id
+      )
+    )
+
+    expect(common?.sources.map((source) => source.title)).not.toEqual(
+      expect.arrayContaining([
+        'Brave YouTube distractions',
+        'Brave YouTube recommendations',
+        'Brave YouTube Shorts',
+      ])
+    )
+    expect(optionalYoutubeLists).toHaveLength(3)
+  })
+
+  it('uses raw downloadable GitHub URLs for filter sources', () => {
+    FILTER_LIST_CATALOG.flatMap((list) => list.sources).forEach((source) => {
+      expect(source.url).not.toContain('/blob/')
+      expect(source.url).not.toMatch(/^https:\/\/github\.com\/.*\.txt$/)
+    })
   })
 })
