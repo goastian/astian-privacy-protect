@@ -33,7 +33,7 @@
   "browser_action": {
     "default_popup": "popup.html",
     "default_icon": "icons/shield.svg",
-    "default_title": "Midori Privacy Adblock"
+    "default_title": "Midori Privacy"
   },
   "manifest_version": 2,
   "background": { "scripts": ["background.js"] }
