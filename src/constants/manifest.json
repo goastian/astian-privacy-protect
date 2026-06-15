@@ -5,7 +5,7 @@
   "developer": { "name": "Astian, Inc.", "url": "https://astian.org/" },
   "icons": { "48": "icons/shield.svg", "96": "icons/shield.svg" },
   "homepage_url": "https://github.com/goastian/midori-privacy",
-  "applications": { "gecko": { "id": "midori-privacy-blocker@astian.org" } },
+  "applications": { "gecko": { "id": "midori-protection@astian.org" } },
   "permissions": [
     "webRequest",
     "webRequestBlocking",

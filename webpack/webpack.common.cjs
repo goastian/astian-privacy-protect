@@ -18,7 +18,7 @@ const transformManifest = (content) => {
   if (browserTarget === 'firefox') {
     manifest.applications = manifest.applications || {}
     manifest.applications.gecko = manifest.applications.gecko || {
-      id: 'midori-privacy-blocker@astian.org',
+      id: 'midori-protection@astian.org',
     }
   }
 
