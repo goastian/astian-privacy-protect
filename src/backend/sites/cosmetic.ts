@@ -1,0 +1,248 @@
+// This performs cosmetic filtering on each website
+
+import { parse } from 'psl'
+import { remoteFn } from '../lib/remoteFunctions'
+import {
+  applyProceduralFilters,
+  parseProceduralFilter,
+  ProceduralFilter,
+} from './proceduralCosmetics'
+import { getStreamingAdStyles, hideStreamingAdContainers } from './streamingAds'
+
+type RustCosmeticResources = {
+  hideSelectors: string[]
+  stylesheet: string
+  proceduralActions: string[]
+  exceptions: string[]
+  injectedScript: string
+  generichide: boolean
+}
+
+type RustGenericCosmeticResources = {
+  hideSelectors: string[]
+  stylesheet: string
+}
+
+const RUST_SPECIFIC_STYLE_ID = 'midori-rust-specific-cosmetics'
+const RUST_GENERIC_STYLE_ID = 'midori-rust-generic-cosmetics'
+const GHOSTERY_GLOBAL_STYLE_ID = 'midori-ghostery-global-cosmetics'
+const GHOSTERY_SITE_STYLE_ID = 'midori-ghostery-site-cosmetics'
+const STREAMING_AD_STYLE_ID = 'midori-streaming-ad-cosmetics'
+const CONTENT_BLOCK_MESSAGE = 'midori.contentBlock'
+const MAX_SELECTOR_BATCH_SIZE = 600
+const MAX_SCRIPTLET_LENGTH = 512 * 1024
+
+const getHostname = (url: string) => {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url.replace('https://', '').replace('http://', '').split('/')[0]
+  }
+}
+
+const getDomain = (url: string) => {
+  const hostname = getHostname(url)
+  const parsed = parse(hostname)
+  return 'domain' in parsed ? parsed.domain || hostname : hostname
+}
+
+// Get all of the variables needed to request the cosmetics for this page
+const url = window.location.href
+const hostname = window.location.hostname
+const domain = getDomain(url)
+const seenClasses = new Set<string>()
+const seenIds = new Set<string>()
+const pendingClasses = new Set<string>()
+const pendingIds = new Set<string>()
+const rustExceptions = new Set<string>()
+let rustGenerichide = false
+let genericFlushTimer: number | undefined
+let proceduralActions: ProceduralFilter[] = []
+let pendingReportedBlocks = 0
+let reportTimer: number | undefined
+
+const getAppendTarget = () =>
+  document.head || document.documentElement || document.body
+
+const appendStyle = (id: string, css: string) => {
+  if (!css.trim()) return
+
+  const target = getAppendTarget()
+  if (!target) return
+
+  let style = document.getElementById(id) as HTMLStyleElement | null
+  if (!style) {
+    style = document.createElement('style')
+    style.id = id
+    target.append(style)
+  }
+
+  style.append(document.createTextNode(`\n${css}`))
+}
+
+const injectPageScriptlet = (script: string) => {
+  if (!script.trim() || script.length > MAX_SCRIPTLET_LENGTH) return
+
+  const target = document.documentElement || document.head || document.body
+  if (!target) return
+
+  const scriptEl = document.createElement('script')
+  scriptEl.textContent = script
+  target.append(scriptEl)
+  scriptEl.remove()
+}
+
+const reportContentBlocks = (count: number, reason = 'rust-cosmetic') => {
+  if (count <= 0) return
+
+  pendingReportedBlocks += count
+
+  if (typeof reportTimer !== 'undefined') return
+
+  reportTimer = window.setTimeout(() => {
+    const blocked = pendingReportedBlocks
+    pendingReportedBlocks = 0
+    reportTimer = undefined
+
+    browser.runtime
+      .sendMessage({
+        type: CONTENT_BLOCK_MESSAGE,
+        url: window.location.href,
+        reason,
+        count: blocked,
+      })
+      .catch(() => undefined)
+  }, 250)
+}
+
+const applyProceduralActions = (root: ParentNode = document) => {
+  reportContentBlocks(applyProceduralFilters(proceduralActions, root))
+}
+
+const pruneStreamingAds = (root: ParentNode = document) => {
+  reportContentBlocks(
+    hideStreamingAdContainers(root, window.location.hostname),
+    'streaming-cosmetic'
+  )
+}
+
+const rememberClass = (className: string) => {
+  if (!className || seenClasses.has(className)) return
+
+  seenClasses.add(className)
+  pendingClasses.add(className)
+}
+
+const rememberId = (id: string) => {
+  if (!id || seenIds.has(id)) return
+
+  seenIds.add(id)
+  pendingIds.add(id)
+}
+
+const collectElementTokens = (element: Element) => {
+  if (element.id) rememberId(element.id)
+  element.classList.forEach(rememberClass)
+}
+
+const collectTreeTokens = (root: ParentNode) => {
+  if (root instanceof Element) collectElementTokens(root)
+
+  root.querySelectorAll?.('[id], [class]').forEach(collectElementTokens)
+}
+
+const flushGenericSelectors = async () => {
+  if (rustGenerichide || (!pendingClasses.size && !pendingIds.size)) return
+
+  const classes = Array.from(pendingClasses).slice(0, MAX_SELECTOR_BATCH_SIZE)
+  const ids = Array.from(pendingIds).slice(0, MAX_SELECTOR_BATCH_SIZE)
+  pendingClasses.clear()
+  pendingIds.clear()
+
+  const response = (await remoteFn('getRustGenericCosmetics', {
+    url: window.location.href,
+    hostname: window.location.hostname,
+    domain: getDomain(window.location.href),
+    classes,
+    ids,
+    exceptions: Array.from(rustExceptions),
+  })) as RustGenericCosmeticResources
+
+  appendStyle(RUST_GENERIC_STYLE_ID, response.stylesheet || '')
+}
+
+const scheduleGenericFlush = () => {
+  if (typeof genericFlushTimer !== 'undefined') return
+
+  genericFlushTimer = window.setTimeout(() => {
+    genericFlushTimer = undefined
+    flushGenericSelectors()
+  }, 100)
+}
+
+const installCosmeticObserver = () => {
+  collectTreeTokens(document.documentElement)
+  scheduleGenericFlush()
+
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) return
+
+        collectTreeTokens(node)
+        applyProceduralActions(node)
+        pruneStreamingAds(node)
+      })
+    })
+    scheduleGenericFlush()
+  })
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'id'],
+  })
+}
+
+;(async () => {
+  const whitelist = (await remoteFn('getWhitelist')) as string[]
+  if (whitelist.includes(domain)) return
+
+  const sharedConfig = {
+    url,
+    hostname,
+    domain,
+  }
+
+  remoteFn('getGlobalCosmetics').then((globalCosmetics: string) =>
+    appendStyle(GHOSTERY_GLOBAL_STYLE_ID, globalCosmetics)
+  )
+
+  remoteFn('getCosmeticsFilters', sharedConfig).then((cosmetics: string) =>
+    appendStyle(GHOSTERY_SITE_STYLE_ID, cosmetics)
+  )
+
+  appendStyle(
+    STREAMING_AD_STYLE_ID,
+    getStreamingAdStyles(window.location.hostname)
+  )
+  pruneStreamingAds()
+
+  const rustResources = (await remoteFn(
+    'getRustCosmeticResources',
+    sharedConfig
+  )) as RustCosmeticResources
+
+  rustResources.exceptions?.forEach((exception) =>
+    rustExceptions.add(exception)
+  )
+  rustGenerichide = Boolean(rustResources.generichide)
+  appendStyle(RUST_SPECIFIC_STYLE_ID, rustResources.stylesheet || '')
+  injectPageScriptlet(rustResources.injectedScript || '')
+  proceduralActions = (rustResources.proceduralActions || [])
+    .map(parseProceduralFilter)
+    .filter(Boolean) as ProceduralFilter[]
+  applyProceduralActions()
+  installCosmeticObserver()
+})()

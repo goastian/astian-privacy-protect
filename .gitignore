@@ -1,42 +1,6 @@
-# Numerous always-ignore extensions
-*.diff
-*.err
-*.orig
-*.log
-*.rej
-*.swo
-*.swp
-*.vi
-*~
-
-# OS or Editor folders
-.DS_Store
-.cache
-.eslintcache
-.project
-.settings
-.tmproj
-nbproject
-Thumbs.db
-.tern-project
-.vscode
-
-# NPMs
-node_modules/
-npm-debug.log
-
-# Source
-src/rule_resources
-src/static_pages
-src/rules/
-
-# Build
 dist/
-releases/
-web-ext-artifacts/
-
-# xcode
-*.xcuserstate
-xcuserdata
-*.xcloc
-xcode/**/*/Package.resolved
+node_modules/
+coverage/
+.DS_Store
+pkg/
+target/

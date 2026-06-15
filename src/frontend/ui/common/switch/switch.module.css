@@ -1,0 +1,35 @@
+.hideCheckbox {
+  display: none;
+  position: absolute;
+  top: -99999px;
+  left: -99999px;
+  z-index: -100000;
+}
+
+.parent {
+  width: 32px;
+  height: 18px;
+  border-radius: 100px;
+  background-color: white;
+  display: flex;
+  align-items: center;
+  transition: 0.2s background-color;
+}
+
+.switchCircle {
+  width: 12px;
+  height: 12px;
+  background-color: #7e7e7e;
+  transform: translateX(4px);
+  border-radius: 12px;
+  transition: 0.15s transform ease, 0.15s background-color;
+  pointer-events: none;
+}
+
+.parent:hover > .switchCircle:not(.switchCircleChecked) {
+  background-color: rgb(169, 169, 169);
+}
+
+.switchCircleChecked {
+  transform: translateX(16px);
+}

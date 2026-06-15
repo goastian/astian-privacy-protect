@@ -1,0 +1,17 @@
+.favicon {
+  width: 24px;
+  height: 24px;
+  border-radius: 24px;
+  background-color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.favicon > i {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  background-size: cover;
+  background-repeat: no-repeat;
+}

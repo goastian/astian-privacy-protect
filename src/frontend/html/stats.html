@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Midori Privacy Adblock Statistics</title>
+  </head>
+  <body>
+    <article class="stats-page">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Protection history</p>
+          <h1>Midori Privacy statistics</h1>
+        </div>
+        <p class="summary" id="summaryText">Loading protection activity...</p>
+      </header>
+
+      <section class="metric-grid" aria-label="Protection totals">
+        <div class="metric primary">
+          <span class="metric-label">Blocked requests</span>
+          <strong id="totalBlocked">--</strong>
+          <small>Total network and cosmetic blocks recorded.</small>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Active days</span>
+          <strong id="activeDays">--</strong>
+          <small>Days with at least one block.</small>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Best day</span>
+          <strong id="bestDay">--</strong>
+          <small>Highest daily block count.</small>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Daily average</span>
+          <strong id="averageDaily">--</strong>
+          <small>Average across active days.</small>
+        </div>
+      </section>
+
+      <section class="insight-grid" aria-label="Estimated savings">
+        <div class="insight">
+          <span>Estimated time saved</span>
+          <strong id="totalTime">--</strong>
+        </div>
+        <div class="insight">
+          <span>Estimated bandwidth saved</span>
+          <strong id="totalBandwidth">--</strong>
+        </div>
+      </section>
+
+      <section class="chart-panel" aria-labelledby="chartTitle">
+        <div class="section-header">
+          <div>
+            <h2 id="chartTitle">Blocks by day</h2>
+            <p>Daily requests stopped before they reached the page.</p>
+          </div>
+          <span class="range-pill">Last 30 entries</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas
+            id="blockedTime"
+            aria-label="Daily blocked requests chart"
+          ></canvas>
+          <div class="empty-state" id="emptyState" hidden>
+            <strong>No activity yet</strong>
+            <span
+              >Blocked requests will appear here after browsing with protection
+              enabled.</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <section class="recent-panel" aria-labelledby="recentTitle">
+        <div class="section-header">
+          <h2 id="recentTitle">Recent activity</h2>
+        </div>
+        <div class="recent-list" id="recentRows"></div>
+      </section>
+
+      <p class="footnote">
+        Time and bandwidth saved are estimates based on blocked request counts.
+      </p>
+    </article>
+
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background-color: var(--background-color);
+        color: var(--color);
+        font-family:
+          system-ui,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+
+      .stats-page {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+
+      .page-header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+
+      .eyebrow {
+        margin: 0 0 6px;
+        color: var(--text-primary);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        line-height: 1;
+      }
+
+      h2 {
+        font-size: 1rem;
+      }
+
+      .summary,
+      .section-header p,
+      .metric small,
+      .footnote,
+      .empty-state span {
+        color: var(--color-secondary);
+      }
+
+      .summary {
+        max-width: 360px;
+        text-align: right;
+        line-height: 1.5;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .metric,
+      .insight,
+      .chart-panel,
+      .recent-panel {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--background-color-secondary);
+      }
+
+      .metric {
+        min-height: 136px;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .metric.primary {
+        background: linear-gradient(135deg, #0f9d7a, #027c26);
+        color: #fff;
+        border-color: transparent;
+      }
+
+      .metric.primary small,
+      .metric.primary .metric-label {
+        color: rgba(255, 255, 255, 0.82);
+      }
+
+      .metric-label,
+      .insight span {
+        color: var(--color-secondary);
+        font-size: 0.78rem;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+
+      .metric strong {
+        font-size: clamp(1.7rem, 3vw, 2.5rem);
+        line-height: 1;
+      }
+
+      .insight-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .insight {
+        padding: 16px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .insight strong {
+        font-size: 1.15rem;
+      }
+
+      .chart-panel,
+      .recent-panel {
+        padding: 20px;
+        margin-top: 12px;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .section-header p {
+        margin-top: 4px;
+      }
+
+      .range-pill {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 10px;
+        color: var(--color-secondary);
+        font-size: 0.78rem;
+        white-space: nowrap;
+      }
+
+      .chart-wrap {
+        min-height: 320px;
+        position: relative;
+      }
+
+      .empty-state {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        gap: 8px;
+        text-align: center;
+      }
+
+      .empty-state[hidden] {
+        display: none;
+      }
+
+      .recent-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .recent-row {
+        display: grid;
+        grid-template-columns: 120px minmax(0, 1fr) 80px;
+        align-items: center;
+        gap: 14px;
+        min-height: 38px;
+      }
+
+      .recent-bar {
+        height: 8px;
+        border-radius: 999px;
+        background: var(--background-overlay-color, rgba(255, 255, 255, 0.12));
+        overflow: hidden;
+      }
+
+      .recent-bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #0f9d7a, #256ef5);
+      }
+
+      .recent-count {
+        text-align: right;
+        font-weight: 700;
+      }
+
+      .footnote {
+        margin-top: 18px;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 760px) {
+        .stats-page {
+          width: min(100% - 24px, 1120px);
+          padding-top: 24px;
+        }
+
+        .page-header,
+        .section-header,
+        .insight {
+          align-items: start;
+          flex-direction: column;
+        }
+
+        .summary {
+          text-align: left;
+        }
+
+        .metric-grid,
+        .insight-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .recent-row {
+          grid-template-columns: 92px minmax(0, 1fr) 64px;
+        }
+      }
+    </style>
+
+    <script src="./stats.js"></script>
+  </body>
+</html>

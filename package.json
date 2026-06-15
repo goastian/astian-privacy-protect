@@ -1,33 +1,70 @@
 {
   "name": "midori-privacy-blocker",
   "private": true,
-  "version": "2.2.8",
+  "version": "2.2.9",
   "type": "module",
   "description": "Lightweight ad & tracker blocker by Astian Inc",
   "scripts": {
-    "build": "node scripts/build.js",
-    "build:firefox": "node scripts/build.js firefox",
-    "build:chromium": "node scripts/build.js chromium",
-    "dev": "node scripts/build.js chromium --watch",
-    "dev:firefox": "node scripts/build.js firefox --watch",
-    "check:content-tree-shaking": "node scripts/check-content-tree-shaking.js",
-    "convert-lists": "node scripts/convert-lists.js",
-    "package": "node scripts/package.js",
-    "package:chromium": "node scripts/package.js chromium",
-    "package:firefox": "node scripts/package.js firefox"
+    "prettier": "prettier --write .",
+    "ver": "node scripts/version",
+    "dev": "webpack --config webpack/webpack.dev.cjs --watch",
+    "build": "rimraf dist && webpack --config webpack/webpack.prod.cjs",
+    "generate": "node scripts/generate",
+    "lint": "eslint .",
+    "test": "jest"
   },
-  "devDependencies": {
-    "esbuild": "^0.24.0",
-    "web-ext": "^8.3.0"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goastian/midori-privacy.git"
   },
-  "author": {
-    "name": "Astian Inc",
-    "email": "contact@astian.org",
-    "url": "https://astian.org"
-  },
+  "keywords": [],
+  "author": "Astian, Inc.",
   "license": "MPL-2.0",
+  "bugs": {
+    "url": "https://github.com/goastian/midori-privacy/issues"
+  },
+  "homepage": "https://astian.org/",
+  "devDependencies": {
+    "@babel/preset-env": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.0",
+    "@types/chrome": "^0.1.43",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.15.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@typescript-eslint/eslint-plugin": "^8.34.0",
+    "@typescript-eslint/parser": "^8.34.0",
+    "copy-webpack-plugin": "^14.0.0",
+    "css-loader": "^7.1.2",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.4.1",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "style-loader": "^4.0.0",
+    "terser-webpack-plugin": "^5.3.14",
+    "ts-jest": "^29.3.4",
+    "ts-loader": "^9.5.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3",
+    "web-ext-types": "3.2.1",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1",
+    "webpack-merge": "^6.0.1",
+    "webpackbar": "^7.0.0",
+    "whatwg-fetch": "^3.6.20"
+  },
   "dependencies": {
-    "@ghostery/adblocker": "^2.17.3",
-    "@ghostery/adblocker-webextension": "^2.17.3"
+    "@ghostery/adblocker": "^2.18.0",
+    "chart.js": "^4.5.1",
+    "color-convert": "^2.0.1",
+    "contrast-color": "^1.0.1",
+    "lucide-react": "^1.18.0",
+    "psl": "^1.15.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "uuid": "^11.1.0"
   }
 }

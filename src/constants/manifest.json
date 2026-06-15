@@ -1,0 +1,40 @@
+{
+  "name": "Midori Privacy Adblock",
+  "version": "2.2.9",
+  "description": "Midori Privacy Adblock: a fast, lightweight blocker for ads, trackers, and annoyances.",
+  "developer": { "name": "Astian, Inc.", "url": "https://astian.org/" },
+  "icons": { "48": "icons/shield.svg", "96": "icons/shield.svg" },
+  "homepage_url": "https://github.com/goastian/midori-privacy",
+  "applications": { "gecko": { "id": "midori-privacy-blocker@astian.org" } },
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "tabs",
+    "webNavigation",
+    "http://*/",
+    "https://*/",
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "all_frames": true,
+      "run_at": "document_start",
+      "matches": ["https://*.youtube.com/*"],
+      "js": ["yt.js"]
+    },
+    {
+      "all_frames": true,
+      "run_at": "document_start",
+      "matches": ["<all_urls>"],
+      "js": ["cosmetics.js"]
+    }
+  ],
+  "web_accessible_resources": ["blocked.html"],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": "icons/shield.svg",
+    "default_title": "Midori Privacy Adblock"
+  },
+  "manifest_version": 2,
+  "background": { "scripts": ["background.js"] }
+}

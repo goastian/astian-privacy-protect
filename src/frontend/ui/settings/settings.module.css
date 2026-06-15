@@ -1,0 +1,8 @@
+body {
+  background-color: var(--background-color);
+  color: var(--color);
+}
+
+.page {
+  margin: 16px;
+}

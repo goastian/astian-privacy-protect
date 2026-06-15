@@ -1,0 +1,109 @@
+name: Package addon
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Should publish to github releases'
+        required: true
+        default: 'off'
+      version:
+        description: 'The version to be updated in all files'
+        required: true
+        default: '0.0.0'
+      prerelease:
+        description: 'If it should be publish as a prerelease'
+        required: true
+        default: 'off'
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Install...
+        run: yarn
+
+      - name: Test...
+        run: yarn test
+
+  build:
+    name: Main
+    runs-on: ubuntu-latest
+
+    needs: test
+
+    steps:
+      - name: Checkout...
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Install wasm-pack...
+        uses: jetli/wasm-pack-action@v0.3.0
+        with:
+          # Optional version of wasm-pack to install(eg. 'v0.9.1', 'latest')
+          version: 'latest'
+
+      - name: Install...
+        run: yarn
+
+      - name: Change version...
+        run: yarn ver ${{ github.event.inputs.version }}
+
+      - name: Enforce code style...
+        run: yarn prettier
+
+      - name: Upload changes...
+        uses: EndBug/add-and-commit@v7
+        with:
+          author_email: dothq-robot@users.noreply.github.com
+          message: '🔖 Bump version to ${{ github.event.inputs.version }}'
+
+      - name: Build...
+        run: yarn build
+
+      - name: Compress...
+        run: |
+          cd dist 
+          zip -r dot-shield .
+          cd ..
+          mv dist/dot-shield.zip .
+
+      - name: Create artifact...
+        uses: actions/upload-artifact@v2
+        with:
+          name: extension
+          path: ./dist/
+
+      - name: Create release...
+        id: create_release
+        if: github.event.inputs.release == 'on'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: 'v${{ github.event.inputs.version }}'
+          release_name: Release ${{ github.event.inputs.version }}
+          body: |
+            @trickypr do something to this
+          draft: false
+          prerelease: github.event.inputs.prerelease == 'on'
+
+      - name: Upload Release Asset...
+        id: upload-release-asset
+        if: github.event.inputs.release == 'on'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: ./dot-shield.zip
+          asset_name: addon.zip
+          asset_content_type: application/zip
