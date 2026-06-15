@@ -16,9 +16,21 @@ const transformManifest = (content) => {
   }
 
   if (browserTarget === 'firefox') {
+    const geckoId =
+      manifest.browser_specific_settings?.gecko?.id ||
+      manifest.applications?.gecko?.id ||
+      'midori-protection@astian.org'
+
+    manifest.browser_specific_settings = manifest.browser_specific_settings || {}
+    manifest.browser_specific_settings.gecko = {
+      ...(manifest.browser_specific_settings.gecko || {}),
+      id: geckoId,
+    }
+
     manifest.applications = manifest.applications || {}
-    manifest.applications.gecko = manifest.applications.gecko || {
-      id: 'midori-protection@astian.org',
+    manifest.applications.gecko = {
+      ...(manifest.applications.gecko || {}),
+      id: geckoId,
     }
   }
 
