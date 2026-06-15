@@ -78,109 +78,36 @@ Built by [Astian Inc](https://astian.org).
 git clone https://github.com/goastian/midori-privacy.git
 cd midori-privacy
 npm install
+wasm-pack --version
+cargo --version
 ```
 
-## Commands
+Run the extension build:
 
-```bash
-# Build
+```sh
 npm run build
-npm run build:chromium
-npm run build:firefox
-
-# Watch mode
-npm run dev
-npm run dev:firefox
-
-# DNR rule conversion for Chromium
-npm run convert-lists
-
-# ZIP packages in releases/
-npm run package
-npm run package:chromium
-npm run package:firefox
 ```
 
-## Load extension in browser
+Check the Rust core:
 
-### Chromium
-
-1. Go to `chrome://extensions/`
-2. Enable `Developer mode`
-3. Click `Load unpacked` and select `dist/`
-
-### Firefox
-
-1. Go to `about:debugging#/runtime/this-firefox`
-2. Click `Load Temporary Add-on`
-3. Select `dist/manifest.json`
-
-## Project structure
-
-```text
-src/
-  manifest.chromium.json
-  manifest.firefox.json
-  _locales/
-  background/
-    index.js
-    orchestrator.js
-    ghostery-engine.js
-    policy-engine.js
-    popup-defense.js
-    trackerdb.js
-    trackerdb-dnr.js
-    url-cleaner.js
-    lists-manager.js
-    stats-collector.js
-    report-generator.js
-    ia-shield.js
-    telemetry.js
-    messages/
-  content/
-    cosmetic.js
-    scriptlets.js
-  popup/
-  options/
-  setup/
-  rules/
-  shared/
-
-scripts/
-  build.js
-  package.js
-  convert-lists.js
-  check-yt-rules.js
-  inspect-rule.js
-  generate-icons.js
+```sh
+cd src/backend/rust
+cargo check
 ```
 
-## Filter lists
+Build the WASM package:
 
-Core lists enabled by default:
+```sh
+cd src/backend/rust
+wasm-pack build --target web --release
+```
 
-- EasyList
-- EasyPrivacy
-- uBlock Filters
-- uBlock Privacy
-- uBlock Unbreak
-- uBlock Quick Fixes
-- Peter Lowe
+## Rust Core Direction
 
-Optional lists available:
+The Rust crate is optimized for the extension use case:
 
-- uBlock Annoyances (cookies/others)
-- Fanboy Social and Fanboy Annoyance
-- AdGuard (base, tracking, social, annoyances, spyware-firstparty, mobile)
-- Regional (Spanish, Germany, France)
-- Custom list URLs
+- `adblock` `0.12.5`
+- `single-thread` enabled for lower memory and faster matching
+- release LTO, single codegen unit, size optimization, and aborting panics
 
-## Additional documentation
-
-- `docs/experiments.md`
-- `docs/manual-tests-popup.md`
-- `docs/improvement-plan-stability.md`
-
-## License
-
-MPL-2.0 - Copyright 2024-present Astian Inc.
+See `docs/adblock-rust-migration.md` for the migration plan.
