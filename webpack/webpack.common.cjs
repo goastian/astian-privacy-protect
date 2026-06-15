@@ -4,6 +4,26 @@ const WebpackBar = require('webpackbar')
 
 const srcDir = '../src'
 const htmlFiles = require('../src/frontend/html/pages.cjs')
+const browserTarget = process.env.MIDORI_BROWSER_TARGET || 'generic'
+const outputDir = process.env.MIDORI_DIST_DIR || 'dist'
+
+const transformManifest = (content) => {
+  const manifest = JSON.parse(content.toString())
+
+  if (browserTarget === 'chromium') {
+    delete manifest.applications
+    delete manifest.browser_specific_settings
+  }
+
+  if (browserTarget === 'firefox') {
+    manifest.applications = manifest.applications || {}
+    manifest.applications.gecko = manifest.applications.gecko || {
+      id: 'midori-privacy-blocker@astian.org',
+    }
+  }
+
+  return `${JSON.stringify(manifest, null, 2)}\n`
+}
 
 module.exports = {
   entry: {
@@ -20,7 +40,7 @@ module.exports = {
   },
 
   output: {
-    path: path.join(__dirname, '../dist'),
+    path: path.join(__dirname, '..', outputDir),
     filename: '[name].js',
   },
 
@@ -108,6 +128,7 @@ module.exports = {
           from: './constants/manifest.json',
           to: './manifest.json',
           context: 'src',
+          transform: transformManifest,
         },
       ],
     }),

@@ -9,8 +9,12 @@
     "ver": "node scripts/version",
     "dev": "webpack --config webpack/webpack.dev.cjs --watch",
     "build": "rimraf dist && webpack --config webpack/webpack.prod.cjs",
+    "build:chromium": "rimraf dist/chromium && MIDORI_BROWSER_TARGET=chromium MIDORI_DIST_DIR=dist/chromium webpack --config webpack/webpack.prod.cjs",
+    "build:firefox": "rimraf dist/firefox && MIDORI_BROWSER_TARGET=firefox MIDORI_DIST_DIR=dist/firefox webpack --config webpack/webpack.prod.cjs",
     "generate": "node scripts/generate",
     "lint": "eslint .",
+    "package:chromium": "npm run build:chromium && node scripts/package-extension.cjs chromium",
+    "package:firefox": "npm run build:firefox && node scripts/package-extension.cjs firefox",
     "test": "jest"
   },
   "repository": {
