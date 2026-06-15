@@ -30,7 +30,8 @@ class SettingsApp extends Component {
    * @memberof SettingsApp
    */
   async fetchSettings(): Promise<void> {
-    let settings = (await browser.storage.local.get('settings')).settings || {}
+    let settings = ((await browser.storage.local.get('settings')).settings ||
+      {}) as Partial<SettingsStorage>
 
     // Check if settings exists
     if (JSON.stringify(settings) == '{}') {
@@ -52,7 +53,7 @@ class SettingsApp extends Component {
   }
 
   render(): JSX.Element {
-    const settings: SettingsStorage = this.state.settings
+    const settings = this.state.settings
 
     return (
       <div className={styles.page}>
