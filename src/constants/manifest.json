@@ -1,6 +1,6 @@
 {
   "name": "Midori Privacy Adblock",
-  "version": "2.2.9",
+  "version": "2.3.2",
   "description": "Midori Privacy Adblock: a fast, lightweight blocker for ads, trackers, and annoyances.",
   "developer": { "name": "Astian, Inc.", "url": "https://astian.org/" },
   "icons": { "48": "icons/shield.svg", "96": "icons/shield.svg" },
