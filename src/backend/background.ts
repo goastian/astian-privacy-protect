@@ -28,9 +28,13 @@ const settings = new Settings()
 // ================
 // Data collection
 const adsOnTabs = {}
+const blockedEventsOnTabs: Record<number, BlockedRequestEvent[]> = {}
 const ltBlocked = new PermStore('longTermBlockList', {})
 const BADGE_BACKGROUND_COLOR = '#0f9d7a'
 const MAX_BADGE_COUNT = 999
+const MAX_TAB_BLOCKED_EVENTS = 250
+const BLOCKED_REQUEST_TIME_SAVED_MS = 3 * 1000
+const BLOCKED_REQUEST_BANDWIDTH_SAVED_BYTES = 45 * 1024
 
 // ===============
 // Blocking engine
@@ -57,6 +61,27 @@ type FilterListLoadState = {
   updatedAt: number
   ageMs?: number
   error?: string
+}
+
+type BlockedRequestReason =
+  | 'network'
+  | 'rust-network'
+  | 'rust-cosmetic'
+  | 'streaming-cosmetic'
+  | 'youtube-cosmetic'
+  | 'content-cosmetic'
+  | 'unknown'
+
+type BlockedRequestEvent = {
+  url: string
+  count: number
+  reason: BlockedRequestReason
+  blocker: string
+  category: 'ads' | 'trackers' | 'fingerprinters' | 'cosmetics' | 'pages' | 'other'
+  requestType?: string
+  blockedAt: number
+  timeSavedMs: number
+  bandwidthSavedBytes: number
 }
 
 type CosmeticRequestPayload = {
@@ -195,15 +220,97 @@ const getRustDecision = (
   }
 }
 
-const recordBlockedRequest = (tabId: number, url: string, count = 1) => {
+const classifyBlockedRequest = (
+  url: string,
+  reason: BlockedRequestReason,
+  requestType?: string
+): BlockedRequestEvent['category'] => {
+  if (requestType === 'main_frame') return 'pages'
+  if (reason.includes('cosmetic')) return 'cosmetics'
+
+  const haystack = `${url} ${reason}`.toLowerCase()
+  if (
+    haystack.includes('fingerprint') ||
+    haystack.includes('fingerprinting') ||
+    haystack.includes('canvas')
+  ) {
+    return 'fingerprinters'
+  }
+
+  if (
+    haystack.includes('track') ||
+    haystack.includes('analytics') ||
+    haystack.includes('telemetry') ||
+    haystack.includes('beacon') ||
+    haystack.includes('pixel')
+  ) {
+    return 'trackers'
+  }
+
+  if (
+    haystack.includes('ad') ||
+    haystack.includes('ads') ||
+    haystack.includes('doubleclick') ||
+    haystack.includes('googlesyndication') ||
+    haystack.includes('imasdk')
+  ) {
+    return 'ads'
+  }
+
+  return 'other'
+}
+
+const getBlockerName = (reason: BlockedRequestReason, engineMatch = '') => {
+  if (engineMatch) return engineMatch
+  if (reason === 'youtube-cosmetic') return 'YouTube cosmetic blocker'
+  if (reason === 'streaming-cosmetic') return 'Streaming cosmetic blocker'
+  if (reason === 'rust-cosmetic') return 'adblock-rust cosmetics'
+  if (reason === 'content-cosmetic') return 'Content cosmetic blocker'
+  if (reason === 'rust-network') return rustEngineName
+  return 'Ghostery fallback'
+}
+
+const recordBlockedRequest = (
+  tabId: number,
+  url: string,
+  count = 1,
+  metadata: {
+    reason?: BlockedRequestReason
+    blocker?: string
+    requestType?: string
+  } = {}
+) => {
   if (tabId < 0 || count <= 0) return
 
   if (typeof adsOnTabs[tabId] === 'undefined') {
     adsOnTabs[tabId] = []
   }
 
+  if (typeof blockedEventsOnTabs[tabId] === 'undefined') {
+    blockedEventsOnTabs[tabId] = []
+  }
+
   for (let i = 0; i < count; i++) {
     adsOnTabs[tabId].push(url)
+  }
+
+  const reason = metadata.reason || 'unknown'
+  blockedEventsOnTabs[tabId].push({
+    url,
+    count,
+    reason,
+    blocker: metadata.blocker || getBlockerName(reason),
+    category: classifyBlockedRequest(url, reason, metadata.requestType),
+    requestType: metadata.requestType,
+    blockedAt: Date.now(),
+    timeSavedMs: count * BLOCKED_REQUEST_TIME_SAVED_MS,
+    bandwidthSavedBytes: count * BLOCKED_REQUEST_BANDWIDTH_SAVED_BYTES,
+  })
+
+  if (blockedEventsOnTabs[tabId].length > MAX_TAB_BLOCKED_EVENTS) {
+    blockedEventsOnTabs[tabId] = blockedEventsOnTabs[tabId].slice(
+      -MAX_TAB_BLOCKED_EVENTS
+    )
   }
 
   const currentDate = new Date().toISOString().slice(0, 10)
@@ -329,7 +436,11 @@ const requestHandler = (details: RequestListenerArgs) => {
     // redirect rules replace a bad resource with a safe noop instead of
     // cancelling the request outright.
     if (redirectUrl) {
-      recordBlockedRequest(details.tabId, details.url)
+      recordBlockedRequest(details.tabId, details.url, 1, {
+        reason: rustDecision?.matched ? 'rust-network' : 'network',
+        blocker: engineMatch,
+        requestType: details.type,
+      })
       return { redirectUrl }
     }
   } else {
@@ -344,7 +455,11 @@ const requestHandler = (details: RequestListenerArgs) => {
     }&list=${engineMatch}`
   }
 
-  recordBlockedRequest(details.tabId, details.url)
+  recordBlockedRequest(details.tabId, details.url, 1, {
+    reason: rustDecision?.matched ? 'rust-network' : 'network',
+    blocker: engineMatch,
+    requestType: details.type,
+  })
 
   if (redirectUrl) {
     return { redirectUrl }
@@ -562,6 +677,14 @@ defineFn('getProtectionSummary', async () => {
   return getProtectionSummaryData()
 })
 
+defineFn('getStatsSummary', async (payload) =>
+  getStatsSummaryData(
+    typeof payload === 'object' && payload !== null
+      ? (payload as { days?: number })
+      : {}
+  )
+)
+
 function getProtectionSummaryData() {
   return {
     state,
@@ -582,6 +705,117 @@ function getProtectionSummaryData() {
   }
 }
 
+function sumLongTermBlocked(days = 7) {
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - Math.max(days - 1, 0))
+  cutoff.setHours(0, 0, 0, 0)
+
+  let totalBlocked = 0
+  let todayBlocked = 0
+  const today = new Date().toISOString().slice(0, 10)
+
+  for (const key in ltBlocked.data) {
+    const value = Number(ltBlocked.data[key]) || 0
+    if (key === today) todayBlocked += value
+    if (new Date(`${key}T00:00:00`).getTime() >= cutoff.getTime()) {
+      totalBlocked += value
+    }
+  }
+
+  return { totalBlocked, todayBlocked }
+}
+
+function summarizeEvents(events: BlockedRequestEvent[]) {
+  const categories = {
+    ads: 0,
+    trackers: 0,
+    fingerprinters: 0,
+    cosmetics: 0,
+    pages: 0,
+    other: 0,
+  }
+  const blockers: Record<string, number> = {}
+
+  events.forEach((event) => {
+    categories[event.category] += event.count
+    blockers[event.blocker] = (blockers[event.blocker] || 0) + event.count
+  })
+
+  return {
+    categories,
+    blockers: Object.entries(blockers)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count),
+  }
+}
+
+async function getActiveTabId() {
+  try {
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true })
+    return tabs[0]?.id
+  } catch {
+    return undefined
+  }
+}
+
+async function getStatsSummaryData(payload: { days?: number } = {}) {
+  if (typeof engines === 'undefined') {
+    await waitForDynamic(() => (state === BackendState.Idle ? true : undefined))
+  }
+
+  const protectionSummary = getProtectionSummaryData()
+  const days = Number(payload.days) || 7
+  const { totalBlocked, todayBlocked } = sumLongTermBlocked(days)
+  const activeTabId = await getActiveTabId()
+  const tabEvents =
+    typeof activeTabId === 'number' ? blockedEventsOnTabs[activeTabId] || [] : []
+  const allSessionEvents = Object.values(blockedEventsOnTabs).flat()
+  const eventSummary = summarizeEvents(
+    tabEvents.length ? tabEvents : allSessionEvents
+  )
+  const blockerCounts = new Map(
+    eventSummary.blockers.map((blocker) => [blocker.name, blocker.count])
+  )
+  const activeBlockerNames = [
+    rustEngine ? rustEngineName : '',
+    ...protectionSummary.engineNames,
+    protectionSummary.globalCosmeticRuleCount ? 'Ghostery cosmetics' : '',
+    rustEngineResourceCount ? 'adblock-rust resources' : '',
+  ].filter(Boolean)
+  const blockers = Array.from(new Set(activeBlockerNames)).map((name) => ({
+    name,
+    count: blockerCounts.get(name) || 0,
+  }))
+
+  return {
+    ...protectionSummary,
+    available: true,
+    days,
+    totalBlocked,
+    todayBlocked,
+    tabBlocked: tabEvents.reduce((total, event) => total + event.count, 0),
+    sessionBlocked: allSessionEvents.reduce(
+      (total, event) => total + event.count,
+      0
+    ),
+    categories: eventSummary.categories,
+    blockers: blockers.length ? blockers : eventSummary.blockers,
+    timeSavedMs: totalBlocked * BLOCKED_REQUEST_TIME_SAVED_MS,
+    bandwidthSavedBytes: totalBlocked * BLOCKED_REQUEST_BANDWIDTH_SAVED_BYTES,
+    privacyGrade: settings.data.enabled ? 'A+' : 'Off',
+    recent: allSessionEvents
+      .slice(-8)
+      .reverse()
+      .map(({ url, blocker, category, count, blockedAt }) => ({
+        url,
+        blocker,
+        category,
+        count,
+        blockedAt,
+      })),
+  }
+}
+
 // Start listening for function calls defined by defineFn. Note that these function
 // calls are intended to be used from a separate thread, hence why they are
 // more complicated to define
@@ -592,6 +826,9 @@ initFn()
 const resetTabBlockedState = (tabId: number) => {
   if (typeof adsOnTabs[tabId] !== 'undefined') {
     delete adsOnTabs[tabId]
+  }
+  if (typeof blockedEventsOnTabs[tabId] !== 'undefined') {
+    delete blockedEventsOnTabs[tabId]
   }
   clearBlockedBadge(tabId)
 }
@@ -609,7 +846,11 @@ const tabUpdated = (params: { tabId: number; frameId?: number }) => {
 
 browser.tabs.onRemoved.addListener(tabRemoved)
 browser.webNavigation.onBeforeNavigate.addListener(tabUpdated)
-browser.runtime.onMessage.addListener((message, sender) => {
+const handleRuntimeMessage = (message, sender) => {
+  if (message?.action === 'get-stats-summary') {
+    return getStatsSummaryData({ days: message.days })
+  }
+
   if (message?.type !== 'midori.contentBlock') return false
 
   const tabId = sender.tab?.id
@@ -618,11 +859,20 @@ browser.runtime.onMessage.addListener((message, sender) => {
   recordBlockedRequest(
     tabId,
     typeof message.url === 'string' ? message.url : sender.tab?.url || '',
-    typeof message.count === 'number' ? message.count : 1
+    typeof message.count === 'number' ? message.count : 1,
+    {
+      reason:
+        typeof message.reason === 'string'
+          ? (message.reason as BlockedRequestReason)
+          : 'content-cosmetic',
+    }
   )
 
   return false
-})
+}
+
+browser.runtime.onMessage.addListener(handleRuntimeMessage)
+browser.runtime.onMessageExternal?.addListener(handleRuntimeMessage)
 ;(async () => {
   // Wait for the rust code to load
   // wasm = await wasm
