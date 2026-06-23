@@ -170,6 +170,20 @@ const getWhitelistDomain = (details: RequestListenerArgs) =>
     ? getDomain(details.url)
     : getDomain(getSourceUrl(details))
 
+// First-party Astian ad infrastructure. Requests to these domains (the ad
+// feed, creatives, click/impression endpoints served from astian.org) must
+// never be blocked so the ads shown in midori-tab / astiango always reach the
+// user, regardless of which wallpaper source the user picked.
+const TRUSTED_AD_DOMAINS = ['astian.org']
+
+const isTrustedAdHost = (hostname: string): boolean => {
+  if (!hostname) return false
+  const host = hostname.toLowerCase()
+  return TRUSTED_AD_DOMAINS.some(
+    (domain) => host === domain || host.endsWith(`.${domain}`)
+  )
+}
+
 const initRustWasm = async () => {
   if (!rustWasmReady) {
     rustWasmReady = initRustAdblock().then(() => {
@@ -383,6 +397,10 @@ const createEngine: (
  * @param details The request info, provided by the requestHandler
  */
 const requestHandler = (details: RequestListenerArgs) => {
+  // Never block first-party Astian ad infrastructure. Ads delivered through
+  // midori-tab / astiango must always reach the user.
+  if (isTrustedAdHost(getHostname(details.url))) return
+
   // Check if the site is contained in the whitelist.
   const whitelistDomain = getWhitelistDomain(details)
   if (whitelistDomain && whitelist.data.indexOf(whitelistDomain) !== -1) return
