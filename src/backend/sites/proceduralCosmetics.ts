@@ -272,7 +272,10 @@ const applyProceduralAction = (element: Element, action?: ProceduralAction) => {
   if (action.type === 'style' && element instanceof HTMLElement) {
     if (!isSafeInlineStyle(action.arg)) return false
     const before = element.getAttribute('style') || ''
-    element.style.cssText += `;${action.arg}`
+    const nextStyle = [before.trim(), action.arg.trim()]
+      .filter(Boolean)
+      .join('; ')
+    element.style.cssText = nextStyle
     return before !== (element.getAttribute('style') || '')
   }
 

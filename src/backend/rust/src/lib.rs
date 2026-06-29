@@ -208,6 +208,22 @@ fn selectors_to_stylesheet(selectors: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{matches_network_request, MidoriAdblockEngine};
+    use serde_json::Value;
+
+    fn procedural_actions(resources_json: &str) -> Vec<String> {
+        let value: Value =
+            serde_json::from_str(resources_json).expect("resources JSON should parse");
+        value["proceduralActions"]
+            .as_array()
+            .expect("procedural actions should be an array")
+            .iter()
+            .map(|item| {
+                item.as_str()
+                    .expect("procedural action should be serialized JSON")
+                    .to_string()
+            })
+            .collect()
+    }
 
     #[test]
     fn matches_basic_network_rule() {
@@ -343,6 +359,61 @@ mod tests {
         assert!(resources.contains(".sponsored"));
         assert!(resources.contains("display: none !important"));
         assert!(resources.contains(".allowed"));
+    }
+
+    #[test]
+    fn abp_style_injection_remove_rules_return_procedural_actions() {
+        let engine = MidoriAdblockEngine::new(
+            "example.com###remove-id {remove: true;}\n\
+             example.com##div[style*=\"width: 45px;\"] {remove: true;}\n\
+             chip.de##.ft-charts-main > div:not(.List):not(.caps) {remove:true;}"
+                .to_string(),
+            "[]".to_string(),
+        )
+        .expect("engine should compile ABP style injection remove rules");
+
+        let resources = engine
+            .cosmetic_resources_json("https://example.com/article".to_string())
+            .expect("cosmetic resources should serialize");
+        let actions = procedural_actions(&resources);
+
+        assert!(actions
+            .iter()
+            .any(|action| action.contains("\"type\":\"remove\"") && action.contains("#remove-id")));
+        assert!(actions
+            .iter()
+            .any(|action| action.contains("div[style*=\\\"width: 45px;\\\"]")));
+
+        let chip_resources = engine
+            .cosmetic_resources_json("https://chip.de/download".to_string())
+            .expect("chip cosmetic resources should serialize");
+        let chip_actions = procedural_actions(&chip_resources);
+        assert!(chip_actions.iter().any(|action| action
+            .contains(".ft-charts-main > div:not(.List):not(.caps)")
+            && action.contains("\"type\":\"remove\"")));
+    }
+
+    #[test]
+    fn abp_style_injection_style_rules_return_inline_style_actions() {
+        let engine = MidoriAdblockEngine::new(
+            "example.com###inline-css-id {background-color: #0dc74b;}\n\
+             example.com##.ad {display: none;}"
+                .to_string(),
+            "[]".to_string(),
+        )
+        .expect("engine should compile ABP style injection style rules");
+
+        let resources = engine
+            .cosmetic_resources_json("https://example.com/article".to_string())
+            .expect("cosmetic resources should serialize");
+        let actions = procedural_actions(&resources);
+
+        assert!(actions.iter().any(|action| {
+            action.contains("\"type\":\"style\"") && action.contains("background-color: #0dc74b;")
+        }));
+        assert!(actions.iter().any(
+            |action| action.contains("\"type\":\"style\"") && action.contains("display: none;")
+        ));
     }
 
     #[test]

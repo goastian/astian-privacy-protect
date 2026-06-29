@@ -52,6 +52,32 @@ describe('procedural cosmetics', () => {
     expect(document.querySelectorAll('.slot')).toHaveLength(1)
   })
 
+  it('supports tagged actions emitted by adblock-rust', () => {
+    document.body.innerHTML = `
+      <div id="remove-id">Ad</div>
+      <div id="inline-css-id">Sponsored</div>
+    `
+
+    const removeFilter = parseProceduralFilter(
+      JSON.stringify({
+        selector: [{ type: 'css-selector', arg: '#remove-id' }],
+        action: { type: 'remove' },
+      })
+    )
+    const styleFilter = parseProceduralFilter(
+      JSON.stringify({
+        selector: [{ type: 'css-selector', arg: '#inline-css-id' }],
+        action: { type: 'style', arg: 'display: none;' },
+      })
+    )
+
+    expect(applyProceduralFilters([removeFilter!, styleFilter!])).toBe(2)
+    expect(document.querySelector('#remove-id')).toBeNull()
+    expect(
+      (document.querySelector('#inline-css-id') as HTMLElement).style.display
+    ).toBe('none')
+  })
+
   it('supports xpath followed by upward', () => {
     document.body.innerHTML = `
       <article class="row"><span>Sponsored</span></article>

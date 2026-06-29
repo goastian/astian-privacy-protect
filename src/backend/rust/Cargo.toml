@@ -26,7 +26,7 @@ fast-single-thread = ["adblock/single-thread"]
 [dependencies]
 # The `wasm-bindgen` crate provides the bare minimum functionality needed
 # to interact with JavaScript.
-adblock = { version = "0.12.5", default-features = false, features = [
+adblock = { git = "https://github.com/brave/adblock-rust.git", rev = "5d182e5fb88a71ee456a6b57be8235cc8a642bee", default-features = false, features = [
   "embedded-domain-resolver",
   "full-regex-handling",
 ] }
