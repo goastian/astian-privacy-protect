@@ -11,6 +11,13 @@ export type FilterListCatalogEntry = {
   id: keyof SettingsStorage['lists']
   name: string
   description: string
+  shard:
+    | 'required'
+    | 'regional'
+    | 'annoyances'
+    | 'social'
+    | 'malware'
+    | 'streaming'
   required: boolean
   defaultEnabled: boolean
   source: 'brave' | 'midori' | 'community'
@@ -27,6 +34,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     name: 'Midori default ads and privacy',
     description:
       'EasyList, EasyPrivacy, uBlock Origin and Brave default rules.',
+    shard: 'required',
     required: true,
     defaultEnabled: true,
     source: 'brave',
@@ -169,6 +177,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     id: 'youtubeDistractions',
     name: 'Brave YouTube distractions',
     description: 'Optional Brave rules for YouTube prompts and distractions.',
+    shard: 'streaming',
     required: false,
     defaultEnabled: false,
     source: 'brave',
@@ -186,6 +195,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     name: 'Brave YouTube recommendations',
     description:
       'Optional Brave rules that reduce recommended YouTube surfaces.',
+    shard: 'streaming',
     required: false,
     defaultEnabled: false,
     source: 'brave',
@@ -202,6 +212,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     id: 'youtubeShorts',
     name: 'Brave YouTube Shorts',
     description: 'Optional Brave rules that hide YouTube Shorts surfaces.',
+    shard: 'streaming',
     required: false,
     defaultEnabled: false,
     source: 'brave',
@@ -218,6 +229,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     id: 'annoyances',
     name: 'Brave annoyances',
     description: 'Cookie notices, newsletter popups and other distractions.',
+    shard: 'annoyances',
     required: false,
     defaultEnabled: false,
     source: 'brave',
@@ -252,6 +264,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     id: 'social',
     name: 'Social media blocker',
     description: 'Fanboy and Brave social widgets, buttons and embeds rules.',
+    shard: 'social',
     required: false,
     defaultEnabled: false,
     source: 'brave',
@@ -274,6 +287,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     id: 'cleanWeb',
     name: 'Clean web',
     description: 'Malware, resource-abuse and URL tracking protection lists.',
+    shard: 'malware',
     required: false,
     defaultEnabled: false,
     source: 'brave',
@@ -304,6 +318,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     name: 'IP grabbers',
     description:
       'Midori legacy IP grabber protection until a Brave catalog equivalent is selected.',
+    shard: 'regional',
     required: false,
     defaultEnabled: false,
     source: 'midori',
@@ -320,6 +335,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     id: 'fakeNews',
     name: 'Fake news',
     description: 'Midori legacy fake news protection list.',
+    shard: 'annoyances',
     required: false,
     defaultEnabled: false,
     source: 'midori',
@@ -336,6 +352,7 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
     id: 'gambling',
     name: 'Gambling',
     description: 'Midori legacy gambling protection list.',
+    shard: 'annoyances',
     required: false,
     defaultEnabled: false,
     source: 'midori',

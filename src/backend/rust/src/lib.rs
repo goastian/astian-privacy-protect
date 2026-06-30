@@ -61,6 +61,30 @@ impl MidoriAdblockEngine {
         })
     }
 
+    pub fn from_serialized(
+        serialized: Vec<u8>,
+        resources_json: String,
+        rule_count: usize,
+    ) -> Result<MidoriAdblockEngine, JsValue> {
+        let resources = parse_resources(&resources_json)?;
+        let resource_count = resources.len();
+        let mut engine = Engine::default();
+        engine
+            .deserialize(&serialized)
+            .map_err(|error| JsValue::from_str(&format!("Invalid serialized engine: {error:?}")))?;
+        engine.use_resources(resources);
+
+        Ok(MidoriAdblockEngine {
+            engine,
+            rule_count,
+            resource_count,
+        })
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        self.engine.serialize()
+    }
+
     pub fn check_network_request(
         &self,
         url: String,
@@ -298,6 +322,41 @@ mod tests {
             )
             .expect("decision should serialize");
         assert!(decision.contains("\"matched\":true"));
+    }
+
+    #[test]
+    fn serialized_engine_round_trip_preserves_network_and_cosmetic_rules() {
+        let resources = r#"[{
+            "name":"noop.js",
+            "aliases":["noop"],
+            "kind":{"mime":"application/javascript"},
+            "content":"Ow=="
+        }]"#;
+        let engine = MidoriAdblockEngine::new(
+            "||ads.example.com/banner.js$script,redirect=noop.js\nexample.com##.sponsor"
+                .to_string(),
+            resources.to_string(),
+        )
+        .expect("engine should compile before serialization");
+
+        let serialized = engine.serialize();
+        assert!(!serialized.is_empty());
+
+        let restored = MidoriAdblockEngine::from_serialized(serialized, resources.to_string(), 2)
+            .expect("serialized engine should restore");
+        let decision = restored
+            .network_decision_json(
+                "https://ads.example.com/banner.js".to_string(),
+                "https://publisher.example/".to_string(),
+                "script".to_string(),
+            )
+            .expect("decision should serialize");
+        assert!(decision.contains("data:application/javascript;base64,Ow=="));
+
+        let cosmetics = restored
+            .cosmetic_resources_json("https://example.com/article".to_string())
+            .expect("cosmetic resources should serialize after restore");
+        assert!(cosmetics.contains(".sponsor"));
     }
 
     #[test]

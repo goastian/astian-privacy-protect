@@ -14,6 +14,13 @@ export type ProceduralFilter = {
   action?: ProceduralAction
 }
 
+export type ProceduralFilterStats = {
+  affected: number
+  evaluatedFilters: number
+  cappedFilters: number
+  rejectedStyleActions: number
+}
+
 const MAX_CANDIDATES_PER_FILTER = 250
 const MAX_XPATH_RESULTS = 100
 const MAX_SELECTOR_LENGTH = 2048
@@ -60,28 +67,43 @@ export const parseProceduralFilter = (
 export const applyProceduralFilter = (
   filter: ProceduralFilter,
   root: ParentNode = document
-): number => {
+): ProceduralFilterStats => {
   let elements = resolveProceduralSelector(filter.selector, root)
-  if (!elements.length) return 0
+  if (!elements.length) return emptyStats(1)
 
-  elements = uniqueElements(elements).slice(0, MAX_CANDIDATES_PER_FILTER)
+  const unique = uniqueElements(elements)
+  const cappedFilters = unique.length > MAX_CANDIDATES_PER_FILTER ? 1 : 0
+  elements = unique.slice(0, MAX_CANDIDATES_PER_FILTER)
 
   let affected = 0
+  let rejectedStyleActions = 0
   elements.forEach((element) => {
-    if (applyProceduralAction(element, filter.action)) affected++
+    const result = applyProceduralAction(element, filter.action)
+    if (result.applied) affected++
+    if (result.rejectedStyle) rejectedStyleActions++
   })
 
-  return affected
+  return {
+    affected,
+    evaluatedFilters: 1,
+    cappedFilters,
+    rejectedStyleActions,
+  }
 }
 
 export const applyProceduralFilters = (
   filters: ProceduralFilter[],
   root: ParentNode = document
-) =>
-  filters.reduce(
-    (count, filter) => count + applyProceduralFilter(filter, root),
-    0
-  )
+) => applyProceduralFiltersWithStats(filters, root).affected
+
+export const applyProceduralFiltersWithStats = (
+  filters: ProceduralFilter[],
+  root: ParentNode = document
+): ProceduralFilterStats =>
+  filters.reduce((stats, filter) => {
+    const next = applyProceduralFilter(filter, root)
+    return mergeStats(stats, next)
+  }, emptyStats())
 
 const resolveProceduralSelector = (
   operators: ProceduralOperator[],
@@ -263,35 +285,44 @@ const resolveXPath = (xpath: string, current: Element[], root: ParentNode) => {
 
 const applyProceduralAction = (element: Element, action?: ProceduralAction) => {
   if (!action || action.type === 'remove') {
-    if (element.getAttribute(HIDDEN_ATTRIBUTE) === 'true') return false
+    if (element.getAttribute(HIDDEN_ATTRIBUTE) === 'true') {
+      return { applied: false, rejectedStyle: false }
+    }
     element.setAttribute(HIDDEN_ATTRIBUTE, 'true')
     element.remove()
-    return true
+    return { applied: true, rejectedStyle: false }
   }
 
   if (action.type === 'style' && element instanceof HTMLElement) {
-    if (!isSafeInlineStyle(action.arg)) return false
+    if (!isSafeInlineStyle(action.arg)) {
+      return { applied: false, rejectedStyle: true }
+    }
     const before = element.getAttribute('style') || ''
     const nextStyle = [before.trim(), action.arg.trim()]
       .filter(Boolean)
       .join('; ')
     element.style.cssText = nextStyle
-    return before !== (element.getAttribute('style') || '')
+    return {
+      applied: before !== (element.getAttribute('style') || ''),
+      rejectedStyle: false,
+    }
   }
 
   if (action.type === 'remove-attr' && isSafeToken(action.arg)) {
-    if (!element.hasAttribute(action.arg)) return false
+    if (!element.hasAttribute(action.arg)) {
+      return { applied: false, rejectedStyle: false }
+    }
     element.removeAttribute(action.arg)
-    return true
+    return { applied: true, rejectedStyle: false }
   }
 
   if (action.type === 'remove-class' && isSafeToken(action.arg)) {
     const hadClass = element.classList.contains(action.arg)
     element.classList.remove(action.arg)
-    return hadClass
+    return { applied: hadClass, rejectedStyle: false }
   }
 
-  return false
+  return { applied: false, rejectedStyle: false }
 }
 
 const createTextMatcher = (rawPattern: string) => {
@@ -362,3 +393,21 @@ const isSafeInlineStyle = (style: string) =>
   !/url\s*\(|image-set\s*\(|expression\s*\(|@import|\/\*/i.test(style)
 
 const uniqueElements = (elements: Element[]) => Array.from(new Set(elements))
+
+const emptyStats = (evaluatedFilters = 0): ProceduralFilterStats => ({
+  affected: 0,
+  evaluatedFilters,
+  cappedFilters: 0,
+  rejectedStyleActions: 0,
+})
+
+const mergeStats = (
+  current: ProceduralFilterStats,
+  next: ProceduralFilterStats
+): ProceduralFilterStats => ({
+  affected: current.affected + next.affected,
+  evaluatedFilters: current.evaluatedFilters + next.evaluatedFilters,
+  cappedFilters: current.cappedFilters + next.cappedFilters,
+  rejectedStyleActions:
+    current.rejectedStyleActions + next.rejectedStyleActions,
+})

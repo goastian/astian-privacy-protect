@@ -35,6 +35,9 @@ const MAX_BADGE_COUNT = 999
 const MAX_TAB_BLOCKED_EVENTS = 250
 const BLOCKED_REQUEST_TIME_SAVED_MS = 3 * 1000
 const BLOCKED_REQUEST_BANDWIDTH_SAVED_BYTES = 45 * 1024
+const ADBLOCK_RUST_REV = '5d182e5fb88a71ee456a6b57be8235cc8a642bee'
+const RUST_ENGINE_CACHE_NAME = 'midori-privacy-rust-engine-v1'
+const RUST_ENGINE_CACHE_SCHEMA = 'v1'
 
 // ===============
 // Blocking engine
@@ -58,6 +61,11 @@ type FilterListLoadState = {
   title: string
   url: string
   source: 'network' | 'cache' | 'stale-cache' | 'error'
+  listId?: string
+  listName?: string
+  shard?: string
+  required?: boolean
+  format?: string
   updatedAt: number
   ageMs?: number
   error?: string
@@ -77,7 +85,13 @@ type BlockedRequestEvent = {
   count: number
   reason: BlockedRequestReason
   blocker: string
-  category: 'ads' | 'trackers' | 'fingerprinters' | 'cosmetics' | 'pages' | 'other'
+  category:
+    | 'ads'
+    | 'trackers'
+    | 'fingerprinters'
+    | 'cosmetics'
+    | 'pages'
+    | 'other'
   requestType?: string
   blockedAt: number
   timeSavedMs: number
@@ -145,6 +159,56 @@ type RustNetworkDecision = {
   filter?: string
 }
 
+type BlockingDecision = {
+  matched: boolean
+  redirectUrl?: string
+  rewrittenUrl?: string
+  filter?: string
+  source: 'rust' | 'ghostery'
+  engineName: string
+}
+
+type BlockingEngineAdapter = {
+  name: string
+  source: BlockingDecision['source']
+  match: (details: RequestListenerArgs) => BlockingDecision | undefined
+}
+
+type RustEngineCacheStatus =
+  | 'disabled'
+  | 'hit'
+  | 'miss'
+  | 'stored'
+  | 'error'
+  | 'empty'
+
+type CosmeticStats = {
+  hiddenSelectors: number
+  proceduralActions: number
+  scriptlets: number
+  rejectedStyleActions: number
+  cappedProceduralFilters: number
+}
+
+const EMPTY_COSMETIC_STATS: CosmeticStats = {
+  hiddenSelectors: 0,
+  proceduralActions: 0,
+  scriptlets: 0,
+  rejectedStyleActions: 0,
+  cappedProceduralFilters: 0,
+}
+
+let rustEngineCacheStatus: RustEngineCacheStatus = 'empty'
+let rustEngineCacheKey = ''
+let rustEngineCacheHits = 0
+let rustEngineCacheMisses = 0
+let rustEngineSerializedBytes = 0
+let rustEngineBuildMs = 0
+let requestDecisionCount = 0
+let requestDecisionTotalMs = 0
+let requestDecisionMaxMs = 0
+let cosmeticStats = { ...EMPTY_COSMETIC_STATS }
+
 // =================
 // Blocking code
 const getHostname = (url = '') => {
@@ -194,7 +258,88 @@ const initRustWasm = async () => {
   await rustWasmReady
 }
 
-const rebuildRustEngine = async (rules: string, resourcesJson: string) => {
+const supportsCacheApi = () => typeof caches !== 'undefined'
+
+const cacheUrlForRustEngine = (key: string) =>
+  `https://midori.local/rust-engine/${encodeURIComponent(key)}.bin`
+
+const hashText = async (value: string) => {
+  const data = new TextEncoder().encode(value)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+const countRustRules = (rules: string) =>
+  rules
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('!')).length
+
+const buildRustEngineCacheKey = async (
+  rules: string,
+  resourcesJson: string,
+  listStates: FilterListLoadState[]
+) => {
+  const version = browser.runtime.getManifest().version
+  const sourceState = listStates.map(({ url, updatedAt, source }) => ({
+    url,
+    updatedAt,
+    source,
+  }))
+  const hash = await hashText(
+    JSON.stringify({
+      schema: RUST_ENGINE_CACHE_SCHEMA,
+      adblockRustRev: ADBLOCK_RUST_REV,
+      version,
+      sourceState,
+      rules,
+      resourcesJson,
+    })
+  )
+
+  return `${RUST_ENGINE_CACHE_SCHEMA}-${ADBLOCK_RUST_REV.slice(
+    0,
+    12
+  )}-${version}-${hash}`
+}
+
+const readCachedRustEngine = async (key: string) => {
+  if (!supportsCacheApi()) return undefined
+
+  const cache = await caches.open(RUST_ENGINE_CACHE_NAME)
+  const response = await cache.match(cacheUrlForRustEngine(key))
+  if (!response) return undefined
+
+  return new Uint8Array(await response.arrayBuffer())
+}
+
+const writeCachedRustEngine = async (key: string, serialized: Uint8Array) => {
+  if (!supportsCacheApi()) return
+
+  const cache = await caches.open(RUST_ENGINE_CACHE_NAME)
+  const body = new ArrayBuffer(serialized.byteLength)
+  new Uint8Array(body).set(serialized)
+  await cache.put(
+    cacheUrlForRustEngine(key),
+    new Response(body, {
+      headers: {
+        'content-type': 'application/octet-stream',
+        'x-midori-adblock-rust-rev': ADBLOCK_RUST_REV,
+        'x-midori-cache-schema': RUST_ENGINE_CACHE_SCHEMA,
+        'x-midori-created-at': String(Date.now()),
+      },
+    })
+  )
+}
+
+const rebuildRustEngine = async (
+  rules: string,
+  resourcesJson: string,
+  listStates: FilterListLoadState[] = [],
+  forceRefresh = false
+) => {
   if (rustEngine) {
     rustEngine.free()
     rustEngine = undefined
@@ -203,16 +348,54 @@ const rebuildRustEngine = async (rules: string, resourcesJson: string) => {
   rustEngineRuleCount = 0
   rustEngineResourceCount = 0
   rustEngineLoadError = ''
+  rustEngineCacheStatus = supportsCacheApi() ? 'empty' : 'disabled'
+  rustEngineCacheKey = ''
+  rustEngineSerializedBytes = 0
+  rustEngineBuildMs = 0
 
   if (!rules.trim()) return
 
   try {
     await initRustWasm()
-    rustEngine = new MidoriAdblockEngine(rules, resourcesJson || '[]')
+    const buildStart = performance.now()
+    const ruleCount = countRustRules(rules)
+    const cacheKey = await buildRustEngineCacheKey(
+      rules,
+      resourcesJson || '[]',
+      listStates
+    )
+    rustEngineCacheKey = cacheKey
+
+    const cached =
+      forceRefresh || !supportsCacheApi()
+        ? undefined
+        : await readCachedRustEngine(cacheKey)
+
+    if (cached?.length) {
+      rustEngine = MidoriAdblockEngine.from_serialized(
+        cached,
+        resourcesJson || '[]',
+        ruleCount
+      )
+      rustEngineCacheHits += 1
+      rustEngineCacheStatus = 'hit'
+      rustEngineSerializedBytes = cached.length
+    } else {
+      rustEngineCacheMisses += 1
+      rustEngineCacheStatus = supportsCacheApi() ? 'miss' : 'disabled'
+      rustEngine = new MidoriAdblockEngine(rules, resourcesJson || '[]')
+      const serialized = rustEngine.serialize()
+      rustEngineSerializedBytes = serialized.length
+      await writeCachedRustEngine(cacheKey, serialized)
+      if (supportsCacheApi()) rustEngineCacheStatus = 'stored'
+    }
+
     rustEngineRuleCount = rustEngine.rule_count()
     rustEngineResourceCount = rustEngine.resource_count()
+    rustEngineBuildMs = Math.round(performance.now() - buildStart)
   } catch (error) {
     rustEngineLoadError = error instanceof Error ? error.message : String(error)
+    rustEngineCacheStatus = 'error'
   }
 }
 
@@ -232,6 +415,78 @@ const getRustDecision = (
   } catch {
     return undefined
   }
+}
+
+const rustBlockingEngine: BlockingEngineAdapter = {
+  name: rustEngineName,
+  source: 'rust',
+  match: (details) => {
+    const rustDecision = getRustDecision(details)
+    if (!rustDecision) return undefined
+
+    return {
+      matched: Boolean(rustDecision.matched),
+      redirectUrl: rustDecision.redirect,
+      rewrittenUrl:
+        rustDecision.rewrittenUrl && rustDecision.rewrittenUrl !== details.url
+          ? rustDecision.rewrittenUrl
+          : undefined,
+      filter: rustDecision.filter,
+      source: 'rust',
+      engineName: rustEngineName,
+    }
+  },
+}
+
+const createGhosteryBlockingEngine = (
+  name: string,
+  engine: FiltersEngine
+): BlockingEngineAdapter => ({
+  name,
+  source: 'ghostery',
+  match: (details) => {
+    const request = Request.fromRawDetails({
+      requestId: details.requestId,
+      tabId: details.tabId,
+      url: details.url,
+      sourceUrl: getSourceUrl(details),
+      type: details.type as RequestType,
+      _originalRequestDetails: details,
+    })
+    const { match } = engine.match(request)
+
+    if (!match) return undefined
+
+    return {
+      matched: true,
+      source: 'ghostery',
+      engineName: name,
+    }
+  },
+})
+
+const matchBlockingEngines = (
+  details: RequestListenerArgs
+): BlockingDecision | undefined => {
+  const rustDecision = rustBlockingEngine.match(details)
+  if (rustDecision?.matched || rustDecision?.rewrittenUrl) return rustDecision
+
+  for (let i = 0; i < engines.length; i++) {
+    const decision = createGhosteryBlockingEngine(
+      engines[i].name,
+      engines[i].engine
+    ).match(details)
+    if (decision?.matched) return decision
+  }
+
+  return rustDecision
+}
+
+const recordRequestDecisionTiming = (startedAt: number) => {
+  const elapsed = performance.now() - startedAt
+  requestDecisionCount += 1
+  requestDecisionTotalMs += elapsed
+  requestDecisionMaxMs = Math.max(requestDecisionMaxMs, elapsed)
 }
 
 const classifyBlockedRequest = (
@@ -397,57 +652,37 @@ const createEngine: (
  * @param details The request info, provided by the requestHandler
  */
 const requestHandler = (details: RequestListenerArgs) => {
+  const decisionStart = performance.now()
+
   // Never block first-party Astian ad infrastructure. Ads delivered through
   // midori-tab / astiango must always reach the user.
-  if (isTrustedAdHost(getHostname(details.url))) return
+  if (isTrustedAdHost(getHostname(details.url))) {
+    recordRequestDecisionTiming(decisionStart)
+    return
+  }
 
   // Check if the site is contained in the whitelist.
   const whitelistDomain = getWhitelistDomain(details)
-  if (whitelistDomain && whitelist.data.indexOf(whitelistDomain) !== -1) return
-
-  // Check if the condition is in the blocklist
-  let hasMatch = false
-  let engineMatch = ''
-  let redirectUrl = ''
-  let rewrittenUrl = ''
-
-  const rustDecision = getRustDecision(details)
-  if (rustDecision?.redirect) {
-    redirectUrl = rustDecision.redirect
+  if (whitelistDomain && whitelist.data.indexOf(whitelistDomain) !== -1) {
+    recordRequestDecisionTiming(decisionStart)
+    return
   }
 
-  if (rustDecision?.rewrittenUrl && rustDecision.rewrittenUrl !== details.url) {
-    rewrittenUrl = rustDecision.rewrittenUrl
-  }
-
-  if (rustDecision?.matched) {
-    engineMatch = rustEngineName
-    hasMatch = true
-  } else {
-    const request = Request.fromRawDetails({
-      requestId: details.requestId,
-      tabId: details.tabId,
-      url: details.url,
-      sourceUrl: getSourceUrl(details),
-      type: details.type as RequestType,
-      _originalRequestDetails: details,
-    })
-    for (let i = 0; i < engines.length; i++) {
-      const { match } = engines[i].engine.match(request)
-
-      if (match) {
-        engineMatch = engines[i].name
-        hasMatch = true
-      }
-    }
-  }
+  const decision = matchBlockingEngines(details)
+  const hasMatch = Boolean(decision?.matched)
+  let redirectUrl = decision?.redirectUrl || ''
+  const rewrittenUrl = decision?.rewrittenUrl || ''
 
   if (!hasMatch && rewrittenUrl) {
+    recordRequestDecisionTiming(decisionStart)
     return { redirectUrl: rewrittenUrl }
   }
 
   // Return if it hasn't got a match
-  if (!hasMatch) return
+  if (!hasMatch) {
+    recordRequestDecisionTiming(decisionStart)
+    return
+  }
 
   if (details.type !== 'main_frame') {
     // Subresource replacements from adblock-rust keep brittle sites working:
@@ -455,30 +690,35 @@ const requestHandler = (details: RequestListenerArgs) => {
     // cancelling the request outright.
     if (redirectUrl) {
       recordBlockedRequest(details.tabId, details.url, 1, {
-        reason: rustDecision?.matched ? 'rust-network' : 'network',
-        blocker: engineMatch,
+        reason: decision?.source === 'rust' ? 'rust-network' : 'network',
+        blocker: decision?.engineName,
         requestType: details.type,
       })
+      recordRequestDecisionTiming(decisionStart)
       return { redirectUrl }
     }
   } else {
     // Otherwise it should use a regular URL
     const domain = getDomain(details.url)
-    if (whitelist.data.indexOf(domain) !== -1) return
+    if (whitelist.data.indexOf(domain) !== -1) {
+      recordRequestDecisionTiming(decisionStart)
+      return
+    }
 
     // If it hasn't returned, this is a webpage that has been navigated to by the
     // user and we should show a blocked screen
     redirectUrl = `${browser.runtime.getURL('blocked.html')}?url=${
       details.url
-    }&list=${engineMatch}`
+    }&list=${decision?.engineName || ''}`
   }
 
   recordBlockedRequest(details.tabId, details.url, 1, {
-    reason: rustDecision?.matched ? 'rust-network' : 'network',
-    blocker: engineMatch,
+    reason: decision?.source === 'rust' ? 'rust-network' : 'network',
+    blocker: decision?.engineName,
     requestType: details.type,
   })
 
+  recordRequestDecisionTiming(decisionStart)
   if (redirectUrl) {
     return { redirectUrl }
   } else if (rewrittenUrl) {
@@ -529,7 +769,9 @@ const rebuildEngines = async (forceRefresh = false) => {
   }))
   await rebuildRustEngine(
     engineResponse.rustRules || '',
-    engineResponse.rustResourcesJson || '[]'
+    engineResponse.rustResourcesJson || '[]',
+    filterListStates,
+    forceRefresh
   )
   engineLoadMs = Math.round(performance.now() - engineLoadStart)
 
@@ -716,10 +958,93 @@ function getProtectionSummaryData() {
     rustEngineRuleCount,
     rustEngineResourceCount,
     rustEngineLoadError,
+    rustEngineCache: {
+      status: rustEngineCacheStatus,
+      key: rustEngineCacheKey,
+      hits: rustEngineCacheHits,
+      misses: rustEngineCacheMisses,
+      serializedBytes: rustEngineSerializedBytes,
+      buildMs: rustEngineBuildMs,
+      adblockRustRev: ADBLOCK_RUST_REV,
+    },
+    requestPath: {
+      decisions: requestDecisionCount,
+      averageMs:
+        requestDecisionCount > 0
+          ? Number((requestDecisionTotalMs / requestDecisionCount).toFixed(3))
+          : 0,
+      maxMs: Number(requestDecisionMaxMs.toFixed(3)),
+    },
+    listHealth: summarizeListHealth(filterListStates),
+    cosmeticStats,
     globalCosmeticRuleCount,
     core: rustEngine
       ? `${rustEngineName} primary + Ghostery cosmetics/fallback`
       : 'Ghostery fallback; adblock-rust unavailable',
+  }
+}
+
+function summarizeListHealth(states: FilterListLoadState[]) {
+  const summary = {
+    total: states.length,
+    network: 0,
+    cache: 0,
+    staleCache: 0,
+    error: 0,
+    byShard: {} as Record<
+      string,
+      {
+        total: number
+        network: number
+        cache: number
+        staleCache: number
+        error: number
+      }
+    >,
+  }
+
+  states.forEach((state) => {
+    if (state.source === 'network') summary.network += 1
+    if (state.source === 'cache') summary.cache += 1
+    if (state.source === 'stale-cache') summary.staleCache += 1
+    if (state.source === 'error') summary.error += 1
+
+    const shard =
+      typeof (state as FilterListLoadState & { shard?: string }).shard ===
+      'string'
+        ? (state as FilterListLoadState & { shard: string }).shard
+        : 'unassigned'
+
+    summary.byShard[shard] ||= {
+      total: 0,
+      network: 0,
+      cache: 0,
+      staleCache: 0,
+      error: 0,
+    }
+    summary.byShard[shard].total += 1
+    if (state.source === 'network') summary.byShard[shard].network += 1
+    if (state.source === 'cache') summary.byShard[shard].cache += 1
+    if (state.source === 'stale-cache') summary.byShard[shard].staleCache += 1
+    if (state.source === 'error') summary.byShard[shard].error += 1
+  })
+
+  return summary
+}
+
+function recordCosmeticStats(next: Partial<CosmeticStats>) {
+  cosmeticStats = {
+    hiddenSelectors:
+      cosmeticStats.hiddenSelectors + Number(next.hiddenSelectors || 0),
+    proceduralActions:
+      cosmeticStats.proceduralActions + Number(next.proceduralActions || 0),
+    scriptlets: cosmeticStats.scriptlets + Number(next.scriptlets || 0),
+    rejectedStyleActions:
+      cosmeticStats.rejectedStyleActions +
+      Number(next.rejectedStyleActions || 0),
+    cappedProceduralFilters:
+      cosmeticStats.cappedProceduralFilters +
+      Number(next.cappedProceduralFilters || 0),
   }
 }
 
@@ -786,7 +1111,9 @@ async function getStatsSummaryData(payload: { days?: number } = {}) {
   const { totalBlocked, todayBlocked } = sumLongTermBlocked(days)
   const activeTabId = await getActiveTabId()
   const tabEvents =
-    typeof activeTabId === 'number' ? blockedEventsOnTabs[activeTabId] || [] : []
+    typeof activeTabId === 'number'
+      ? blockedEventsOnTabs[activeTabId] || []
+      : []
   const allSessionEvents = Object.values(blockedEventsOnTabs).flat()
   const eventSummary = summarizeEvents(
     tabEvents.length ? tabEvents : allSessionEvents
@@ -873,6 +1200,10 @@ const handleRuntimeMessage = (message, sender) => {
 
   const tabId = sender.tab?.id
   if (typeof tabId !== 'number') return false
+
+  if (message.cosmeticStats && typeof message.cosmeticStats === 'object') {
+    recordCosmeticStats(message.cosmeticStats as Partial<CosmeticStats>)
+  }
 
   recordBlockedRequest(
     tabId,

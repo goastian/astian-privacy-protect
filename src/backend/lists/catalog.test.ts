@@ -83,4 +83,19 @@ describe('filter list catalog', () => {
       expect(source.url).not.toMatch(/^https:\/\/github\.com\/.*\.txt$/)
     })
   })
+
+  it('assigns every catalog entry to a measured performance shard', () => {
+    const expectedShards = new Set([
+      'required',
+      'regional',
+      'annoyances',
+      'social',
+      'malware',
+      'streaming',
+    ])
+
+    FILTER_LIST_CATALOG.forEach((list) => {
+      expect(expectedShards.has(list.shard)).toBe(true)
+    })
+  })
 })

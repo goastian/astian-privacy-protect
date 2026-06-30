@@ -10,6 +10,11 @@ const SOURCE_STATE = new Map()
 const BRAVE_RESOURCES_SOURCE = {
   title: 'Brave adblock resources',
   url: 'https://raw.githubusercontent.com/brave/adblock-resources/master/dist/resources.json',
+  listId: 'adblockResources',
+  listName: 'Brave adblock resources',
+  shard: 'resources',
+  required: false,
+  format: 'JSON',
 }
 const FALLBACK_RESOURCES_JSON = JSON.stringify([
   {
@@ -48,6 +53,11 @@ const rememberSourceState = (source, state) => {
   SOURCE_STATE.set(source.url, {
     title: source.title,
     url: source.url,
+    listId: source.listId,
+    listName: source.listName,
+    shard: source.shard,
+    required: source.required,
+    format: source.format,
     source: state.source,
     updatedAt: state.updatedAt,
     ageMs: state.updatedAt ? Date.now() - state.updatedAt : undefined,
@@ -119,7 +129,13 @@ const createCachedFetch = (sources, forceRefresh) => {
 }
 
 async function createEngine(source, forceRefresh) {
-  const listSources = source.sources
+  const listSources = source.sources.map((listSource) => ({
+    ...listSource,
+    listId: source.id,
+    listName: source.name,
+    shard: source.shard,
+    required: source.required,
+  }))
   const listFetch = createCachedFetch(listSources, forceRefresh)
 
   return {

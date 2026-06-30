@@ -5,6 +5,7 @@
 
 import {
   applyProceduralFilters,
+  applyProceduralFiltersWithStats,
   parseProceduralFilter,
 } from './proceduralCosmetics'
 
@@ -112,6 +113,30 @@ describe('procedural cosmetics', () => {
 
     expect(applyProceduralFilters([filter!])).toBe(0)
     expect(document.querySelector('.ad')).not.toBeNull()
+  })
+
+  it('reports rejected style actions and capped procedural work', () => {
+    document.body.innerHTML = Array.from(
+      { length: 260 },
+      (_, index) => `<div class="ad" data-index="${index}">Ad</div>`
+    ).join('')
+
+    const filter = parseProceduralFilter(
+      JSON.stringify({
+        selector: [{ type: 'css-selector', arg: '.ad' }],
+        action: {
+          type: 'style',
+          arg: 'background: url(https://tracker.example/pixel)',
+        },
+      })
+    )
+
+    const stats = applyProceduralFiltersWithStats([filter!])
+
+    expect(stats.affected).toBe(0)
+    expect(stats.evaluatedFilters).toBe(1)
+    expect(stats.cappedFilters).toBe(1)
+    expect(stats.rejectedStyleActions).toBe(250)
   })
 
   it('supports matches-path filters', () => {

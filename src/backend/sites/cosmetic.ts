@@ -3,9 +3,10 @@
 import { parse } from 'psl'
 import { remoteFn } from '../lib/remoteFunctions'
 import {
-  applyProceduralFilters,
+  applyProceduralFiltersWithStats,
   parseProceduralFilter,
   ProceduralFilter,
+  ProceduralFilterStats,
 } from './proceduralCosmetics'
 import { getStreamingAdStyles, hideStreamingAdContainers } from './streamingAds'
 
@@ -31,6 +32,7 @@ const STREAMING_AD_STYLE_ID = 'midori-streaming-ad-cosmetics'
 const CONTENT_BLOCK_MESSAGE = 'midori.contentBlock'
 const MAX_SELECTOR_BATCH_SIZE = 600
 const MAX_SCRIPTLET_LENGTH = 512 * 1024
+const PROCEDURAL_BATCH_DELAY_MS = 50
 
 const getHostname = (url: string) => {
   try {
@@ -60,6 +62,17 @@ let genericFlushTimer: number | undefined
 let proceduralActions: ProceduralFilter[] = []
 let pendingReportedBlocks = 0
 let reportTimer: number | undefined
+let pendingCosmeticStats = {
+  hiddenSelectors: 0,
+  proceduralActions: 0,
+  scriptlets: 0,
+  rejectedStyleActions: 0,
+  cappedProceduralFilters: 0,
+}
+let statsTimer: number | undefined
+let proceduralFlushTimer: number | undefined
+const pendingProceduralRoots = new Set<ParentNode>()
+const processedProceduralRoots = new WeakSet<Element>()
 
 const getAppendTarget = () =>
   document.head || document.documentElement || document.body
@@ -90,6 +103,8 @@ const injectPageScriptlet = (script: string) => {
   scriptEl.textContent = script
   target.append(scriptEl)
   scriptEl.remove()
+  pendingCosmeticStats.scriptlets += 1
+  scheduleCosmeticStatsReport()
 }
 
 const reportContentBlocks = (count: number, reason = 'rust-cosmetic') => {
@@ -115,8 +130,56 @@ const reportContentBlocks = (count: number, reason = 'rust-cosmetic') => {
   }, 250)
 }
 
+const rememberProceduralStats = (stats: ProceduralFilterStats) => {
+  if (
+    stats.affected <= 0 &&
+    stats.cappedFilters <= 0 &&
+    stats.rejectedStyleActions <= 0
+  ) {
+    return
+  }
+
+  pendingCosmeticStats.proceduralActions += stats.affected
+  pendingCosmeticStats.cappedProceduralFilters += stats.cappedFilters
+  pendingCosmeticStats.rejectedStyleActions += stats.rejectedStyleActions
+  scheduleCosmeticStatsReport()
+}
+
+const scheduleCosmeticStatsReport = () => {
+  if (typeof statsTimer !== 'undefined') return
+
+  statsTimer = window.setTimeout(() => {
+    const stats = pendingCosmeticStats
+    pendingCosmeticStats = {
+      hiddenSelectors: 0,
+      proceduralActions: 0,
+      scriptlets: 0,
+      rejectedStyleActions: 0,
+      cappedProceduralFilters: 0,
+    }
+    statsTimer = undefined
+
+    browser.runtime
+      .sendMessage({
+        type: CONTENT_BLOCK_MESSAGE,
+        url: window.location.href,
+        reason: 'rust-cosmetic',
+        count: 0,
+        cosmeticStats: stats,
+      })
+      .catch(() => undefined)
+  }, 500)
+}
+
 const applyProceduralActions = (root: ParentNode = document) => {
-  reportContentBlocks(applyProceduralFilters(proceduralActions, root))
+  if (root instanceof Element) {
+    if (processedProceduralRoots.has(root)) return
+    processedProceduralRoots.add(root)
+  }
+
+  const stats = applyProceduralFiltersWithStats(proceduralActions, root)
+  rememberProceduralStats(stats)
+  reportContentBlocks(stats.affected)
 }
 
 const pruneStreamingAds = (root: ParentNode = document) => {
@@ -180,18 +243,42 @@ const scheduleGenericFlush = () => {
   }, 100)
 }
 
+const queueProceduralRoot = (root: ParentNode) => {
+  pendingProceduralRoots.add(root)
+
+  if (typeof proceduralFlushTimer !== 'undefined') return
+
+  proceduralFlushTimer = window.setTimeout(() => {
+    const roots = Array.from(pendingProceduralRoots)
+    pendingProceduralRoots.clear()
+    proceduralFlushTimer = undefined
+
+    roots.forEach((root) => {
+      applyProceduralActions(root)
+      pruneStreamingAds(root)
+    })
+  }, PROCEDURAL_BATCH_DELAY_MS)
+}
+
 const installCosmeticObserver = () => {
   collectTreeTokens(document.documentElement)
   scheduleGenericFlush()
 
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
+      if (
+        mutation.type === 'attributes' &&
+        mutation.target instanceof Element
+      ) {
+        collectElementTokens(mutation.target)
+        queueProceduralRoot(mutation.target)
+      }
+
       mutation.addedNodes.forEach((node) => {
         if (!(node instanceof Element)) return
 
         collectTreeTokens(node)
-        applyProceduralActions(node)
-        pruneStreamingAds(node)
+        queueProceduralRoot(node)
       })
     })
     scheduleGenericFlush()
@@ -239,6 +326,8 @@ const installCosmeticObserver = () => {
   )
   rustGenerichide = Boolean(rustResources.generichide)
   appendStyle(RUST_SPECIFIC_STYLE_ID, rustResources.stylesheet || '')
+  pendingCosmeticStats.hiddenSelectors +=
+    rustResources.hideSelectors?.length || 0
   injectPageScriptlet(rustResources.injectedScript || '')
   proceduralActions = (rustResources.proceduralActions || [])
     .map(parseProceduralFilter)
