@@ -165,12 +165,6 @@ type BlockingDecision = {
   engineName: string
 }
 
-type BlockingEngineAdapter = {
-  name: string
-  source: BlockingDecision['source']
-  match: (details: RequestListenerArgs) => BlockingDecision | undefined
-}
-
 type RustEngineCacheStatus =
   | 'disabled'
   | 'hit'
@@ -414,65 +408,61 @@ const getRustDecision = (
   }
 }
 
-const rustBlockingEngine: BlockingEngineAdapter = {
-  name: rustEngineName,
-  source: 'rust',
-  match: (details) => {
-    const rustDecision = getRustDecision(details)
-    if (!rustDecision) return undefined
+const getRustBlockingDecision = (
+  details: RequestListenerArgs
+): BlockingDecision | undefined => {
+  const rustDecision = getRustDecision(details)
+  if (!rustDecision) return undefined
 
-    return {
-      matched: Boolean(rustDecision.matched),
-      redirectUrl: rustDecision.redirect,
-      rewrittenUrl:
-        rustDecision.rewrittenUrl && rustDecision.rewrittenUrl !== details.url
-          ? rustDecision.rewrittenUrl
-          : undefined,
-      filter: rustDecision.filter,
-      source: 'rust',
-      engineName: rustEngineName,
-    }
-  },
+  return {
+    matched: Boolean(rustDecision.matched),
+    redirectUrl: rustDecision.redirect,
+    rewrittenUrl:
+      rustDecision.rewrittenUrl && rustDecision.rewrittenUrl !== details.url
+        ? rustDecision.rewrittenUrl
+        : undefined,
+    filter: rustDecision.filter,
+    source: 'rust',
+    engineName: rustEngineName,
+  }
 }
 
-const createGhosteryBlockingEngine = (
+const matchGhosteryEngine = (
   name: string,
-  engine: FiltersEngine
-): BlockingEngineAdapter => ({
-  name,
-  source: 'ghostery',
-  match: (details) => {
-    const request = Request.fromRawDetails({
-      requestId: details.requestId,
-      tabId: details.tabId,
-      url: details.url,
-      sourceUrl: getSourceUrl(details),
-      type: details.type as RequestType,
-      _originalRequestDetails: details,
-    })
-    const { match } = engine.match(request)
+  engine: FiltersEngine,
+  details: RequestListenerArgs
+): BlockingDecision | undefined => {
+  const request = Request.fromRawDetails({
+    requestId: details.requestId,
+    tabId: details.tabId,
+    url: details.url,
+    sourceUrl: getSourceUrl(details),
+    type: details.type as RequestType,
+    _originalRequestDetails: details,
+  })
+  const { match } = engine.match(request)
 
-    if (!match) return undefined
-
-    return {
-      matched: true,
-      source: 'ghostery',
-      engineName: name,
-    }
-  },
-})
+  return match
+    ? {
+        matched: true,
+        source: 'ghostery',
+        engineName: name,
+      }
+    : undefined
+}
 
 const matchBlockingEngines = (
   details: RequestListenerArgs
 ): BlockingDecision | undefined => {
-  const rustDecision = rustBlockingEngine.match(details)
+  const rustDecision = getRustBlockingDecision(details)
   if (rustDecision?.matched || rustDecision?.rewrittenUrl) return rustDecision
 
   for (let i = 0; i < engines.length; i++) {
-    const decision = createGhosteryBlockingEngine(
+    const decision = matchGhosteryEngine(
       engines[i].name,
-      engines[i].engine
-    ).match(details)
+      engines[i].engine,
+      details
+    )
     if (decision?.matched) return decision
   }
 
