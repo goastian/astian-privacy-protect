@@ -645,7 +645,7 @@ const createEngine: (
   })
 
 /**
- * The listener for webRequests. Blocks all that it receives and adds them to logger
+ * The listener for webRequests. Blocks matching requests and records stats.
  * @param details The request info, provided by the requestHandler
  */
 const requestHandler = (details: RequestListenerArgs) => {

@@ -9,6 +9,7 @@ import {
   ProceduralFilterStats,
 } from './proceduralCosmetics'
 import { getStreamingAdStyles, hideStreamingAdContainers } from './streamingAds'
+import { getYoutubeAdStyles, hideYoutubeAdContainers } from './youtubeAds'
 
 type RustCosmeticResources = {
   hideSelectors: string[]
@@ -27,6 +28,7 @@ type RustGenericCosmeticResources = {
 const RUST_SPECIFIC_STYLE_ID = 'midori-rust-specific-cosmetics'
 const RUST_GENERIC_STYLE_ID = 'midori-rust-generic-cosmetics'
 const STREAMING_AD_STYLE_ID = 'midori-streaming-ad-cosmetics'
+const YOUTUBE_AD_STYLE_ID = 'midori-youtube-ad-cosmetics'
 const CONTENT_BLOCK_MESSAGE = 'midori.contentBlock'
 const MAX_SELECTOR_BATCH_SIZE = 600
 const MAX_SCRIPTLET_LENGTH = 512 * 1024
@@ -50,6 +52,8 @@ const getDomain = (url: string) => {
 const url = window.location.href
 const hostname = window.location.hostname
 const domain = getDomain(url)
+const isYoutubeHost =
+  hostname === 'youtube.com' || hostname.endsWith('.youtube.com')
 const seenClasses = new Set<string>()
 const seenIds = new Set<string>()
 const pendingClasses = new Set<string>()
@@ -187,6 +191,24 @@ const pruneStreamingAds = (root: ParentNode = document) => {
   )
 }
 
+const pruneYoutubeAds = (root: ParentNode = document) => {
+  if (!isYoutubeHost) return
+
+  reportContentBlocks(hideYoutubeAdContainers(root), 'youtube-cosmetic')
+}
+
+const skipYoutubeAd = () => {
+  if (!isYoutubeHost) return
+
+  const skipButton = document.querySelector<HTMLElement>(
+    '.ytp-ad-text.ytp-ad-skip-button-text, .ytp-skip-ad-button, .ytp-ad-skip-button-modern'
+  )
+  if (!skipButton) return
+
+  skipButton.click()
+  reportContentBlocks(1, 'youtube-cosmetic')
+}
+
 const rememberClass = (className: string) => {
   if (!className || seenClasses.has(className)) return
 
@@ -254,6 +276,7 @@ const queueProceduralRoot = (root: ParentNode) => {
     roots.forEach((root) => {
       applyProceduralActions(root)
       pruneStreamingAds(root)
+      pruneYoutubeAds(root)
     })
   }, PROCEDURAL_BATCH_DELAY_MS)
 }
@@ -305,6 +328,11 @@ const installCosmeticObserver = () => {
     getStreamingAdStyles(window.location.hostname)
   )
   pruneStreamingAds()
+  if (isYoutubeHost) {
+    appendStyle(YOUTUBE_AD_STYLE_ID, getYoutubeAdStyles())
+    pruneYoutubeAds()
+    window.setInterval(skipYoutubeAd, 100)
+  }
 
   const rustResources = (await remoteFn(
     'getRustCosmeticResources',
