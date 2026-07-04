@@ -1,5 +1,3 @@
-import { v4 as uuidv4 } from 'uuid'
-
 import tempPort from '../tempPort'
 
 type CallFunctionData = {
@@ -31,7 +29,7 @@ export const initFn = (): void =>
   )
 
 export const remoteFn = (name: string, payload?: unknown): Promise<unknown> => {
-  const id = uuidv4()
+  const id = crypto.randomUUID()
 
   const backend = browser.runtime.connect({
     name: 'co.dothq.shield.fn',
