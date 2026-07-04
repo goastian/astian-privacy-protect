@@ -9,7 +9,6 @@ import { sleep } from './tempPort'
 import { RequestListenerArgs } from './types'
 import { defineFn, initFn } from './lib/remoteFunctions'
 import { BackendState } from '../constants/state'
-import { createStylesheetFromRules } from './lib/cosmeticFuncs'
 import { getFilterListLabels } from './lists/catalog'
 import initRustAdblock, {
   engine_name as getRustEngineName,
@@ -42,9 +41,7 @@ const RUST_ENGINE_CACHE_SCHEMA = 'v1'
 // ===============
 // Blocking engine
 let engines: { name: string; engine: FiltersEngine }[]
-let globalCosmetics: string
 let engineLoadMs = 0
-let globalCosmeticRuleCount = 0
 let filterListStates: FilterListLoadState[] = []
 let filterListsUpdatedAt = 0
 
@@ -748,8 +745,6 @@ const rebuildEngines = async (forceRefresh = false) => {
   // Disable if enabled isn't set properly
   if (!settings.data.enabled) {
     engines = []
-    globalCosmetics = ''
-    globalCosmeticRuleCount = 0
     filterListStates = []
     filterListsUpdatedAt = 0
     await rebuildRustEngine('', '[]')
@@ -780,22 +775,6 @@ const rebuildEngines = async (forceRefresh = false) => {
     { urls: ['<all_urls>'] },
     ['blocking']
   )
-
-  let domainless = []
-
-  for (let i = 0; i < engines.length; i++) {
-    const engine = engines[i].engine
-
-    const domainlessLocal = engine.cosmetics
-      .getFilters()
-      .filter(({ domains }) => typeof domains === 'undefined')
-      .filter(({ selector }) => typeof selector === 'string')
-
-    domainless = [...domainless, ...domainlessLocal]
-  }
-
-  globalCosmetics = createStylesheetFromRules(domainless)
-  globalCosmeticRuleCount = domainless.length
 
   // Set state to idle
   state = BackendState.Idle
@@ -850,24 +829,6 @@ defineFn('refreshFilterLists', async () => {
 // in the statistics page
 defineFn('getLongTermStats', async () => ltBlocked.data)
 
-// Define a function for getting cosmetic filters for each site
-defineFn('getCosmeticsFilters', async (payload) => {
-  // Wait for the engine to spawn
-  const definedEngies = await waitForEngine()
-
-  // Create a variable to store the cosmetics filters in
-  let cosmetics = ''
-
-  definedEngies.forEach((engine) => {
-    cosmetics += engine.engine.getCosmeticsFilters(
-      payload as CosmeticRequestPayload
-    ).styles
-  })
-
-  // Lets return the final cosmetics
-  return cosmetics
-})
-
 defineFn('getRustCosmeticResources', async (payload) => {
   if (!rustEngine) return EMPTY_RUST_COSMETIC_RESOURCES
 
@@ -904,13 +865,6 @@ defineFn('getRustGenericCosmetics', async (payload) => {
   } catch {
     return EMPTY_RUST_GENERIC_COSMETIC_RESOURCES
   }
-})
-
-// Defines a function to collet the base stylesheet from the engine to be applied
-// to a website on a separate thread.
-defineFn('getGlobalCosmetics', async () => {
-  // Wait for the global cosmetics to be generated
-  return await waitForDynamic(() => globalCosmetics)
 })
 
 // Function for getting the current state
@@ -977,9 +931,8 @@ function getProtectionSummaryData() {
     },
     listHealth: summarizeListHealth(filterListStates),
     cosmeticStats,
-    globalCosmeticRuleCount,
     core: rustEngine
-      ? `${rustEngineName} primary + Ghostery cosmetics/fallback`
+      ? `${rustEngineName} primary + Ghostery network fallback`
       : 'Ghostery fallback; adblock-rust unavailable',
   }
 }
@@ -1124,7 +1077,6 @@ async function getStatsSummaryData(payload: { days?: number } = {}) {
   const activeBlockerNames = [
     rustEngine ? rustEngineName : '',
     ...protectionSummary.engineNames,
-    protectionSummary.globalCosmeticRuleCount ? 'Ghostery cosmetics' : '',
     rustEngineResourceCount ? 'adblock-rust resources' : '',
   ].filter(Boolean)
   const blockers = Array.from(new Set(activeBlockerNames)).map((name) => ({

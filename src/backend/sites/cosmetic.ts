@@ -26,8 +26,6 @@ type RustGenericCosmeticResources = {
 
 const RUST_SPECIFIC_STYLE_ID = 'midori-rust-specific-cosmetics'
 const RUST_GENERIC_STYLE_ID = 'midori-rust-generic-cosmetics'
-const GHOSTERY_GLOBAL_STYLE_ID = 'midori-ghostery-global-cosmetics'
-const GHOSTERY_SITE_STYLE_ID = 'midori-ghostery-site-cosmetics'
 const STREAMING_AD_STYLE_ID = 'midori-streaming-ad-cosmetics'
 const CONTENT_BLOCK_MESSAGE = 'midori.contentBlock'
 const MAX_SELECTOR_BATCH_SIZE = 600
@@ -301,14 +299,6 @@ const installCosmeticObserver = () => {
     hostname,
     domain,
   }
-
-  remoteFn('getGlobalCosmetics').then((globalCosmetics: string) =>
-    appendStyle(GHOSTERY_GLOBAL_STYLE_ID, globalCosmetics)
-  )
-
-  remoteFn('getCosmeticsFilters', sharedConfig).then((cosmetics: string) =>
-    appendStyle(GHOSTERY_SITE_STYLE_ID, cosmetics)
-  )
 
   appendStyle(
     STREAMING_AD_STYLE_ID,

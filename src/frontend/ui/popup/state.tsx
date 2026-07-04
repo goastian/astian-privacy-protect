@@ -49,7 +49,6 @@ export type ProtectionSummary = {
   rustEngineRuleCount: number
   rustEngineResourceCount: number
   rustEngineLoadError: string
-  globalCosmeticRuleCount: number
   core: string
 }
 
