@@ -1,7 +1,7 @@
 {
   "name": "midori-privacy-blocker",
   "private": true,
-  "version": "2.3.4",
+  "version": "2.3.5",
   "type": "module",
   "description": "Lightweight ad & tracker blocker by Astian Inc",
   "scripts": {
@@ -29,9 +29,6 @@
   },
   "homepage": "https://astian.org/",
   "devDependencies": {
-    "@babel/preset-env": "^7.28.0",
-    "@babel/preset-typescript": "^7.27.0",
-    "@types/chrome": "^0.1.43",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.15.0",
     "@types/react": "^18.3.18",
@@ -49,16 +46,12 @@
     "rimraf": "^6.0.1",
     "style-loader": "^4.0.0",
     "terser-webpack-plugin": "^5.3.14",
-    "ts-jest": "^29.3.4",
-    "ts-loader": "^9.5.2",
-    "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "web-ext-types": "3.2.1",
     "webpack": "^5.99.9",
     "webpack-cli": "^6.0.1",
     "webpack-merge": "^6.0.1",
-    "webpackbar": "^7.0.0",
-    "whatwg-fetch": "^3.6.20"
+    "webpackbar": "^7.0.0"
   },
   "dependencies": {
     "@ghostery/adblocker": "^2.18.0",
