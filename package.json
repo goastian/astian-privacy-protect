@@ -46,6 +46,8 @@
     "rimraf": "^6.0.1",
     "style-loader": "^4.0.0",
     "terser-webpack-plugin": "^5.3.14",
+    "ts-jest": "^29.4.11",
+    "ts-loader": "^9.6.2",
     "typescript": "^5.8.3",
     "web-ext-types": "3.2.1",
     "webpack": "^5.99.9",
@@ -56,12 +58,9 @@
   "dependencies": {
     "@ghostery/adblocker": "^2.18.0",
     "chart.js": "^4.5.1",
-    "color-convert": "^2.0.1",
-    "contrast-color": "^1.0.1",
     "lucide-react": "^1.18.0",
     "psl": "^1.15.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "uuid": "^11.1.0"
+    "react-dom": "^18.3.1"
   }
 }
