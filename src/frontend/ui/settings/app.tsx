@@ -76,18 +76,6 @@ class SettingsApp extends Component {
             <h2>Filter lists</h2>
             <div style={{ marginBottom: 16 }}>
               <Checkbox
-                value={settings.lists.fakeNews}
-                onChange={() => this.toggleList('fakeNews')}
-              >
-                <>Fake news filter list</>
-              </Checkbox>
-              <Checkbox
-                value={settings.lists.gambling}
-                onChange={() => this.toggleList('gambling')}
-              >
-                <>Gambling filter list</>
-              </Checkbox>
-              <Checkbox
                 value={settings.lists.social}
                 onChange={() => this.toggleList('social')}
               >

@@ -48,18 +48,31 @@ describe('filter list catalog', () => {
 
   it('enables optional lists only when their toggle is enabled', () => {
     const enabledLists = getEnabledFilterLists(
-      createSettings({ annoyances: true, social: true, youtubeShorts: true })
+      createSettings({
+        annoyances: false,
+        youtubeDistractions: false,
+        youtubeRecommended: false,
+        youtubeShorts: false,
+        social: true,
+      })
     )
 
-    expect(enabledLists.map((list) => list.id)).toEqual([
+    expect(enabledLists.map((list) => list.id)).toEqual(['common', 'social'])
+  })
+
+  it('keeps YouTube and annoyances lists enabled by default', () => {
+    expect(
+      getEnabledFilterLists(DEFAULT_SETTINGS).map((list) => list.id)
+    ).toEqual([
       'common',
+      'youtubeDistractions',
+      'youtubeRecommended',
       'youtubeShorts',
       'annoyances',
-      'social',
     ])
   })
 
-  it('keeps optional YouTube Brave lists out of the default common rules', () => {
+  it('keeps YouTube Brave lists separate from the common rules', () => {
     const common = FILTER_LIST_CATALOG.find((list) => list.id === 'common')
     const optionalYoutubeLists = FILTER_LIST_CATALOG.filter((list) =>
       ['youtubeDistractions', 'youtubeRecommended', 'youtubeShorts'].includes(

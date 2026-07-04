@@ -331,40 +331,6 @@ export const FILTER_LIST_CATALOG: FilterListCatalogEntry[] = [
       },
     ],
   },
-  {
-    id: 'fakeNews',
-    name: 'Fake news',
-    description: 'Midori legacy fake news protection list.',
-    shard: 'annoyances',
-    required: false,
-    defaultEnabled: false,
-    source: 'midori',
-    sources: [
-      {
-        title: 'Dot Shield fake news',
-        url: 'https://raw.githubusercontent.com/dothq-extensions/shield-db/main/out/fake_news.txt',
-        format: 'Standard',
-        supportUrl: 'https://github.com/dothq-extensions/shield-db',
-      },
-    ],
-  },
-  {
-    id: 'gambling',
-    name: 'Gambling',
-    description: 'Midori legacy gambling protection list.',
-    shard: 'annoyances',
-    required: false,
-    defaultEnabled: false,
-    source: 'midori',
-    sources: [
-      {
-        title: 'Dot Shield gambling',
-        url: 'https://raw.githubusercontent.com/dothq-extensions/shield-db/main/out/gambling.txt',
-        format: 'Standard',
-        supportUrl: 'https://github.com/dothq-extensions/shield-db',
-      },
-    ],
-  },
 ]
 
 export function getEnabledFilterLists(
