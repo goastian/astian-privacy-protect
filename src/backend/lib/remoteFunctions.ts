@@ -35,12 +35,29 @@ export const remoteFn = (name: string, payload?: unknown): Promise<unknown> => {
     name: 'co.dothq.shield.fn',
   })
 
-  const promise = new Promise((resolve) => {
+  const promise = new Promise((resolve, reject) => {
+    let settled = false
+    const timeout = setTimeout(() => {
+      if (settled) return
+      settled = true
+      backend.disconnect()
+      reject(new Error(`Timed out calling ${name}`))
+    }, 30_000)
+
     backend.onMessage.addListener(function (msg: FunctionReturnData) {
-      if (msg.id === id) {
-        // This message is the correct return
-        resolve(msg.payload)
-      }
+      if (msg.id !== id || settled) return
+
+      settled = true
+      clearTimeout(timeout)
+      resolve(msg.payload)
+      backend.disconnect()
+    })
+    backend.onDisconnect.addListener(() => {
+      if (settled) return
+
+      settled = true
+      clearTimeout(timeout)
+      reject(new Error(`Disconnected while calling ${name}`))
     })
   })
 

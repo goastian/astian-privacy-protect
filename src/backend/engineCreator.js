@@ -138,27 +138,32 @@ async function createEngine(source, forceRefresh) {
   }))
   const listFetch = createCachedFetch(listSources, forceRefresh)
 
+  const chunks = await Promise.all(
+    listSources.map(async (listSource) => {
+      try {
+        const response = await listFetch(listSource.url)
+        return `! ${listSource.title}\n${await response.text()}`
+      } catch (error) {
+        // One stale upstream must not disable every other source in a shard.
+        // The failed source remains visible in SOURCE_STATE diagnostics.
+        // eslint-disable-next-line no-console
+        console.warn(`Skipping filter source "${listSource.title}"`, error)
+        return null
+      }
+    })
+  )
+  const rules = chunks.filter(Boolean).join('\n')
+
+  if (!rules.trim()) {
+    throw new Error(`No usable sources for "${source.name}"`)
+  }
+
   return {
     name: source.name,
     sources: listSources,
-    engine: await FiltersEngine.fromLists(
-      listFetch,
-      listSources.map((listSource) => listSource.url)
-    ),
+    rules,
+    engine: FiltersEngine.parse(rules),
   }
-}
-
-async function readRulesText(sources, forceRefresh) {
-  const listFetch = createCachedFetch(sources, forceRefresh)
-  const chunks = await Promise.all(
-    sources.map(async (source) => {
-      const response = await listFetch(source.url)
-      const text = await response.text()
-      return `! ${source.title}\n${text}`
-    })
-  )
-
-  return chunks.join('\n')
 }
 
 async function readResourcesJson(forceRefresh) {
@@ -193,9 +198,8 @@ onmessage = async (event) => {
     )
 
     const activeEngines = engines.filter(Boolean)
-    const rustSources = activeEngines.flatMap((engine) => engine.sources)
     const [rustRules, rustResourcesJson] = await Promise.all([
-      readRulesText(rustSources, forceRefresh),
+      Promise.resolve(activeEngines.map((engine) => engine.rules).join('\n')),
       readResourcesJson(forceRefresh).catch((error) => {
         rememberSourceState(BRAVE_RESOURCES_SOURCE, {
           source: 'error',

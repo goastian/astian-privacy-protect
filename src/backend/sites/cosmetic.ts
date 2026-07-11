@@ -234,13 +234,21 @@ const collectTreeTokens = (root: ParentNode) => {
   root.querySelectorAll?.('[id], [class]').forEach(collectElementTokens)
 }
 
+const takeTokenBatch = (tokens: Set<string>) => {
+  const batch: string[] = []
+  for (const token of tokens) {
+    batch.push(token)
+    tokens.delete(token)
+    if (batch.length >= MAX_SELECTOR_BATCH_SIZE) break
+  }
+  return batch
+}
+
 const flushGenericSelectors = async () => {
   if (rustGenerichide || (!pendingClasses.size && !pendingIds.size)) return
 
-  const classes = Array.from(pendingClasses).slice(0, MAX_SELECTOR_BATCH_SIZE)
-  const ids = Array.from(pendingIds).slice(0, MAX_SELECTOR_BATCH_SIZE)
-  pendingClasses.clear()
-  pendingIds.clear()
+  const classes = takeTokenBatch(pendingClasses)
+  const ids = takeTokenBatch(pendingIds)
 
   const response = (await remoteFn('getRustGenericCosmetics', {
     url: window.location.href,
@@ -252,6 +260,7 @@ const flushGenericSelectors = async () => {
   })) as RustGenericCosmeticResources
 
   appendStyle(RUST_GENERIC_STYLE_ID, response.stylesheet || '')
+  if (pendingClasses.size || pendingIds.size) scheduleGenericFlush()
 }
 
 const scheduleGenericFlush = () => {
@@ -277,6 +286,7 @@ const queueProceduralRoot = (root: ParentNode) => {
       applyProceduralActions(root)
       pruneStreamingAds(root)
       pruneYoutubeAds(root)
+      skipYoutubeAd()
     })
   }, PROCEDURAL_BATCH_DELAY_MS)
 }
@@ -331,7 +341,7 @@ const installCosmeticObserver = () => {
   if (isYoutubeHost) {
     appendStyle(YOUTUBE_AD_STYLE_ID, getYoutubeAdStyles())
     pruneYoutubeAds()
-    window.setInterval(skipYoutubeAd, 100)
+    skipYoutubeAd()
   }
 
   const rustResources = (await remoteFn(

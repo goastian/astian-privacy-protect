@@ -12,6 +12,7 @@
   "permissions": [
     "webRequest",
     "webRequestBlocking",
+    "alarms",
     "tabs",
     "webNavigation",
     "http://*/",

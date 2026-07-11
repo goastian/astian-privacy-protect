@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "package:chromium": "npm run build:chromium && node scripts/package-extension.cjs chromium",
     "package:firefox": "npm run build:firefox && node scripts/package-extension.cjs firefox",
+    "validate:lists": "node scripts/validate-filter-lists.cjs",
     "test": "jest"
   },
   "repository": {

@@ -40,8 +40,9 @@ const RUST_ENGINE_CACHE_SCHEMA = 'v1'
 
 // ===============
 // Blocking engine
-let engines: { name: string; engine: FiltersEngine }[]
+let engines: { name: string; engine: FiltersEngine }[] = []
 let engineLoadMs = 0
+let engineLoadError = ''
 let filterListStates: FilterListLoadState[] = []
 let filterListsUpdatedAt = 0
 
@@ -199,6 +200,10 @@ let requestDecisionCount = 0
 let requestDecisionTotalMs = 0
 let requestDecisionMaxMs = 0
 let cosmeticStats = { ...EMPTY_COSMETIC_STATS }
+const FILTER_LIST_REFRESH_ALARM = 'midori-filter-lists-refresh'
+const FILTER_LIST_REFRESH_PERIOD_MINUTES = 12 * 60
+const ENGINE_BUILD_TIMEOUT_MS = 2 * 60 * 1000
+let rebuildQueue: Promise<void> = Promise.resolve()
 
 // =================
 // Blocking code
@@ -624,15 +629,37 @@ const initBadge = () => {
 
 const createEngine: (
   forceRefresh?: boolean
-) => Promise<SerializedEngineResponse> = (forceRefresh = false) =>
-  // eslint-disable-next-line no-async-promise-executor
-  new Promise(async (resolve) => {
-    await settings.checkLoad()
+) => Promise<SerializedEngineResponse> = async (forceRefresh = false) => {
+  await settings.checkLoad()
 
-    engineCreator.onmessage = (engine) =>
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(
+      () => reject(new Error('Filter engine build timed out')),
+      ENGINE_BUILD_TIMEOUT_MS
+    )
+    const cleanup = () => window.clearTimeout(timeout)
+
+    engineCreator.onmessage = (engine) => {
+      cleanup()
       resolve(engine.data as SerializedEngineResponse)
+    }
+    engineCreator.onerror = (error) => {
+      cleanup()
+      reject(new Error(error.message || 'Filter engine worker failed'))
+    }
     engineCreator.postMessage({ settings: settings.data, forceRefresh })
   })
+}
+
+const enableRequestListener = () => {
+  if (browser.webRequest.onBeforeRequest.hasListener(requestHandler)) return
+
+  browser.webRequest.onBeforeRequest.addListener(
+    requestHandler,
+    { urls: ['<all_urls>'] },
+    ['blocking']
+  )
+}
 
 /**
  * The listener for webRequests. Blocks matching requests and records stats.
@@ -726,14 +753,16 @@ const init = async () => {
   await whitelist.load()
   await settings.load()
 
+  enableRequestListener()
   await rebuildEngines(false)
 }
 
-const rebuildEngines = async (forceRefresh = false) => {
-  close()
+const performEngineRebuild = async (forceRefresh = false) => {
+  state = BackendState.Loading
 
   // Disable if enabled isn't set properly
   if (!settings.data.enabled) {
+    close()
     engines = []
     filterListStates = []
     filterListsUpdatedAt = 0
@@ -742,16 +771,24 @@ const rebuildEngines = async (forceRefresh = false) => {
     return
   }
 
+  // Keep the current engine active while new lists download and compile.
+  enableRequestListener()
+
   const engineLoadStart = performance.now()
   const engineResponse = await createEngine(forceRefresh)
+  if (engineResponse.error && !engineResponse.engines?.length) {
+    throw new Error(engineResponse.error)
+  }
   const serializeEngine = engineResponse.engines || []
+  engineLoadError = ''
   filterListStates = engineResponse.listStates || []
   filterListsUpdatedAt = engineResponse.updatedAt || Date.now()
 
-  engines = serializeEngine.map((engine) => ({
+  const nextEngines = serializeEngine.map((engine) => ({
     name: engine.name,
     engine: FiltersEngine.deserialize(engine.engine),
   }))
+  engines = nextEngines
   await rebuildRustEngine(
     engineResponse.rustRules || '',
     engineResponse.rustResourcesJson || '[]',
@@ -760,14 +797,19 @@ const rebuildEngines = async (forceRefresh = false) => {
   )
   engineLoadMs = Math.round(performance.now() - engineLoadStart)
 
-  browser.webRequest.onBeforeRequest.addListener(
-    requestHandler,
-    { urls: ['<all_urls>'] },
-    ['blocking']
-  )
-
   // Set state to idle
   state = BackendState.Idle
+}
+
+const rebuildEngines = (forceRefresh = false) => {
+  const queued = rebuildQueue.then(() => performEngineRebuild(forceRefresh))
+  rebuildQueue = queued.catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error('Failed to rebuild filter engines', error)
+    engineLoadError = error instanceof Error ? error.message : String(error)
+    state = BackendState.Idle
+  })
+  return rebuildQueue
 }
 
 /**
@@ -802,8 +844,7 @@ defineFn('getAds', async () => adsOnTabs)
 
 // Restart the backend. Used by the settings ui when changes are made to settings
 defineFn('reloadBackend', async () => {
-  close()
-  init()
+  await init()
 })
 
 defineFn('refreshFilterLists', async () => {
@@ -820,6 +861,9 @@ defineFn('refreshFilterLists', async () => {
 defineFn('getLongTermStats', async () => ltBlocked.data)
 
 defineFn('getRustCosmeticResources', async (payload) => {
+  if (!rustEngine && state === BackendState.Loading) {
+    await waitForDynamic(() => (state === BackendState.Idle ? true : undefined))
+  }
   if (!rustEngine) return EMPTY_RUST_COSMETIC_RESOURCES
 
   const { url } = payload as RustCosmeticRequestPayload
@@ -833,6 +877,9 @@ defineFn('getRustCosmeticResources', async (payload) => {
 })
 
 defineFn('getRustGenericCosmetics', async (payload) => {
+  if (!rustEngine && state === BackendState.Loading) {
+    await waitForDynamic(() => (state === BackendState.Idle ? true : undefined))
+  }
   if (!rustEngine) return EMPTY_RUST_GENERIC_COSMETIC_RESOURCES
 
   const {
@@ -893,6 +940,7 @@ function getProtectionSummaryData() {
   return {
     state,
     engineLoadMs,
+    engineLoadError,
     engineCount: engines?.length || 0,
     engineNames: engines?.map((engine) => engine.name) || [],
     enabled: settings.data.enabled,
@@ -1164,14 +1212,26 @@ const handleRuntimeMessage = (message, sender) => {
 
 browser.runtime.onMessage.addListener(handleRuntimeMessage)
 browser.runtime.onMessageExternal?.addListener(handleRuntimeMessage)
+browser.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== FILTER_LIST_REFRESH_ALARM) return
+  rebuildEngines(true).catch(() => undefined)
+})
 ;(async () => {
   // Wait for the rust code to load
   // wasm = await wasm
 
   // Call the init function, so the blocker starts by default
   initBadge()
-  init()
-})()
+  browser.alarms.create(FILTER_LIST_REFRESH_ALARM, {
+    delayInMinutes: FILTER_LIST_REFRESH_PERIOD_MINUTES,
+    periodInMinutes: FILTER_LIST_REFRESH_PERIOD_MINUTES,
+  })
+  await init()
+})().catch((error) => {
+  // eslint-disable-next-line no-console
+  console.error('Failed to initialize the blocker', error)
+  state = BackendState.Idle
+})
 
 // =============================================================================
 // Util functions
@@ -1186,12 +1246,4 @@ async function waitForDynamic<DynamicType>(
 
   // Return dynamic for convenience
   return fn()
-}
-
-/**
- * Waits for the engine to start then returns
- */
-const waitForEngine = async () => {
-  // Wait for the engine to spawn
-  return await waitForDynamic(() => engines)
 }
