@@ -8,6 +8,7 @@
     "build:midori": "make firefox",
     "build:chromium": "make chromium",
     "build:firefox": "make firefox",
+    "package:firefox": "npm run build:firefox && node scripts/package-extension.cjs firefox",
     "build:opera": "make opera",
     "build:thunderbird": "make thunderbird",
     "build:mv3:chromium": "make mv3-chromium",
