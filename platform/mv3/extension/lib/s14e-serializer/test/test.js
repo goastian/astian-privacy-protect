@@ -1,0 +1,336 @@
+/******************************************************************************/
+
+import {
+    deserialize,
+    deserializeAsync,
+    serialize,
+    serializeAsync,
+} from '../s14e-serializer.js';
+import assert from 'node:assert';
+import { readFile } from 'node:fs/promises';
+
+/******************************************************************************/
+
+const Green = '\x1b[32m';
+const Red = '\x1b[31m';
+const NoColor = '\x1b[0m';
+
+const fromCodePoint = v =>
+    String.fromCodePoint(v);
+
+const strFromPassOrFail = (result, expect = true) => [
+    result === expect ? `${Green}ok` : `  `,
+    ' ',
+    result ? `${Green}pass` : `${Red}fail`,
+    NoColor,
+].join('');
+
+const objType = o => {
+    const type = typeof o;
+    if ( type !== 'object' ) { return type; }
+    return Object.prototype.toString.call(o).slice(8, -1);
+};
+
+/******************************************************************************/
+
+function assertEqual(actual, expected, message) {
+    let pass;
+    try {
+        assert.deepStrictEqual(actual, expected);
+        pass = true;
+    } catch(_) {
+        void _;
+        pass = false;
+    }
+    if ( message === undefined ) {
+        message = `${objType(actual)}: ${actual}`;
+        if ( message.length > 40 ) {
+            message = `${message.slice(0, 39)}\u2026`;
+        }
+    }
+    console.log(strFromPassOrFail(pass), message);
+}
+
+function assertPass(result, message) {
+    const out = [
+        strFromPassOrFail(result),
+        message,
+    ].join(' ');
+    console.log(out);
+}
+
+function assertFail(result, message) {
+    const out = [
+        strFromPassOrFail(!result, false),
+        message,
+    ].join(' ');
+    console.log(out);
+}
+
+function cloneData(data, options = {}) {
+    return deserialize(serialize(data, options));
+}
+
+function cloneTest(value) {
+    assertEqual(value, cloneData(value));
+}
+
+/******************************************************************************/
+
+// I shamelessly pilfered some test units data from:
+// https://github.com/zloirock/core-js/blob/master/tests/unit-global/web.structured-clone.js#L20C1-L72C1
+
+(async ( ) => {
+    const data = [
+        undefined,
+        null,
+        false,
+        true,
+        NaN,
+        -Infinity,
+        -Number.MAX_VALUE,
+        -0xFFFFFFFF,
+        -0x80000000,
+        -0x7FFFFFFF,
+        -1,
+        -Number.MIN_VALUE,
+        0,
+        1,
+        Number.MIN_VALUE,
+        0x7FFFFFFF,
+        0x80000000,
+        0xFFFFFFFF,
+        Number.MAX_VALUE,
+        Infinity,
+        -12345678901234567890n,
+        -1n,
+        0n,
+        1n,
+        12345678901234567890n,
+        '',
+        'this is a sample string',
+        'null(\0)',
+        'français',
+        `emojis: ${fromCodePoint(0x1F600)}... ${fromCodePoint(0x1F914)}...`,
+        new Boolean(false),
+        new Boolean(true),
+        new Number(0),
+        new Number(1),
+        new String(''),
+        new String('this is a sample string'),
+        /^.+regex.+\.$/,
+        new RegExp('^.+regex.+\\.$'),
+        new RegExp(),
+        /abc/,
+        /abc/g,
+        /abc/i,
+        /abc/gi,
+        /abc/,
+        /abc/g,
+        /abc/i,
+        /abc/gi,
+        /abc/giuy,
+        new Date(-1e13),
+        new Date(-1e12),
+        new Date(-1e9),
+        new Date(-1e6),
+        new Date(-1e3),
+        new Date(0),
+        new Date(1e3),
+        new Date(1e6),
+        new Date(1e9),
+        new Date(1e12),
+        new Date(1e13),
+        [ 1, 2, 3, 4, 'toto' ],
+        // new Array(5), // fails, need to investigate
+        { foo: 1, bar: 'baz' },
+        new Map(),
+        new Map([ [ 'foo', 'bar' ], [ 1234, 'baz' ] ]),
+        new Set(),
+        new Set([ 'foo', 'bar', 1234, 'baz' ]),
+        new Uint8Array(128),
+        new Uint8Array([]),
+        new Uint8Array([0, 1, 254, 255]),
+        new Uint8ClampedArray([0, 1, 254, 2]),
+        new Uint16Array([0x0000, 0x0001, 0xFFFE, 0xFFFF]),
+        new Uint32Array([0x00000000, 0x00000001, 0xFFFFFFFE, 0xFFFFFFFF]),
+        new Int8Array([0, 1, 254, 255]),
+        new Int16Array([0x0000, 0x0001, 0xFFFE, 0xFFFF]),
+        new Int32Array([0x00000000, 0x00000001, 0xFFFFFFFE, 0xFFFFFFFF]),
+        new Float32Array([-Infinity, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, Infinity]),
+        new Float64Array([-Infinity, -Number.MAX_VALUE, -Number.MIN_VALUE, 0, Number.MIN_VALUE, Number.MAX_VALUE, Infinity]),
+    ];
+    const serializedData = [
+        "S14EDATA_1 3",
+        "S14EDATA_1 2",
+        "S14EDATA_1 0",
+        "S14EDATA_1 1",
+        "S14EDATA_1 4) NaN",
+        "S14EDATA_1 4/ -Infinity",
+        "S14EDATA_1 4> -1.7976931348623157e+308",
+        "S14EDATA_1 -UeP]n ",
+        "S14EDATA_1 ->E;nI ",
+        "S14EDATA_1 -=E;nI ",
+        "S14EDATA_1 +'",
+        "S14EDATA_1 4- -5e-324",
+        "S14EDATA_1 )",
+        "S14EDATA_1 *'",
+        "S14EDATA_1 4, 5e-324",
+        "S14EDATA_1 ,=E;nI ",
+        "S14EDATA_1 ,>E;nI ",
+        "S14EDATA_1 ,UeP]n ",
+        "S14EDATA_1 4= 1.7976931348623157e+308",
+        "S14EDATA_1 4. Infinity",
+        "S14EDATA_1 /H8af/?zp&M ",
+        "S14EDATA_1 /' ",
+        "S14EDATA_1 .& ",
+        "S14EDATA_1 .' ",
+        "S14EDATA_1 .H8af/?zp&M ",
+        "S14EDATA_1 '&",
+        "S14EDATA_1 '=this is a sample string",
+        "S14EDATA_1 '-null(\0)",
+        "S14EDATA_1 '.français",
+        "S14EDATA_1 '9emojis: 😀... 🤔...",
+        "S14EDATA_1 70",
+        "S14EDATA_1 71",
+        "S14EDATA_1 5)",
+        "S14EDATA_1 5*'",
+        "S14EDATA_1 8'&",
+        "S14EDATA_1 8'=this is a sample string",
+        "S14EDATA_1 9'3^.+regex.+\\.$'&",
+        "S14EDATA_1 9'3^.+regex.+\\.$'&",
+        "S14EDATA_1 9'*(?:)'&",
+        "S14EDATA_1 9')abc'&",
+        "S14EDATA_1 9')abc''g",
+        "S14EDATA_1 9')abc''i",
+        "S14EDATA_1 9')abc'(gi",
+        "S14EDATA_1 9')abc'&",
+        "S14EDATA_1 9')abc''g",
+        "S14EDATA_1 9')abc''i",
+        "S14EDATA_1 9')abc'(gi",
+        "S14EDATA_1 9')abc'*giuy",
+        "S14EDATA_1 :-F*8CvT; ",
+        "S14EDATA_1 :-_If1Q3( ",
+        "S14EDATA_1 :-F:Jb6 ",
+        "S14EDATA_1 :-_1O' ",
+        "S14EDATA_1 :-F1 ",
+        "S14EDATA_1 :)",
+        "S14EDATA_1 :,F1 ",
+        "S14EDATA_1 :,_1O' ",
+        "S14EDATA_1 :,F:Jb6 ",
+        "S14EDATA_1 :,_If1Q3( ",
+        "S14EDATA_1 :,F*8CvT; ",
+        "S14EDATA_1 >+*'*(*)**'*toto",
+        "S14EDATA_1 <(')foo*'')bar')baz",
+        "S14EDATA_1 B&",
+        "S14EDATA_1 B(')foo')bar,(4 ')baz",
+        "S14EDATA_1 @&",
+        "S14EDATA_1 @*')foo')bar,(4 ')baz",
+        "S14EDATA_1 F& N' DN' ,N' 0'&",
+        "S14EDATA_1 F& & D& )0'&",
+        "S14EDATA_1 F& * D* **1'+&o?]n",
+        "S14EDATA_1 G& * D* **0'+&Vap ",
+        "S14EDATA_1 I& * D. *.0'0gN. TeP]n ",
+        "S14EDATA_1 K& * D6 *60'5 ' TeP]n UeP]n ",
+        "S14EDATA_1 E& * D* **1'+&o?]n",
+        "S14EDATA_1 H& * D. *.0'0gN. TeP]n ",
+        "S14EDATA_1 J& * D6 *60'5 ' TeP]n UeP]n ",
+        "S14EDATA_1 L& / DJ *J1'SNO5PnFJe_[olVX[gV;L[&&&&&N7&^7VLAj7.+Op760yaI",
+        "S14EDATA_1 M& - D_ *_0'Y w@zZn UeP]n v@zZn ' >E;nI   '  UeP]n ^zdlI  _zdlI ",
+    ];
+
+    // Built-in types
+    for ( const value of data ) {
+        cloneTest(value);
+    }
+
+    // Pre-serialized values
+    for ( let i = 0; i < data.length; i++ ) {
+        assert.deepStrictEqual(data[i], deserialize(serializedData[i]));
+    }
+    // Promise-based
+    {
+        const s = await serializeAsync(data);
+        const clone = await deserializeAsync(s);
+        assertEqual(clone, data, 'Promise-based API');
+    }
+
+    // Self-reference in Object
+    {
+        const value = { data };
+        value.top = value;
+        const clone = cloneData(value);
+        assertPass(clone === clone.top, 'Self-reference in Object');
+    }
+
+    // Self-reference in Array
+    {
+        data.unshift(data);
+        const clone = cloneData(data);
+        assertPass(clone === clone[0], 'Self-reference in Array');
+    }
+
+    // Multiple references to same Object
+    {
+        const obj = { id: 1 };
+        data.unshift(obj);
+        data.push(obj);
+        const clone = cloneData(data);
+        assertPass(clone[0] === clone.at(-1), 'Multiple references to same Object');
+    }
+
+    // Multiple typed array with same underlying ArrayBuffer
+    {
+        const obj = {};
+        obj.u32 = new Uint32Array(64);
+        for ( let i = 0; i < obj.u32.length / 2; i++ ) {
+            obj.u32[i] = i;
+        }
+        for ( let i = obj.u32.length / 2; i < obj.u32.length; i++ ) {
+            obj.u32[i] = 0xFFFFFFFF - obj.u32.length + i;
+        }
+        obj.u8 = new Uint8Array(obj.u32.buffer, 64, 128);
+        const clone = cloneData(obj);
+        assertPass(clone.u8.buffer === clone.u32.buffer, 'ArrayBuffer shared by multiple typed arrays');
+        assert.deepStrictEqual(obj, clone);
+    }
+
+    // Compression-decompression
+     {
+        const text = await readFile('./s14e-serializer.js', { encoding: 'utf8' });
+        const s0 = serialize(text);
+        const s1 = serialize(text, { compress: true });
+        assertPass(true, `Compression after/before: ${s1.length}/${s0.length}`);
+        const clone = deserialize(s1);
+        assertPass(clone === text, 'Deserialized from compressed serialization');
+    }
+
+    // https://github.com/commenthol/serialize-to-js/issues/18
+    {
+        const obj = {
+            ref1: { foo: 'bar' },
+            m: new Map(),
+        }
+        obj.ref2 = obj.ref1;
+        obj.ref3 = obj.ref1;
+        obj.m.set('key1', obj.ref1);
+        obj.m.set('key2', obj.ref2);
+        const clone = cloneData(obj);
+        assertPass(
+            clone.ref2 === clone.ref1 && clone.ref3 === clone.ref1,
+            'Properly restored references to object'
+        );
+        assertPass(
+            clone.m.get('key1') === clone.ref1 && clone.m.get('key2') === clone.ref2,
+            'Properly restored references to object used as values in Map'
+        );
+    }
+
+    // Serializing a function should fail 
+    {
+        const fn = function(){};
+        const clone = cloneData(fn);
+        assertFail(clone === undefined, 'Serializing a function should fail');
+    }
+
+})();

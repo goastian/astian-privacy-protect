@@ -1,54 +1,31 @@
-# Contributing to Dot Shield
+# Contributions
 
-We love your input! We want to make contributing to this project as easy and transparent as possible, whether it's:
+Please refer to the sections below to find the appropriate destination for your contributions. Thank you for your support!
 
-- Reporting a bug
-- Discussing the current state of the code
-- Submitting a fix
-- Proposing new features
-- Becoming a maintainer
+---
 
-## We Develop with GitHub
+### Translations
 
-We use GitHub to host code, to track issues and feature requests, as well as accept pull requests.
+You can help translate uBO via [Crowdin](https://crowdin.com/project/ublock).
 
-## We Use [GitHub Flow](https://guides.github.com/introduction/flow/index.html), So All Code Changes Happen Through Pull Requests
+---
 
-Pull requests are the best way to propose changes to the codebase (we use [GitHub Flow](https://guides.github.com/introduction/flow/index.html)). We actively welcome your pull requests:
+### Reporting Issues
 
-1. Fork the repo and create your branch from `main`.
-2. Make your changes and commit according to [gitmoji](https://gitmoji.dev/)
-3. Create a pull request and wait for our automated systems to check everything
+The issue tracker in this repository is deprecated. Use the links below to report your issues.
 
-If you want to make a change to the codebase that you are unsure about, create an issue or comment on an existing one.
+#### Support Forum
 
-## Any contributions you make will be under the MPLv2 Software License
+For support, questions, or assistance, please visit [/r/uBlockOrigin](https://www.reddit.com/r/uBlockOrigin/).
 
-In short, when you submit code changes, your submissions will be understood to be under the same [Mozilla Public License](https://choosealicense.com/licenses/mpl-2.0/) that covers the project. Feel free to contact the maintainers if that's a concern.
+#### Filter List Issues
 
-## Report bugs using GitHub's [issues](https://github.com/dothq-extensions/adblock/issues)
+Report issues related to filter lists or broken website functionality in the [uAssets issue tracker](https://github.com/uBlockOrigin/uAssets/issues).
 
-We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/dothq-extensions/adblock/issues/new); it's that easy!
+#### uBlock Origin (uBO) Issues
 
-### Write bug reports with detail, background, and sample code
+For issues specifically about uBO, please use the [uBO issue tracker](https://github.com/uBlockOrigin/uBlock-issues/issues).
 
-When filing a bug report please follow the template. If there is any additional information that you can provide that may be relevant (e.g. network ad blocking like pihole) we would greatly appreciate it.
+#### uBO Lite (uBOL) Issues
 
-People _love_ thorough bug reports. I'm not even kidding.
-
-## Use a Consistent Coding Style
-
-We use Prettier to enforce a syntax style. We prefer:
-
-- 2 spaces for indentation rather than tabs
-- Single quotes (`'`) rather than double quotes (`"`)
-- No semicolons
-- You can try running `yarn prettier` for style unification
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the MPLv2 License.
-
-## References
-
-This document was adapted from the open-source contribution guidelines for [Facebook's Draft](https://github.com/facebook/draft-js/blob/a9316a723f9e918afde44dea68b5f9f39b7d9b00/CONTRIBUTING.md) by [Brian A. Danielak](https://gist.github.com/briandk/3d2e8b3ec8daf5a27a62)
+For issues related to the Manifest Version 3 (MV3) variant, report them in the [uBOL issue tracker](https://github.com/uBlockOrigin/uBOL-home/issues).

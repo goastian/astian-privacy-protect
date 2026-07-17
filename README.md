@@ -1,113 +1,90 @@
-# Midori Privacy - Ad and Tracker Blocker
+# Midori Privacy
 
-An ad and tracker blocker for Chromium and Firefox, focused on privacy,
-performance, and user control.
+Midori Privacy is Astian's browser protection extension. This repository now uses the complete [uBlock Origin](https://github.com/gorhill/uBlock) codebase and filtering engine, with Midori branding and a simpler default experience for everyday users.
 
-Built by [Astian Inc](https://astian.org).
+The default popup keeps the primary decisions visible: protection status for the current site, blocked-request totals, reporting and settings. uBlock Origin's lists, logger, element tools, custom filters, dynamic rules and advanced settings remain available through progressive disclosure.
 
-## Features
+## Upstream base
 
-### Core protection
+- Repository: `gorhill/uBlock`
+- Imported commit: `2ced2a67d229c7eebdba8a994f999d83a68b2f38`
+- Imported on: 2026-07-17
+- Upstream development version: `1.72.3.4`
+- License: GPL-3.0; see [LICENSE.txt](LICENSE.txt)
 
-- Ad and tracker blocking with ABP-compatible lists (EasyList, EasyPrivacy,
-  uBlock, Peter Lowe, and additional optional lists).
-- Dual engine by browser:
-  - Chromium (MV3): native rules via `declarativeNetRequest`.
-  - Firefox (MV2): Ghostery engine on top of `webRequest`.
-- Protection levels: `basic`, `standard`, and `strict` (setup wizard + popup).
-- Per-site enable/disable protection (domain and subdomain whitelist support).
-- Temporary pause for the current site with automatic resume.
-- Per-category controls from popup (ads, trackers, fingerprinting).
-- Entity-based blocking (owner/entity), with rollout controls.
-- Vertical profiles by site type (`general`, `video`, `adult`, `ai`).
+Raymond Hill and the uBlock Origin contributors retain attribution for the upstream work. Midori-specific branding, packaging and UX changes are maintained by Astian, Inc.
 
-### Anti-breakage and hardening
+## Product identity
 
-- Safe-defaults policy to reduce false positives.
-- First-party relaxation for compatible first-party CDNs.
-- Critical first-party site list (mail, banking, government, etc.) where
-  cosmetic/scriptlet injection is disabled to avoid breaking core features.
-- Anti popup/popunder defense with burst, redirect, and gesture detection.
-- Navigation URL cleaning to remove tracking parameters (`utm_*`, `fbclid`,
-  `gclid`, `msclkid`, etc.) without blocking page load.
+| Target | Stable identity |
+| --- | --- |
+| Firefox MV2/MV3 | `midori-protection@astian.org` |
+| Thunderbird | `midori-protection@astian.org` |
+| Chromium MV2/MV3, Edge and Opera | `pimgloaejdgobcgjahbgippfilfdpcfa` |
+| Safari wrapper | use bundle identifier `org.astian.midori-protection` |
 
-### IA Shield and anti-fingerprinting
+Chromium-compatible browsers do not accept an email address as an extension ID. Their 32-letter ID is derived from the public key stored in the Chromium manifests. The email identifier is still present in the author/product metadata, while the committed key keeps the runtime ID stable across local and self-hosted builds. A web store can assign a different ID; if that happens, replace the manifest key with the public key issued for that store entry.
 
-- Optional IA Shield for AI hosts: prompt-injection pattern detection,
-  suspicious payload sanitization, and local risk events.
-- Configurable anti-fingerprinting with safeguards for sensitive sites.
+## Build
 
-### UI and observability
+Requirements: Linux, Bash, Python 3, Node.js 22+, npm 11+, `make`, `jq` and `zip`.
 
-- Popup with real-time per-tab stats.
-- Blocked count, estimated data savings, energy savings, and CO2 savings.
-- Grouped blocked requests list (ads, trackers, other).
-- Options page with:
-  - Filter list management (core, annoyances, adguard, regional).
-  - Custom filters and custom list URLs.
-  - Whitelist and vertical-specific settings.
-  - Reports and trends.
-  - Experiment/rollout flags.
-  - Local telemetry controls and reset.
-- Privacy reports:
-  - Top tracked sites.
-  - 7/30/90-day stats.
-  - Category distribution.
-  - Hourly heatmap.
-  - Weekly trend.
-  - Applied-rules diagnostics.
-  - JSON export.
+### Midori and Firefox (priority target)
 
-### Telemetry and privacy
+Midori must use the complete Firefox build. It runs the full uBlock Origin
+`webRequest` engine, provides exact per-tab blocking counts and drives the
+toolbar badge from those real counts.
 
-- Optional local-only telemetry (performance and quality KPIs), stored on
-  device.
-- Support for false-positive reporting and missed-ad reporting.
-- No mandatory external data upload required to operate.
+```sh
+npm run build:midori
+```
 
-## Supported browsers
+The installable artifact is
+`dist/build/midori-protection.firefox.xpi`. Do not use the Firefox MV3 build
+for Midori: that target is kept only for experimental compatibility and its
+declarative API cannot provide the same production diagnostics.
 
-| Browser | Manifest | Blocking method |
-|---------|----------|-----------------|
-| Chrome, Edge, Brave, Opera | MV3 | `declarativeNetRequest` + content scripts |
-| Firefox | MV2 | `webRequest` + Ghostery engine |
+### Other full-engine targets
 
-## Development setup
-
-```bash
-git clone https://github.com/goastian/midori-privacy.git
-cd midori-privacy
+```sh
 npm install
-wasm-pack --version
-cargo --version
+npm run build:chromium
+npm run build:opera
+npm run build:thunderbird
 ```
 
-Run the extension build:
+Experimental and secondary MV3 targets:
 
 ```sh
-npm run build
+npm run build:mv3:chromium
+npm run build:mv3:edge
+npm run build:mv3:firefox
+npm run build:mv3:safari
 ```
 
-Check the Rust core:
+Build outputs are written under `dist/build/` with the `midori-protection` prefix. The normal Chromium/Firefox builds contain the complete uBlock Origin engine. MV3 builds use the upstream MV3 engine and declarative ruleset pipeline because those browsers impose different platform capabilities.
+
+## Development checks
 
 ```sh
-cd src/backend/rust
-cargo check
+npm run lint
+make chromium
+make firefox
 ```
 
-Build the WASM package:
+See [docs/MIDORI_MIGRATION.md](docs/MIDORI_MIGRATION.md) for the migration map, update workflow and packaging caveats.
+
+## Upstream updates
+
+The local repository keeps Astian's `origin` remote. Add or refresh the upstream remote with:
 
 ```sh
-cd src/backend/rust
-wasm-pack build --target web --release
+git remote add ublock-upstream https://github.com/gorhill/uBlock.git
+git fetch ublock-upstream
 ```
 
-## Rust Core Direction
+Import upstream updates in a dedicated branch, then reapply and validate the Midori manifest, icon and popup changes listed in the migration document. Do not publish with uBlock Origin's official store identifiers.
 
-The Rust crate is optimized for the extension use case:
+## Privacy and support
 
-- `adblock` `0.12.5`
-- `single-thread` enabled for lower memory and faster matching
-- release LTO, single codegen unit, size optimization, and aborting panics
-
-See `docs/adblock-rust-migration.md` for the migration plan.
+The upstream engine runs locally and its Firefox manifests declare no required data collection. Review store disclosures and any Astian distribution/update services before publishing each target. For Midori product issues use the Astian repository; for upstream engine behavior, consult the [uBlock Origin documentation](https://github.com/gorhill/uBlock/wiki).

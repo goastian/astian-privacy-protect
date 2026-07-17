@@ -1,0 +1,105 @@
+{
+  "action": {
+    "default_area": "navbar",
+    "default_icon": {
+      "16": "img/icon_16.png",
+      "32": "img/icon_32.png",
+      "64": "img/icon_64.png"
+    },
+    "default_popup": "popup.html"
+  },
+  "author": "Astian, Inc. <midori-protection@astian.org>; based on uBlock Origin by Raymond Hill & contributors",
+  "background": {
+    "scripts": [ "/js/background.js" ],
+    "type": "module"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "midori-protection@astian.org",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": [ "none" ]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "128.0"
+    }
+  },
+  "commands": {
+    "enter-zapper-mode": {
+      "description": "__MSG_zapperTipEnter__"
+    },
+    "enter-picker-mode": {
+      "description": "__MSG_pickerTipEnter__"
+    }
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+    ]
+  },
+  "default_locale": "en",
+  "description": "Midori Privacy blocks ads, trackers and annoyances with the uBlock Origin MV3 engine.",
+  "homepage_url": "https://astian.org/",
+  "icons": {
+    "16": "img/icon_16.png",
+    "32": "img/icon_32.png",
+    "64": "img/icon_64.png",
+    "128": "img/icon_128.png"
+  },
+  "manifest_version": 3,
+  "name": "Midori Privacy",
+  "options_ui": {
+      "open_in_tab": true,
+      "page": "dashboard.html"
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "optional_permissions": [
+    "userScripts"
+  ],
+  "permissions": [
+    "activeTab",
+    "alarms",
+    "declarativeNetRequest",
+    "scripting",
+    "storage",
+    "unlimitedStorage"
+  ],
+  "short_name": "Midori Privacy",
+  "version": "1.0",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "/strictblock.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    },
+    {
+      "resources": [
+        "/zapper-ui.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    },
+    {
+      "resources": [
+        "/picker-ui.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    },
+    {
+      "resources": [
+        "/unpicker-ui.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

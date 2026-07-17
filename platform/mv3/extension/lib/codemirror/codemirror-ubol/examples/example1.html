@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Quickstart Example 1</title>
+    <link rel="icon" href="data:;base64,=">
+    <style>
+        /* Set editor dimensions */
+        #editor {
+            height: 500px;
+            width: 50%;
+        }
+
+        /* Stretch editor to fit inside its containing div */
+        .cm-editor {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Editor goes in here -->
+    <div id="editor"></div>
+
+    <!-- CodeMirror 6 -->
+    <script src="../dist/cm6.bundle.min.js"></script>
+    <script>
+        // Create an initial state for the view
+        const initialState = cm6.createEditorState("function foo() {\n    console.log(123);\n}");
+        const view = cm6.createEditorView(initialState, document.getElementById("editor"));
+
+        // Programmatically change editor contents
+        console.log("Before:\n", view.state.doc.toString())
+        view.dispatch({ changes: { from: 0, insert: "// Programmatically add a comment to the first line\n" } })
+        console.log("After:\n", view.state.doc.toString())
+    </script>
+</body>
+
+</html>

@@ -1,7 +1,7 @@
-dist/
-packages/
+*.bak
+*.pem
+__pycache__/
 node_modules/
-coverage/
+/dist/build/
+/tmp/
 .DS_Store
-pkg/
-target/

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html id="uBO-popup-panel" class="desktop">
+
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark" />
+<link rel="stylesheet" href="css/default.css">
+<link rel="stylesheet" href="css/common.css">
+<link rel="stylesheet" href="css/fa-icons.css">
+<link rel="stylesheet" href="css/filtering-mode.css">
+<link rel="stylesheet" href="css/popup.css">
+<title data-i18n="extName"></title>
+</head>
+
+<body class="loading busy">
+
+<main>
+    <header id="brandBar">
+        <div class="brandIdentity">
+            <img src="img/midori-shield.svg" alt="" width="32" height="32">
+            <div>
+                <strong data-i18n="extName"></strong>
+                <span data-i18n="midoriBrandTagline"></span>
+            </div>
+        </div>
+        <button id="gotoDashboard" class="brandSettings fa-icon tool enabled" type="button" data-i18n-title="popupTipDashboard">cogs</button>
+    </header>
+
+    <section class="siteControl">
+        <div class="siteIdentity">
+            <span class="eyebrow" data-i18n="midoriCurrentSite"></span>
+            <strong id="hostname"><span></span>&shy;<span></span></strong>
+        </div>
+        <label class="protectionSwitch">
+            <input id="protectionToggle" type="checkbox" role="switch" aria-label="midoriToggleProtection">
+            <span class="switchTrack"><span></span></span>
+            <span class="switchCopy">
+                <strong data-i18n="midoriProtectionOn"></strong>
+                <small data-i18n="midoriProtectionSwitchHint"></small>
+            </span>
+        </label>
+    </section>
+
+    <div class="filteringModeSlider midoriModeState" aria-hidden="true">
+        <div class="filteringModeButton"><div></div></div>
+        <span data-level="0" aria-label="filteringMode0Name"></span>
+        <span data-level="1" aria-label="filteringMode1Name"></span>
+        <span data-level="2" aria-label="filteringMode2Name"></span>
+        <span data-level="3" aria-label="filteringMode3Name"></span>
+    </div>
+
+    <section class="activitySummary" aria-live="polite">
+        <div id="activityDonut" class="activityDonut">
+            <strong id="blockedTotal">0</strong>
+            <span data-i18n="midoriBlocked"></span>
+        </div>
+        <div class="activitySummaryCopy">
+            <span class="eyebrow" data-i18n="midoriObservedActivity"></span>
+            <strong id="activityHeadline" data-i18n="midoriNoBlocks"></strong>
+            <span id="activityDetail" data-i18n="midoriActivityUpdates"></span>
+        </div>
+    </section>
+
+    <nav class="viewSwitch" role="tablist" aria-label="midoriPopupViews">
+        <button id="actionsTab" class="active" type="button" role="tab" aria-selected="true" aria-controls="actionsPanel" data-view="actions" data-i18n="midoriActions"></button>
+        <button id="statisticsTab" type="button" role="tab" aria-selected="false" aria-controls="statisticsPanel" data-view="statistics" data-i18n="midoriStatistics"></button>
+    </nav>
+
+    <div class="viewViewport">
+        <section id="actionsPanel" class="viewPanel active" role="tabpanel" aria-labelledby="actionsTab">
+            <div class="panelHeading">
+                <div>
+                    <span class="eyebrow" data-i18n="popupFilteringModeLabel"></span>
+                    <strong id="filteringModeText"><span>_</span><span></span></strong>
+                </div>
+                <span class="statusPill" data-i18n="midoriRecommended"></span>
+            </div>
+
+            <div class="modeChoices" role="group" aria-label="popupFilteringModeLabel">
+                <button type="button" data-level="1"><strong data-i18n="filteringMode1Name"></strong><span data-i18n="midoriBasicModeHint"></span></button>
+                <button type="button" data-level="2"><strong data-i18n="filteringMode2Name"></strong><span data-i18n="midoriOptimalModeHint"></span></button>
+                <button type="button" data-level="3"><strong data-i18n="filteringMode3Name"></strong><span data-i18n="midoriCompleteModeHint"></span></button>
+            </div>
+
+            <div class="toolMenu localTools needHTTP">
+                <span class="eyebrow sectionLabel" data-i18n="popupLocalToolsLabel"></span>
+                <button id="gotoZapper" class="tool enabled" type="button">
+                    <span class="fa-icon">bolt</span>
+                    <span data-i18n="zapperTipEnter">_</span>
+                </button>
+                <button id="gotoPicker" class="tool enabled" type="button">
+                    <span class="fa-icon">eye-slash</span>
+                    <span data-i18n="pickerTipEnter">_</span>
+                </button>
+                <button id="gotoUnpicker" class="tool" type="button">
+                    <span class="fa-icon">undo</span>
+                    <span data-i18n="unpickerTipEnter">_</span>
+                </button>
+                <button id="gotoReport" class="tool enabled" type="button">
+                    <span class="fa-icon">comment-alt</span>
+                    <span data-i18n="popupTipReport">_</span>
+                </button>
+            </div>
+        </section>
+
+        <section id="statisticsPanel" class="viewPanel" role="tabpanel" aria-labelledby="statisticsTab" hidden>
+            <div class="panelHeading">
+                <div>
+                    <span class="eyebrow" data-i18n="midoriThisPage"></span>
+                    <strong data-i18n="midoriBlockingBreakdown"></strong>
+                </div>
+                <span class="liveIndicator"><i></i><span data-i18n="midoriLive"></span></span>
+            </div>
+
+            <div class="categoryChart" aria-hidden="true">
+                <span data-category-bar="ads"></span>
+                <span data-category-bar="trackers"></span>
+                <span data-category-bar="annoyances"></span>
+                <span data-category-bar="threats"></span>
+                <span data-category-bar="other"></span>
+            </div>
+
+            <div class="categoryList">
+                <div data-category="ads"><i></i><span data-i18n="midoriCategoryAds"></span><strong data-category-count="ads">0</strong></div>
+                <div data-category="trackers"><i></i><span data-i18n="midoriCategoryTrackers"></span><strong data-category-count="trackers">0</strong></div>
+                <div data-category="annoyances"><i></i><span data-i18n="midoriCategoryAnnoyances"></span><strong data-category-count="annoyances">0</strong></div>
+                <div data-category="threats"><i></i><span data-i18n="midoriCategoryThreats"></span><strong data-category-count="threats">0</strong></div>
+                <div data-category="other"><i></i><span data-i18n="midoriCategoryOther"></span><strong data-category-count="other">0</strong></div>
+            </div>
+            <p id="activityAvailability" class="activityAvailability"></p>
+        </section>
+    </div>
+
+    <button id="gotoMatchedRules" class="matchedRules tool globalTools" type="button" data-i18n="midoriMatchedRules"></button>
+</main>
+<aside>
+    <span class="fa-icon">spinner</span>
+</aside>
+
+<script src="js/theme.js" type="module"></script>
+<script src="js/fa-icons.js" type="module"></script>
+<script src="js/i18n.js" type="module"></script>
+<script src="js/popup.js" type="module"></script>
+
+</body>
+
+</html>
