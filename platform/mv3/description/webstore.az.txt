@@ -1,0 +1,12 @@
+uBO Lite (uBOL) is an MV3-based content blocker.
+
+Defolt qaydalar dəsti uBlock Origin-in defolt filtr dəstinə uyğundur:
+
+- uBlock Origin-in daxili filtr siyahıları
+- EasyList
+- EasyPrivacy
+- Peter Lowe-un Reklam və izləyici server siyahısı
+
+You can enable more rulesets by visiting the options page -- click the _Cogs_ icon in the popup panel.
+
+uBOL is entirely declarative, meaning there is no need for a permanent uBOL process for the filtering to occur, and CSS/JS injection-based content filtering is performed reliably by the browser itself rather than by the extension. Bu sistemin köməyi ilə, uBOL prosessorunuzu və yaddaşınızı qətiyyən yormur. Proqramın arxa fon prosesi (service worker) yalnız siz idarəetmə paneli və ya parametrlər səhifəsini açanda işə düşür.

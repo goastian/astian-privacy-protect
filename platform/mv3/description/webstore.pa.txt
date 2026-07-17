@@ -1,0 +1,12 @@
+uBO Lite (uBOL) ਇੱਕ MV3-ਅਧਾਰਿਤ ਸਮੱਗਰੀ ਬਲਾਕਰ ਹੈ।
+
+ਮੂਲ ਨਿਯਮ-ਸਮੂਹ uBlock Origin ਦੇ ਮੂਲ ਫਿਲਟਰ-ਸਮੂਹ ਨਾਲ ਸੰਬੰਧਿਤ ਹੈ:
+
+- uBlock Origin ਦੀਆਂ ਬਿਲਟ-ਇਨ ਫਿਲਟਰ ਸੂਚੀਆਂ
+-ਸੌਖੀ-ਸੂਚੀ
+-ਸੌਖੀ ਪਰਦੇਦਾਰੀ
+- Peter Lowe ਦੀ ਇਸ਼ਤਿਹਾਰ ਅਤੇ ਟਰੈਕਿੰਗ ਸਰਵਰ ਸੂਚੀ
+
+ਤੁਸੀਂ ਚੋਣਾਂ ਸਫ਼ੇ ਨੂੰ ਖੋਲ੍ਹ ਕੇ ਹੋਰ ਰੂਲ-ਸੈੱਟ ਸਮਰੱਥ ਕਰ ਕਦੇ ਹੋ -- ਪੌਪ-ਅੱਪ ਪੈਨਲ ਵਿੱਚ _Cogs_ icon ਨੂੰ ਕਲਿੱਕ ਕਰੋ।
+
+uBOL is entirely declarative, meaning there is no need for a permanent uBOL process for the filtering to occur, and CSS/JS injection-based content filtering is performed reliably by the browser itself rather than by the extension. This means that uBOL itself does not consume CPU/memory resources while content blocking is ongoing -- uBOL's service worker process is required _only_ when you interact with the popup panel or the option pages.
