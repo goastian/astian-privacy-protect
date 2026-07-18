@@ -273,8 +273,26 @@ vAPI.messaging.setup(onMessage);
 
 const createCounts = ( ) => {
     return {
-        blocked: { any: 0, frame: 0, script: 0 },
-        allowed: { any: 0, frame: 0, script: 0 },
+        blocked: {
+            any: 0,
+            font: 0,
+            frame: 0,
+            image: 0,
+            media: 0,
+            other: 0,
+            script: 0,
+            xhr: 0,
+        },
+        allowed: {
+            any: 0,
+            font: 0,
+            frame: 0,
+            image: 0,
+            media: 0,
+            other: 0,
+            script: 0,
+            xhr: 0,
+        },
     };
 };
 

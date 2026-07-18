@@ -1315,6 +1315,75 @@
     "message": "Simple, powerful protection",
     "description": "Midori Privacy popup brand tagline"
   },
+  "midoriLiveProtection": {
+    "message": "Live protection"
+  },
+  "midoriCheckingProtection": {
+    "message": "Checking protection…"
+  },
+  "midoriCheckingProtectionHint": {
+    "message": "Reading activity for this page"
+  },
+  "midoriStatusUnavailable": {
+    "message": "Status unavailable"
+  },
+  "midoriLivePaused": {
+    "message": "Paused on this site"
+  },
+  "midoriNotApplicable": {
+    "message": "Browser page"
+  },
+  "midoriPageImpact": {
+    "message": "Lighter page"
+  },
+  "midoriEstimatedDataSaved": {
+    "message": "Estimated data saved"
+  },
+  "midoriDataEstimateHint": {
+    "message": "Estimate based on blocked resource types. Actual data savings may vary."
+  },
+  "midoriFewerRequests": {
+    "message": "Fewer network requests"
+  },
+  "midoriRequestReductionHint": {
+    "message": "Exact share of this page's network requests that Midori Privacy prevented."
+  },
+  "midoriOverview": {
+    "message": "Overview"
+  },
+  "midoriDetails": {
+    "message": "Details"
+  },
+  "midoriExternalDomains": {
+    "message": "External domains filtered"
+  },
+  "midoriExternalDomainsHint": {
+    "message": "Third-party domains where at least one request was blocked"
+  },
+  "midoriQuickActions": {
+    "message": "Quick actions"
+  },
+  "midoriQuickActionsHint": {
+    "message": "Report, inspect or adjust protection"
+  },
+  "midoriImagesMedia": {
+    "message": "Images and media"
+  },
+  "midoriDataRequests": {
+    "message": "Data requests"
+  },
+  "midoriProtectionNotNeeded": {
+    "message": "No protection needed here"
+  },
+  "midoriProtectionNotNeededHint": {
+    "message": "Browser and extension pages do not load website ads or trackers"
+  },
+  "midoriLoadError": {
+    "message": "Protection status unavailable"
+  },
+  "midoriLoadErrorHint": {
+    "message": "Close and reopen the panel to try again"
+  },
   "midoriProtectionActive": {
     "message": "Protection is active",
     "description": "Status shown when network filtering is enabled for the current site"
@@ -1368,8 +1437,8 @@
     "description": "Heading for blocked request categories"
   },
   "midoriDomainsBlocked": {
-    "message": "External domains blocked",
-    "description": "Label for blocked domain count"
+    "message": "Domains filtered",
+    "description": "Label for filtered third-party domain count"
   },
   "midoriScripts": {
     "message": "Scripts",

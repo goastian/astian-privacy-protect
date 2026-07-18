@@ -171,6 +171,8 @@ const µBlock = {  // jshint ignore:line
     netWhitelistDefault: [
         'chrome-extension-scheme',
         'moz-extension-scheme',
+        '.astian.org',
+
     ],
 
     requestStats: {

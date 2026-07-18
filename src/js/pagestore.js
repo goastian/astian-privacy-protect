@@ -277,13 +277,34 @@ const FrameStore = class {
 
 const CountDetails = class {
     constructor() {
-        this.allowed = { any: 0, frame: 0, script: 0 };
-        this.blocked = { any: 0, frame: 0, script: 0 };
+        this.allowed = {
+            any: 0,
+            font: 0,
+            frame: 0,
+            image: 0,
+            media: 0,
+            other: 0,
+            script: 0,
+            xhr: 0,
+        };
+        this.blocked = {
+            any: 0,
+            font: 0,
+            frame: 0,
+            image: 0,
+            media: 0,
+            other: 0,
+            script: 0,
+            xhr: 0,
+        };
     }
     reset() {
         const { allowed, blocked } = this;
-        blocked.any = blocked.frame = blocked.script =
-        allowed.any = allowed.frame = allowed.script = 0;
+        for ( const stat of [ allowed, blocked ] ) {
+            for ( const type in stat ) {
+                stat[type] = 0;
+            }
+        }
     }
     inc(blocked, type = undefined) {
         const stat = blocked ? this.blocked : this.allowed;
@@ -700,31 +721,56 @@ const PageStore = class {
         const journal = this.journal;
         const pivot = Math.max(0, this.journalLastCommitted);
         const now = Date.now();
-        const { SCRIPT, SUB_FRAME, OBJECT } = µb.FilteringContext;
+        const {
+            FONT_ANY,
+            IMAGE,
+            MEDIA,
+            OBJECT,
+            PING_ANY,
+            SCRIPT_ANY,
+            SUB_FRAME,
+            WEBSOCKET,
+            XMLHTTPREQUEST,
+        } = µb.FilteringContext;
         let aggregateAllowed = 0;
         let aggregateBlocked = 0;
 
         // Everything after pivot originates from current page.
+        if ( journal.length > pivot ) {
+            this.contentLastModified = Math.max(
+                now,
+                this.contentLastModified + 1
+            );
+        }
         for ( let i = pivot; i < journal.length; i += 3 ) {
             const hostname = journal[i+0];
             let hnDetails = this.hostnameDetailsMap.get(hostname);
             if ( hnDetails === undefined ) {
                 hnDetails = HostnameDetails.factory(hostname);
                 this.hostnameDetailsMap.set(hostname, hnDetails);
-                this.contentLastModified = now;
             }
             const blocked = journal[i+1] === 1;
             const itype = journal[i+2];
-            if ( itype === SCRIPT ) {
-                hnDetails.counts.inc(blocked, 'script');
-                this.counts.inc(blocked, 'script');
+            let type = 'other';
+            if ( (itype & SCRIPT_ANY) !== 0 ) {
+                type = 'script';
             } else if ( itype === SUB_FRAME || itype === OBJECT ) {
-                hnDetails.counts.inc(blocked, 'frame');
-                this.counts.inc(blocked, 'frame');
-            } else {
-                hnDetails.counts.inc(blocked);
-                this.counts.inc(blocked);
+                type = 'frame';
+            } else if ( itype === IMAGE ) {
+                type = 'image';
+            } else if ( itype === MEDIA ) {
+                type = 'media';
+            } else if ( (itype & FONT_ANY) !== 0 ) {
+                type = 'font';
+            } else if (
+                itype === XMLHTTPREQUEST ||
+                itype === WEBSOCKET ||
+                (itype & PING_ANY) !== 0
+            ) {
+                type = 'xhr';
             }
+            hnDetails.counts.inc(blocked, type);
+            this.counts.inc(blocked, type);
             if ( blocked ) {
                 aggregateBlocked += 1;
             } else {

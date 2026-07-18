@@ -188,6 +188,62 @@ const formatNumber = function(count) {
 
 let intlNumberFormat;
 
+const formatEstimatedBytes = function(bytes) {
+    if ( Number.isFinite(bytes) === false || bytes <= 0 ) {
+        return '0 KB';
+    }
+    const kibibytes = bytes / 1024;
+    if ( kibibytes < 1024 ) {
+        return `${Math.max(1, Math.round(kibibytes)).toLocaleString()} KB`;
+    }
+    const mebibytes = kibibytes / 1024;
+    return `${mebibytes.toLocaleString(undefined, {
+        maximumFractionDigits: mebibytes < 10 ? 1 : 0,
+        minimumFractionDigits: 0,
+    })} MB`;
+};
+
+// Blocked responses never reach the browser, so their exact byte size is not
+// available. Keep the estimate conservative and O(1), based only on the
+// request types already present in PageStore. The UI always labels this value
+// as estimated and never turns it into a claim about seconds saved.
+const estimateBlockedBytes = function(blocked) {
+    const kibibytesByType = {
+        font: 36,
+        frame: 18,
+        image: 48,
+        media: 256,
+        other: 8,
+        script: 32,
+        xhr: 12,
+    };
+    let kibibytes = 0;
+    for ( const [ type, weight ] of Object.entries(kibibytesByType) ) {
+        kibibytes += (blocked[type] || 0) * weight;
+    }
+    return kibibytes * 1024;
+};
+
+const getBlockedExternalDomains = function() {
+    const domains = new Set();
+    for ( const [ hostname, details ] of Object.entries(popupData.hostnameDict || {}) ) {
+        if ( hostname === '*' || (details.counts?.blocked?.any || 0) === 0 ) {
+            continue;
+        }
+        const domain = details.domain || hostname;
+        if ( domain !== popupData.pageDomain ) {
+            domains.add(domain);
+        }
+    }
+    return domains;
+};
+
+const isInternalPage = function(url) {
+    return /^(?:about|chrome|edge|moz-extension|chrome-extension):/.test(
+        url || ''
+    );
+};
+
 /******************************************************************************/
 
 const safePunycodeToUnicode = function(hn) {
@@ -585,6 +641,7 @@ const renderMidoriActivity = function() {
     const blockedShare = requestTotal === 0
         ? 0
         : Math.min(blockedTotal / requestTotal, 1);
+    const unavailable = popupData.pageURL === '' || isInternalPage(popupData.rawURL);
 
     dom.text('#midoriBlockedTotal', formatNumber(blockedTotal));
     dom.text('#midoriNetworkBlocked', formatNumber(blockedTotal));
@@ -597,13 +654,29 @@ const renderMidoriActivity = function() {
         '--blocked-angle',
         `${Math.round(blockedShare * 360)}deg`
     );
+    dom.text(
+        '#midoriDataSaved',
+        `≈${formatEstimatedBytes(estimateBlockedBytes(blocked))}`
+    );
+    dom.text(
+        '#midoriRequestReduction',
+        `${Math.round(blockedShare * 100).toLocaleString()}%`
+    );
     let status = i18n$('midoriProtectionWorking');
     let detail = midoriActivityDetailStr
         .replace('{{blocked}}', formatNumber(blockedTotal))
         .replace('{{total}}', formatNumber(requestTotal));
-    if ( popupData.netFilteringSwitch !== true ) {
+    let switchStatus = i18n$('midoriProtectionActive');
+    let switchHint = i18n$('midoriProtectionHint');
+    if ( unavailable ) {
+        status = i18n$('midoriProtectionNotNeeded');
+        detail = i18n$('midoriProtectionNotNeededHint');
+        switchStatus = status;
+        switchHint = detail;
+    } else if ( popupData.netFilteringSwitch !== true ) {
         status = i18n$('midoriProtectionPaused');
         detail = i18n$('midoriActivityPaused');
+        switchStatus = status;
     } else if ( requestTotal === 0 ) {
         status = i18n$('midoriProtectionWatching');
         detail = i18n$('midoriActivityNoRequests');
@@ -614,6 +687,16 @@ const renderMidoriActivity = function() {
     }
     dom.text('#midoriProtectionStatus', status);
     dom.text('#midoriActivityDetail', detail);
+    dom.text('#midoriSwitchStatus', switchStatus);
+    dom.text('#midoriSwitchHint', switchHint);
+    dom.text(
+        '#midoriLiveStatusText',
+        i18n$(unavailable
+            ? 'midoriNotApplicable'
+            : popupData.netFilteringSwitch === true
+                ? 'midoriLiveProtection'
+                : 'midoriLivePaused')
+    );
 
     const pageCleanupActive = popupData.netFilteringSwitch === true &&
         popupData.noCosmeticFiltering !== true;
@@ -629,29 +712,22 @@ const renderMidoriActivity = function() {
         pageCleanupActive
     );
 
-    const blockedDomains = new Set();
-    for ( const [ hostname, details ] of Object.entries(popupData.hostnameDict || {}) ) {
-        if ( hostname === '*' || (details.counts?.blocked?.any || 0) === 0 ) {
-            continue;
-        }
-        const domain = details.domain || hostname;
-        if ( domain !== popupData.pageDomain ) {
-            blockedDomains.add(domain);
-        }
-    }
+    const blockedDomains = getBlockedExternalDomains();
     dom.text('#midoriBlockedDomainsValue', formatNumber(blockedDomains.size));
+    dom.text('#midoriBlockedDomainsQuick', formatNumber(blockedDomains.size));
 
     const breakdown = {
+        media: (blocked.image || 0) + (blocked.media || 0),
         script: blocked.script || 0,
+        xhr: blocked.xhr || 0,
         frame: blocked.frame || 0,
-        popup: popupData.popupBlockedCount || 0,
     };
     breakdown.other = Math.max(
         0,
-        blockedTotal - breakdown.script - breakdown.frame
+        blockedTotal - Object.values(breakdown)
+            .reduce((total, value) => total + value, 0)
     );
-    const breakdownTotal = Object.values(breakdown)
-        .reduce((total, value) => total + value, 0);
+    const breakdownTotal = Math.max(0, blockedTotal);
     const maxValue = Math.max(1, ...Object.values(breakdown));
     for ( const [ name, value ] of Object.entries(breakdown) ) {
         const row = qs$(`.breakdownRow[data-stat="${name}"]`);
@@ -687,16 +763,21 @@ const renderPopup = function() {
     }
 
     const isFiltering = popupData.netFilteringSwitch;
+    const unavailable = popupData.pageURL === '' || isInternalPage(popupData.rawURL);
 
     dom.cl.toggle(dom.body, 'advancedUser', popupData.advancedUserEnabled === true);
     dom.cl.toggle(dom.body, 'off', popupData.pageURL === '' || isFiltering !== true);
+    dom.cl.toggle(dom.body, 'unavailable', unavailable);
     dom.cl.toggle(dom.body, 'needSave', popupData.matrixIsDirty === true);
+    const powerSwitch = qs$('#switch');
+    powerSwitch.disabled = unavailable;
+    powerSwitch.setAttribute('aria-pressed', String(isFiltering === true));
 
     // The hostname information below the power switch
     {
         const [ elemHn, elemDn ] = qs$('#hostname').children;
         const { pageDomain, pageHostname, rawURL } = popupData;
-        if ( /^(?:about|chrome|edge|moz-extension|chrome-extension):/.test(rawURL) ) {
+        if ( isInternalPage(rawURL) ) {
             dom.text(elemDn, i18n$('midoriBrowserPage'));
             dom.text(elemHn, '');
         } else if ( pageDomain !== '' ) {
@@ -786,6 +867,10 @@ const renderPopup = function() {
     }
 
     renderTooltips();
+    if ( unavailable ) {
+        dom.attr(powerSwitch, 'aria-label', i18n$('midoriProtectionNotNeeded'));
+        dom.attr(powerSwitch, 'title', i18n$('midoriProtectionNotNeeded'));
+    }
 };
 
 /******************************************************************************/
@@ -968,11 +1053,15 @@ const renderPopupLazy = (( ) => {
 
 const toggleNetFilteringSwitch = function(ev) {
     if ( !popupData || !popupData.pageURL ) { return; }
+    const state = dom.cl.toggle(dom.body, 'off') === false;
+    popupData.netFilteringSwitch = state;
+    qs$('#switch').setAttribute('aria-pressed', String(state));
+    renderMidoriActivity();
     messaging.send('popupPanel', {
         what: 'toggleNetFiltering',
         url: popupData.pageURL,
         scope: ev.ctrlKey || ev.metaKey ? 'page' : '',
-        state: dom.cl.toggle(dom.body, 'off') === false,
+        state,
         tabId: popupData.tabId,
     });
     renderTooltips('#switch');
@@ -1156,6 +1245,9 @@ const toggleSections = function(more) {
     // Dynamic filtering pane may not have been built yet
     if ( (newBits & sectionFirewallBit) !== 0 && dfPaneBuilt === false ) {
         buildAllFirewallRows();
+    }
+    if ( (newBits & 0b01000) !== 0 ) {
+        renderPopupLazy();
     }
 };
 
@@ -1507,6 +1599,7 @@ const toggleHostnameSwitch = async function(ev) {
 // it and thus having to push it all the time unconditionally.
 
 const pollForContentChange = (( ) => {
+    let pollCount = 0;
     const pollCallback = async function() {
         const response = await messaging.send('popupPanel', {
             what: 'hasPopupContentChanged',
@@ -1523,7 +1616,7 @@ const pollForContentChange = (( ) => {
     const pollTimer = vAPI.defer.create(pollCallback);
 
     const poll = function() {
-        pollTimer.on(1500);
+        pollTimer.on(pollCount++ < 8 ? 400 : 1200);
     };
 
     return poll;
@@ -1536,11 +1629,16 @@ const getPopupData = async function(tabId, first = false) {
         what: 'getPopupData',
         tabId,
     });
+    if ( response instanceof Object === false ) {
+        throw new Error('Popup data unavailable');
+    }
 
     cachePopupData(response);
     renderOnce();
     renderPopup();
-    renderPopupLazy(); // low priority rendering
+    if ( (sectionBitsFromAttribute() & 0b01000) !== 0 ) {
+        renderPopupLazy();
+    }
     hashFromPopupData(first);
     pollForContentChange();
 };
@@ -1582,7 +1680,7 @@ const getPopupData = async function(tabId, first = false) {
             return;
         }
         if ( dom.cl.has(dom.root, 'desktop') === false ) { return; }
-        await nextFrames(8);
+        await nextFrames(1);
         const main = qs$('#main');
         const firewall = qs$('#firewall');
         const minWidth = (main.offsetWidth + firewall.offsetWidth) / 1.1;
@@ -1617,6 +1715,7 @@ const getPopupData = async function(tabId, first = false) {
         }
         await nextFrames(1);
         dom.cl.remove(dom.body, 'loading');
+        dom.attr(dom.body, 'aria-busy', null);
     };
 
     getPopupData(tabId, true).then(( ) => {
@@ -1625,6 +1724,19 @@ const getPopupData = async function(tabId, first = false) {
         } else {
             checkViewport();
         }
+    }).catch(( ) => {
+        dom.cl.add(dom.body, 'error');
+        dom.cl.remove(dom.body, 'loading');
+        dom.attr(dom.body, 'aria-busy', null);
+        dom.text('#midoriProtectionStatus', i18n$('midoriLoadError'));
+        dom.text('#midoriActivityDetail', i18n$('midoriLoadErrorHint'));
+        dom.text('#midoriLiveStatusText', i18n$('midoriStatusUnavailable'));
+        dom.text('#midoriSwitchStatus', i18n$('midoriLoadError'));
+        dom.text('#midoriSwitchHint', i18n$('midoriLoadErrorHint'));
+        const powerSwitch = qs$('#switch');
+        powerSwitch.disabled = true;
+        dom.attr(powerSwitch, 'aria-label', i18n$('midoriLoadError'));
+        dom.attr(powerSwitch, 'title', i18n$('midoriLoadError'));
     });
 }
 
