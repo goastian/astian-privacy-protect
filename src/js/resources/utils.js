@@ -119,10 +119,10 @@ export function trapPropertyFn(propChain, handler) {
     try {
         safe.Object_defineProperty(owner, prop, {
             get() {
-                return trapPropertyFn.getter(this, prop);
+                return trapPropertyFn.getter(owner, prop);
             },
             set(value) {
-                trapPropertyFn.setter(this, prop, value);
+                trapPropertyFn.setter(owner, prop, value);
             }
         });
     } catch {
