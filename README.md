@@ -4,7 +4,7 @@ Midori Privacy is Astian's browser protection extension. This repository now use
 
 The default popup keeps only the everyday protection decisions visible: overall status, site protection, Midori VPN state, the blocked tracker/threat summary, **Fix this site**, and **View details**. The details view groups protection into ads and trackers, cookies and annoyances, clean links, dangerous sites, and VPN connection.
 
-The request logger, filter lists, custom filters and scriptlets, dynamic rules, and other low-level controls are available only when **Expert mode** is enabled. The VPN row is a read-only status bridge: the companion extension identified as `midori-vpn@astian.org` reports `off`, `connecting`, or `connected`; without a fresh authenticated report, the popup safely shows VPN off.
+The request logger, filter lists, custom filters and scriptlets, dynamic rules, and other low-level controls are available only when **Expert mode** is enabled. The VPN row is a read-only status bridge: Midori Privacy queries the companion extension identified as `midorivpn@astian.org` for `off`, `connecting`, or `connected`; without a fresh authenticated response, the popup safely shows VPN off.
 
 ## Upstream base
 
