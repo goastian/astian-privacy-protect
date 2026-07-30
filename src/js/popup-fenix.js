@@ -778,6 +778,20 @@ const renderMidoriVpnStatus = function(status) {
     }
 };
 
+const renderExpertMode = function(enabled) {
+    enabled = enabled === true;
+    popupData.advancedUserEnabled = enabled;
+    dom.cl.toggle(dom.body, 'advancedUser', enabled);
+    const toggle = qs$('#midoriExpertModeToggle');
+    toggle.setAttribute('aria-pressed', String(enabled));
+    dom.text(
+        '#midoriExpertModeStatus',
+        i18n$(enabled
+            ? 'midoriExpertModeEnabled'
+            : 'midoriExpertModeDisabled')
+    );
+};
+
 /******************************************************************************/
 
 const updateHnSwitches = function() {
@@ -802,7 +816,7 @@ const renderPopup = function() {
         popupData.pageURL === '' || isInternalPage(popupData.rawURL)
     );
 
-    dom.cl.toggle(dom.body, 'advancedUser', popupData.advancedUserEnabled === true);
+    renderExpertMode(popupData.advancedUserEnabled);
     dom.cl.toggle(dom.body, 'off', popupData.pageURL === '' || isFiltering !== true);
     dom.cl.toggle(dom.body, 'unavailable', unavailable);
     dom.cl.toggle(dom.body, 'needSave', popupData.matrixIsDirty === true);
@@ -1182,7 +1196,7 @@ const gotoURL = function(ev) {
 
     ev.preventDefault();
 
-    let url = dom.attr(ev.target, 'href');
+    let url = dom.attr(this, 'href');
     if (
         url === 'logger-ui.html#_' &&
         typeof popupData.tabId === 'number'
@@ -1787,6 +1801,21 @@ dom.on('.hnSwitch', 'click', ev => { toggleHostnameSwitch(ev); });
 dom.on('#saveRules', 'click', saveFirewallRules);
 dom.on('#revertRules', 'click', ( ) => { revertFirewallRules(); });
 dom.on('a[href]', 'click', gotoURL);
+
+dom.on('#midoriExpertModeToggle', 'click', async ( ) => {
+    const previous = popupData.advancedUserEnabled === true;
+    const enabled = previous === false;
+    renderExpertMode(enabled);
+    try {
+        await messaging.send('popupPanel', {
+            what: 'userSettings',
+            name: 'advancedUserEnabled',
+            value: enabled,
+        });
+    } catch {
+        renderExpertMode(previous);
+    }
+});
 
 const popupViews = new Map([
     [ 'main', qs$('#midoriMainView') ],

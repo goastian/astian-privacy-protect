@@ -2160,6 +2160,8 @@ body.loading .resultValue {
     background: var(--midori-header);
     box-sizing: border-box;
     display: flex;
+    gap: 12px;
+    justify-content: space-between;
     min-height: 54px;
     padding: 10px 16px;
 }
@@ -2171,6 +2173,32 @@ body.loading .resultValue {
     gap: 9px;
     min-width: 0;
     text-decoration: none;
+}
+
+.brandSettings {
+    align-items: center;
+    background: rgb(255 255 255 / 8%);
+    border: 1px solid rgb(255 255 255 / 10%);
+    border-radius: 9px;
+    color: var(--midori-header-muted);
+    display: inline-flex;
+    fill: var(--midori-header-muted);
+    flex: none;
+    font-size: 15px;
+    height: 30px;
+    justify-content: center;
+    transition: background-color 180ms ease, color 180ms ease, transform 160ms ease;
+    width: 30px;
+}
+
+.brandSettings:hover {
+    background: rgb(255 255 255 / 14%);
+    color: var(--midori-header-ink);
+    fill: var(--midori-header-ink);
+}
+
+.brandSettings:active {
+    transform: scale(0.96);
 }
 
 .brandIdentity:hover {
@@ -2528,6 +2556,8 @@ body.off .heroStateIcon {
 .backButton:focus-visible,
 #switch.statusRow:focus-visible,
 .brandIdentity:focus-visible,
+.brandSettings:focus-visible,
+.expertModeToggle:focus-visible,
 .expertLinks a:focus-visible {
     outline: 2px solid rgb(var(--primary-50));
     outline-offset: 2px;
@@ -2636,6 +2666,121 @@ body.off .heroStateIcon {
 
 .protectionValue.isActive {
     color: var(--midori-green-strong);
+}
+
+.expertModeToggle {
+    align-items: center;
+    appearance: none;
+    background: var(--surface-2);
+    border: 1px solid var(--border-1);
+    border-radius: 12px;
+    box-sizing: border-box;
+    color: var(--ink-1);
+    cursor: pointer;
+    display: grid;
+    font: inherit;
+    gap: 10px;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    margin-top: 12px;
+    min-height: 60px;
+    padding: 8px 11px;
+    text-align: start;
+    transition: background-color 180ms ease, border-color 180ms ease, transform 160ms ease;
+    width: 100%;
+}
+
+.expertModeToggle:hover {
+    background: var(--surface-3);
+    border-color: var(--midori-green-border);
+}
+
+.expertModeToggle:active {
+    transform: scale(0.99);
+}
+
+.expertModeIcon {
+    align-items: center;
+    background: var(--surface-3);
+    border-radius: 9px;
+    color: var(--ink-3);
+    display: inline-flex;
+    fill: var(--ink-3);
+    font-size: 14px;
+    height: 32px;
+    justify-content: center;
+    width: 32px;
+}
+
+.expertModeCopy {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.22;
+    min-width: 0;
+}
+
+.expertModeCopy strong {
+    color: var(--ink-1);
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.expertModeCopy small {
+    color: var(--ink-3);
+    font-size: 9px;
+    line-height: 1.25;
+    margin-top: 3px;
+}
+
+.expertModeEnd {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#midoriExpertModeStatus {
+    color: var(--ink-3);
+    font-size: 9px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.expertStateSwitch {
+    background: var(--border-2);
+    border-radius: 999px;
+    display: inline-flex;
+    height: 18px;
+    padding: 2px;
+    transition: background-color 180ms ease;
+    width: 31px;
+}
+
+.expertStateSwitch > i {
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgb(0 48 30 / 28%);
+    height: 14px;
+    transform: translateX(0);
+    transition: transform 180ms ease;
+    width: 14px;
+}
+
+body.advancedUser .expertModeIcon {
+    background: var(--midori-green-soft);
+    color: var(--midori-green-strong);
+    fill: var(--midori-green-strong);
+}
+
+body.advancedUser #midoriExpertModeStatus {
+    color: var(--midori-green-strong);
+}
+
+body.advancedUser .expertStateSwitch {
+    background: var(--midori-green);
+}
+
+body.advancedUser .expertStateSwitch > i {
+    transform: translateX(13px);
 }
 
 #midoriExpertTools {

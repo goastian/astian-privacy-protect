@@ -1500,6 +1500,12 @@
   "midoriExpertMode": {
     "message": "Modo experto"
   },
+  "midoriExpertModeEnabled": {
+    "message": "Activado"
+  },
+  "midoriExpertModeDisabled": {
+    "message": "Desactivado"
+  },
   "midoriExpertToolsHint": {
     "message": "Herramientas técnicas visibles solo cuando Modo experto está activado"
   },

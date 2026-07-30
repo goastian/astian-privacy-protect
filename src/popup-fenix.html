@@ -25,6 +25,7 @@
                         <span data-i18n="midoriBrandTagline"></span>
                     </div>
                 </a>
+                <a class="brandSettings fa-icon" href="dashboard.html#settings.html" target="uBODashboard" aria-label="settingsPageName" data-i18n-title="settingsPageName">cog</a>
             </header>
         </div>
 
@@ -126,10 +127,21 @@
                 </article>
             </div>
 
+            <button id="midoriExpertModeToggle" class="expertModeToggle" type="button" aria-pressed="false">
+                <span class="expertModeIcon fa-icon" aria-hidden="true">sliders</span>
+                <span class="expertModeCopy">
+                    <strong data-i18n="midoriExpertMode"></strong>
+                    <small data-i18n="midoriExpertToolsHint"></small>
+                </span>
+                <span class="expertModeEnd">
+                    <strong id="midoriExpertModeStatus" data-i18n="midoriExpertModeDisabled"></strong>
+                    <span class="expertStateSwitch" aria-hidden="true"><i></i></span>
+                </span>
+            </button>
+
             <section id="midoriExpertTools" aria-labelledby="midoriExpertToolsTitle">
                 <header>
-                    <strong id="midoriExpertToolsTitle" data-i18n="midoriExpertMode"></strong>
-                    <span data-i18n="midoriExpertToolsHint"></span>
+                    <strong id="midoriExpertToolsTitle" data-i18n="midoriAdvancedTools"></strong>
                 </header>
                 <div class="expertLinks">
                     <a href="logger-ui.html#_" target="uBOLogger"><span class="fa-icon" aria-hidden="true">list-alt</span><span data-i18n="midoriRequestLogger"></span></a>
