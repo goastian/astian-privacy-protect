@@ -30,6 +30,11 @@ import {
 } from './uri-utils.js';
 
 import {
+    getMidoriVpnStatus,
+    refreshMidoriVpnStatus,
+} from './midori-vpn.js';
+
+import {
     permanentFirewall,
     permanentSwitches,
     permanentURLFiltering,
@@ -42,7 +47,6 @@ import cacheStorage from './cachestorage.js';
 import cosmeticFilteringEngine from './cosmetic-filtering.js';
 import { denseBase64 } from './base64-custom.js';
 import { filteringBehaviorChanged } from './broadcast.js';
-import { getMidoriVpnStatus } from './midori-vpn.js';
 import htmlFilteringEngine from './html-filtering.js';
 import { i18n$ } from './i18n.js';
 import io from './assets.js';
@@ -455,7 +459,9 @@ const popupDataFromTabId = function(tabId, tabTitle) {
 
 const popupDataFromRequest = async function(request) {
     if ( request.tabId ) {
-        return popupDataFromTabId(request.tabId, '');
+        const popupData = popupDataFromTabId(request.tabId, '');
+        popupData.vpnStatus = await refreshMidoriVpnStatus();
+        return popupData;
     }
 
     // Still no target tab id? Use currently selected tab.
@@ -466,7 +472,9 @@ const popupDataFromRequest = async function(request) {
         tabId = tab.id;
         tabTitle = tab.title || '';
     }
-    return popupDataFromTabId(tabId, tabTitle);
+    const popupData = popupDataFromTabId(tabId, tabTitle);
+    popupData.vpnStatus = await refreshMidoriVpnStatus();
+    return popupData;
 };
 
 const getElementCount = async function(tabId, what) {
@@ -536,6 +544,12 @@ const launchReporter = async function(request) {
 const onMessage = function(request, sender, callback) {
     // Async
     switch ( request.what ) {
+    case 'getMidoriVpnStatus':
+        refreshMidoriVpnStatus().then(status => {
+            callback(status);
+        });
+        return;
+
     case 'getHiddenElementCount':
         getElementCount(request.tabId, 'elements').then(count => {
             callback(count);
@@ -562,10 +576,6 @@ const onMessage = function(request, sender, callback) {
     let response;
 
     switch ( request.what ) {
-    case 'getMidoriVpnStatus':
-        response = getMidoriVpnStatus();
-        break;
-
     case 'dismissUnprocessedRequest':
         vAPI.net.removeUnprocessedRequest(request.tabId);
         µb.updateToolbarIcon(request.tabId, 0b110);

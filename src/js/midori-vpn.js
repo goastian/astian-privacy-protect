@@ -2,19 +2,15 @@
 
     Midori Privacy - read-only Midori VPN status bridge
 
-    The blocker does not control the VPN. A companion Midori component can
-    publish its current state through `browser.runtime.sendMessage()` using:
-
-        { action: 'midori-vpn-status', source: 'midori-vpn', state: 'connected' }
-
-    Only the three product states below are accepted. Status expires quickly so
-    the popup falls back to "off" instead of showing a stale secure connection.
+    Midori Privacy asks the companion extension for its current state. The
+    response comes directly from the extension ID below, so another extension
+    cannot impersonate an active VPN connection.
 
 */
 
-const VPN_STATUS_ACTION = 'midori-vpn-status';
+const VPN_EXTENSION_ID = 'midorivpn@astian.org';
+const VPN_STATUS_ACTION = 'get-midori-vpn-status';
 const VPN_STATUS_TTL = 30_000;
-const VPN_EXTENSION_IDS = new Set([ 'midori-vpn@astian.org' ]);
 const vpnStates = new Set([ 'off', 'connecting', 'connected' ]);
 
 let currentStatus = {
@@ -43,31 +39,25 @@ const normalizeStatus = status => {
     };
 };
 
-const onExternalMessage = (request, sender, sendResponse) => {
-    if (
-        request instanceof Object === false ||
-        request.action !== VPN_STATUS_ACTION ||
-        request.source !== 'midori-vpn' ||
-        VPN_EXTENSION_IDS.has(sender?.id) === false ||
-        vpnStates.has(request.state) === false
-    ) {
-        return;
-    }
-
-    currentStatus = {
-        state: request.state,
-        updatedAt: Date.now(),
-    };
-    sendResponse({ accepted: true });
-};
-
-if ( browser.runtime.onMessageExternal instanceof Object ) {
-    browser.runtime.onMessageExternal.addListener(onExternalMessage);
-}
-
 const getMidoriVpnStatus = ( ) => {
     currentStatus = normalizeStatus(currentStatus);
     return { ...currentStatus };
 };
 
-export { getMidoriVpnStatus };
+const refreshMidoriVpnStatus = async ( ) => {
+    try {
+        const response = await browser.runtime.sendMessage(
+            VPN_EXTENSION_ID,
+            {
+                action: VPN_STATUS_ACTION,
+                source: 'midori-protection',
+            }
+        );
+        currentStatus = normalizeStatus(response);
+    } catch {
+        currentStatus = { state: 'off', updatedAt: 0 };
+    }
+    return { ...currentStatus };
+};
+
+export { getMidoriVpnStatus, refreshMidoriVpnStatus };
