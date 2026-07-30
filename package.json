@@ -5,7 +5,6 @@
   "type": "module",
   "description": "Lightweight ad & tracker blocker by Astian Inc",
   "scripts": {
-    "build:midori": "make firefox",
     "build:chromium": "make chromium",
     "build:firefox": "make firefox",
     "package:firefox": "npm run build:firefox && node scripts/package-extension.cjs firefox",
