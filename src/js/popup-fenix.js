@@ -50,8 +50,6 @@ const scopeToSrcHostnameMap = {
 const hostnameToSortableTokenMap = new Map();
 const statsStr = i18n$('popupBlockedStats');
 const domainsHitStr = i18n$('popupHitDomainCount');
-const midoriActivityDetailStr = i18n$('midoriActivityDetail');
-const midoriActivityNoBlockedStr = i18n$('midoriActivityNoBlocked');
 
 let popupData = {};
 let dfPaneBuilt = false;
@@ -641,7 +639,11 @@ const renderMidoriActivity = function() {
     const blockedShare = requestTotal === 0
         ? 0
         : Math.min(blockedTotal / requestTotal, 1);
-    const unavailable = popupData.pageURL === '' || isInternalPage(popupData.rawURL);
+    const threatCount = Math.max(0, popupData.threatBlockedCount || 0);
+    const trackerCount = Math.max(0, blockedTotal - threatCount);
+    const unavailable = threatCount === 0 && (
+        popupData.pageURL === '' || isInternalPage(popupData.rawURL)
+    );
 
     dom.text('#midoriBlockedTotal', formatNumber(blockedTotal));
     dom.text('#midoriNetworkBlocked', formatNumber(blockedTotal));
@@ -662,11 +664,18 @@ const renderMidoriActivity = function() {
         '#midoriRequestReduction',
         `${Math.round(blockedShare * 100).toLocaleString()}%`
     );
+    const summaryKey = trackerCount === 1
+        ? threatCount === 1
+            ? 'midoriBlockedSummaryOneOne'
+            : 'midoriBlockedSummaryOneMany'
+        : threatCount === 1
+            ? 'midoriBlockedSummaryManyOne'
+            : 'midoriBlockedSummaryManyMany';
     let status = i18n$('midoriProtectionWorking');
-    let detail = midoriActivityDetailStr
-        .replace('{{blocked}}', formatNumber(blockedTotal))
-        .replace('{{total}}', formatNumber(requestTotal));
-    let switchStatus = i18n$('midoriProtectionActive');
+    let detail = i18n$(summaryKey)
+        .replace('{{trackers}}', formatNumber(trackerCount))
+        .replace('{{threats}}', formatNumber(threatCount));
+    let switchStatus = i18n$('midoriSiteProtectionActive');
     let switchHint = i18n$('midoriProtectionHint');
     if ( unavailable ) {
         status = i18n$('midoriProtectionNotNeeded');
@@ -675,15 +684,7 @@ const renderMidoriActivity = function() {
         switchHint = detail;
     } else if ( popupData.netFilteringSwitch !== true ) {
         status = i18n$('midoriProtectionPaused');
-        detail = i18n$('midoriActivityPaused');
-        switchStatus = status;
-    } else if ( requestTotal === 0 ) {
-        status = i18n$('midoriProtectionWatching');
-        detail = i18n$('midoriActivityNoRequests');
-    } else if ( blockedTotal === 0 ) {
-        status = i18n$('midoriProtectionWatching');
-        detail = midoriActivityNoBlockedStr
-            .replace('{{total}}', formatNumber(requestTotal));
+        switchStatus = i18n$('midoriSiteProtectionPaused');
     }
     dom.text('#midoriProtectionStatus', status);
     dom.text('#midoriActivityDetail', detail);
@@ -711,6 +712,22 @@ const renderMidoriActivity = function() {
         'isActive',
         pageCleanupActive
     );
+
+    const networkProtectionActive = unavailable === false &&
+        popupData.netFilteringSwitch === true;
+    for ( const selector of [
+        '#midoriAdsTrackersStatus',
+        '#midoriCleanLinksStatus',
+        '#midoriDangerousSitesStatus',
+    ] ) {
+        dom.text(
+            selector,
+            i18n$(networkProtectionActive
+                ? 'midoriStatusActive'
+                : 'midoriStatusPaused')
+        );
+        dom.cl.toggle(selector, 'isActive', networkProtectionActive);
+    }
 
     const blockedDomains = getBlockedExternalDomains();
     dom.text('#midoriBlockedDomainsValue', formatNumber(blockedDomains.size));
@@ -741,6 +758,24 @@ const renderMidoriActivity = function() {
         );
         row.style.setProperty('--stat-ratio', value / maxValue);
     }
+
+    renderMidoriVpnStatus(popupData.vpnStatus);
+};
+
+const renderMidoriVpnStatus = function(status) {
+    const state = status?.state === 'connecting' || status?.state === 'connected'
+        ? status.state
+        : 'off';
+    const label = i18n$(state === 'connected'
+        ? 'midoriVpnConnected'
+        : state === 'connecting'
+            ? 'midoriVpnConnecting'
+            : 'midoriVpnOff');
+    dom.text('#midoriVpnStatus', label);
+    dom.text('#midoriVpnProtectionStatus', label);
+    for ( const elem of qsa$('[data-vpn-state]') ) {
+        elem.dataset.vpnState = state;
+    }
 };
 
 /******************************************************************************/
@@ -763,7 +798,9 @@ const renderPopup = function() {
     }
 
     const isFiltering = popupData.netFilteringSwitch;
-    const unavailable = popupData.pageURL === '' || isInternalPage(popupData.rawURL);
+    const unavailable = (popupData.threatBlockedCount || 0) === 0 && (
+        popupData.pageURL === '' || isInternalPage(popupData.rawURL)
+    );
 
     dom.cl.toggle(dom.body, 'advancedUser', popupData.advancedUserEnabled === true);
     dom.cl.toggle(dom.body, 'off', popupData.pageURL === '' || isFiltering !== true);
@@ -1051,13 +1088,13 @@ const renderPopupLazy = (( ) => {
 
 /******************************************************************************/
 
-const toggleNetFilteringSwitch = function(ev) {
+const toggleNetFilteringSwitch = async function(ev) {
     if ( !popupData || !popupData.pageURL ) { return; }
     const state = dom.cl.toggle(dom.body, 'off') === false;
     popupData.netFilteringSwitch = state;
     qs$('#switch').setAttribute('aria-pressed', String(state));
     renderMidoriActivity();
-    messaging.send('popupPanel', {
+    await messaging.send('popupPanel', {
         what: 'toggleNetFiltering',
         url: popupData.pageURL,
         scope: ev.ctrlKey || ev.metaKey ? 'page' : '',
@@ -1751,43 +1788,58 @@ dom.on('#saveRules', 'click', saveFirewallRules);
 dom.on('#revertRules', 'click', ( ) => { revertFirewallRules(); });
 dom.on('a[href]', 'click', gotoURL);
 
+const popupViews = new Map([
+    [ 'main', qs$('#midoriMainView') ],
+    [ 'protections', qs$('#midoriProtectionsView') ],
+    [ 'repair', qs$('#midoriRepairView') ],
+]);
+
 const activateMidoriView = function(name, focus = false) {
-    const showStatistics = name === 'statistics';
-    const actionsTab = qs$('#midoriActionsTab');
-    const statisticsTab = qs$('#midoriStatisticsTab');
-    actionsTab.setAttribute('aria-selected', String(showStatistics === false));
-    actionsTab.tabIndex = showStatistics ? -1 : 0;
-    statisticsTab.setAttribute('aria-selected', String(showStatistics));
-    statisticsTab.tabIndex = showStatistics ? 0 : -1;
-    qs$('#midoriActions').hidden = showStatistics;
-    qs$('#midoriStatistics').hidden = showStatistics === false;
-    vAPI.localStorage.setItem(
-        'midoriPopupView',
-        showStatistics ? 'statistics' : 'actions'
-    );
-    if ( focus ) {
-        (showStatistics ? statisticsTab : actionsTab).focus();
+    if ( popupViews.has(name) === false ) { name = 'main'; }
+    for ( const [ viewName, elem ] of popupViews ) {
+        elem.hidden = viewName !== name;
+    }
+    dom.body.dataset.popupView = name;
+    if ( focus && name !== 'main' ) {
+        qs$(popupViews.get(name), '[data-popup-back]')?.focus();
+    } else if ( focus ) {
+        qs$('#midoriRepairButton').focus();
     }
 };
 
-dom.on('#midoriActionsTab', 'click', ( ) => {
-    activateMidoriView('actions');
+dom.on('#midoriDetailsButton', 'click', ( ) => {
+    activateMidoriView('protections', true);
 });
-dom.on('#midoriStatisticsTab', 'click', ( ) => {
-    activateMidoriView('statistics');
+dom.on('#midoriRepairButton', 'click', ( ) => {
+    activateMidoriView('repair', true);
 });
-dom.on('#midoriViewTabs', 'keydown', ev => {
-    if ( ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight' ) { return; }
-    const current = ev.target.id === 'midoriStatisticsTab'
-        ? 'statistics'
-        : 'actions';
-    activateMidoriView(current === 'actions' ? 'statistics' : 'actions', true);
+dom.on('[data-popup-back]', 'click', ( ) => {
+    activateMidoriView('main', true);
+});
+
+dom.on('#midoriPauseAndReload', 'click', async ( ) => {
+    if ( popupData.netFilteringSwitch === true ) {
+        await toggleNetFilteringSwitch({ ctrlKey: false, metaKey: false });
+    }
+    reloadTab();
+    vAPI.closePopup();
+});
+
+dom.on(document, 'keydown', ev => {
+    if ( ev.key !== 'Escape' || dom.body.dataset.popupView === 'main' ) { return; }
+    activateMidoriView('main', true);
     ev.preventDefault();
 });
 
-qs$('#midoriViewTabs').setAttribute('aria-label', i18n$('midoriPopupViews'));
-vAPI.localStorage.getItemAsync('midoriPopupView').then(value => {
-    activateMidoriView(value === 'statistics' ? 'statistics' : 'actions');
-});
+activateMidoriView('main');
+
+self.setInterval(async ( ) => {
+    const status = await messaging.send('popupPanel', {
+        what: 'getMidoriVpnStatus',
+    });
+    if ( status instanceof Object === false ) { return; }
+    popupData.vpnStatus = status;
+    renderMidoriVpnStatus(status);
+}, 1000);
 
 /******************************************************************************/

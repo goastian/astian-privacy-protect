@@ -1413,8 +1413,122 @@
     "description": "Heading above current page blocking activity"
   },
   "midoriProtectionWorking": {
-    "message": "Protection is working",
+    "message": "You're protected",
     "description": "Positive status above live blocking statistics"
+  },
+  "midoriSiteProtection": {
+    "message": "Protection for this site"
+  },
+  "midoriSiteProtectionActive": {
+    "message": "On"
+  },
+  "midoriSiteProtectionPaused": {
+    "message": "Paused"
+  },
+  "midoriSecureConnection": {
+    "message": "Secure connection"
+  },
+  "midoriVpnConnectionHint": {
+    "message": "Midori VPN status"
+  },
+  "midoriVpnOff": {
+    "message": "VPN off"
+  },
+  "midoriVpnConnecting": {
+    "message": "Connecting"
+  },
+  "midoriVpnConnected": {
+    "message": "Connected"
+  },
+  "midoriBlockedSummaryManyMany": {
+    "message": "{{trackers}} trackers and {{threats}} threats blocked"
+  },
+  "midoriBlockedSummaryOneMany": {
+    "message": "1 tracker and {{threats}} threats blocked"
+  },
+  "midoriBlockedSummaryManyOne": {
+    "message": "{{trackers}} trackers and 1 threat blocked"
+  },
+  "midoriBlockedSummaryOneOne": {
+    "message": "1 tracker and 1 threat blocked"
+  },
+  "midoriFixThisSite": {
+    "message": "Fix this site"
+  },
+  "midoriViewDetails": {
+    "message": "View details"
+  },
+  "midoriBack": {
+    "message": "Back"
+  },
+  "midoriProtectionsTitle": {
+    "message": "Protections"
+  },
+  "midoriProtectionsHint": {
+    "message": "Layers active for the current site"
+  },
+  "midoriAdsTrackers": {
+    "message": "Ads and trackers"
+  },
+  "midoriAdsTrackersHint": {
+    "message": "Blocks unwanted requests before they load"
+  },
+  "midoriCookiesAnnoyances": {
+    "message": "Cookies and annoyances"
+  },
+  "midoriCookiesAnnoyancesHint": {
+    "message": "Hides notices, empty spaces and page clutter"
+  },
+  "midoriCleanLinks": {
+    "message": "Clean links"
+  },
+  "midoriCleanLinksHint": {
+    "message": "Removes recognized tracking parameters"
+  },
+  "midoriDangerousSites": {
+    "message": "Dangerous sites"
+  },
+  "midoriDangerousSitesHint": {
+    "message": "Stops navigations matched by threat filters"
+  },
+  "midoriVpnConnection": {
+    "message": "VPN connection"
+  },
+  "midoriVpnConnectionDetailHint": {
+    "message": "Protects traffic when Midori VPN is connected"
+  },
+  "midoriExpertMode": {
+    "message": "Expert mode"
+  },
+  "midoriExpertToolsHint": {
+    "message": "Technical tools shown only when Expert mode is enabled"
+  },
+  "midoriRequestLogger": {
+    "message": "Request logger"
+  },
+  "midoriDynamicRules": {
+    "message": "Dynamic rules"
+  },
+  "midoriFilterLists": {
+    "message": "Filter lists"
+  },
+  "midoriCustomFiltersScriptlets": {
+    "message": "Custom filters and scriptlets"
+  },
+  "midoriRepairIntro": {
+    "message": "Try a safe fix for the current site"
+  },
+  "midoriRepairRecommended": {
+    "message": "Pause only on this site"
+  },
+  "midoriRepairPauseHint": {
+    "message": "Temporarily turns off protection for this domain and reloads the page. You can turn it back on from the popup at any time."
+  },
+  "midoriPauseAndReload": {
+    "message": "Pause and reload"
+  },
+  "midoriReportProblem": {
+    "message": "Report a problem"
   },
   "midoriActivityDetail": {
     "message": "{{blocked}} of {{total}} requests blocked",
@@ -1595,7 +1709,7 @@
     "message": "High impact: many sites will stop working correctly."
   },
   "midoriExpertModeHint": {
-    "message": "Expert mode exposes dynamic filtering and low-level rules. Enable it only if you understand rule precedence."
+    "message": "Expert mode exposes the logger, lists, custom filters, scriptlets and low-level rules. Enable it only if you understand rule precedence."
   },
   "midoriLearnMore": {
     "message": "Learn more"

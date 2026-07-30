@@ -2,7 +2,9 @@
 
 Midori Privacy is Astian's browser protection extension. This repository now uses the complete [uBlock Origin](https://github.com/gorhill/uBlock) codebase and filtering engine, with Midori branding and a simpler default experience for everyday users.
 
-The default popup keeps the primary decisions visible: protection status for the current site, blocked-request totals, reporting and settings. uBlock Origin's lists, logger, element tools, custom filters, dynamic rules and advanced settings remain available through progressive disclosure.
+The default popup keeps only the everyday protection decisions visible: overall status, site protection, Midori VPN state, the blocked tracker/threat summary, **Fix this site**, and **View details**. The details view groups protection into ads and trackers, cookies and annoyances, clean links, dangerous sites, and VPN connection.
+
+The request logger, filter lists, custom filters and scriptlets, dynamic rules, and other low-level controls are available only when **Expert mode** is enabled. The VPN row is a read-only status bridge: the companion extension identified as `midori-vpn@astian.org` reports `off`, `connecting`, or `connected`; without a fresh authenticated report, the popup safely shows VPN off.
 
 ## Upstream base
 

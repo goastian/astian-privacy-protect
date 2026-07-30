@@ -1413,8 +1413,122 @@
     "description": "Heading above current page blocking activity"
   },
   "midoriProtectionWorking": {
-    "message": "La protección está funcionando",
+    "message": "Estás protegido",
     "description": "Positive status above live blocking statistics"
+  },
+  "midoriSiteProtection": {
+    "message": "Protección de este sitio"
+  },
+  "midoriSiteProtectionActive": {
+    "message": "Activada"
+  },
+  "midoriSiteProtectionPaused": {
+    "message": "Pausada"
+  },
+  "midoriSecureConnection": {
+    "message": "Conexión segura"
+  },
+  "midoriVpnConnectionHint": {
+    "message": "Estado de Midori VPN"
+  },
+  "midoriVpnOff": {
+    "message": "VPN apagada"
+  },
+  "midoriVpnConnecting": {
+    "message": "Conectando"
+  },
+  "midoriVpnConnected": {
+    "message": "Conectada"
+  },
+  "midoriBlockedSummaryManyMany": {
+    "message": "{{trackers}} rastreadores y {{threats}} amenazas bloqueados"
+  },
+  "midoriBlockedSummaryOneMany": {
+    "message": "1 rastreador y {{threats}} amenazas bloqueados"
+  },
+  "midoriBlockedSummaryManyOne": {
+    "message": "{{trackers}} rastreadores y 1 amenaza bloqueados"
+  },
+  "midoriBlockedSummaryOneOne": {
+    "message": "1 rastreador y 1 amenaza bloqueados"
+  },
+  "midoriFixThisSite": {
+    "message": "Arreglar este sitio"
+  },
+  "midoriViewDetails": {
+    "message": "Ver detalles"
+  },
+  "midoriBack": {
+    "message": "Volver"
+  },
+  "midoriProtectionsTitle": {
+    "message": "Protecciones"
+  },
+  "midoriProtectionsHint": {
+    "message": "Capas activas para el sitio actual"
+  },
+  "midoriAdsTrackers": {
+    "message": "Anuncios y rastreadores"
+  },
+  "midoriAdsTrackersHint": {
+    "message": "Bloquea solicitudes no deseadas antes de que carguen"
+  },
+  "midoriCookiesAnnoyances": {
+    "message": "Cookies y molestias"
+  },
+  "midoriCookiesAnnoyancesHint": {
+    "message": "Oculta avisos, espacios vacíos y elementos molestos"
+  },
+  "midoriCleanLinks": {
+    "message": "Enlaces limpios"
+  },
+  "midoriCleanLinksHint": {
+    "message": "Elimina parámetros de seguimiento reconocidos"
+  },
+  "midoriDangerousSites": {
+    "message": "Sitios peligrosos"
+  },
+  "midoriDangerousSitesHint": {
+    "message": "Detiene navegaciones que coinciden con filtros de amenaza"
+  },
+  "midoriVpnConnection": {
+    "message": "Conexión VPN"
+  },
+  "midoriVpnConnectionDetailHint": {
+    "message": "Protege el tráfico cuando Midori VPN está conectada"
+  },
+  "midoriExpertMode": {
+    "message": "Modo experto"
+  },
+  "midoriExpertToolsHint": {
+    "message": "Herramientas técnicas visibles solo cuando Modo experto está activado"
+  },
+  "midoriRequestLogger": {
+    "message": "Registro de peticiones"
+  },
+  "midoriDynamicRules": {
+    "message": "Reglas dinámicas"
+  },
+  "midoriFilterLists": {
+    "message": "Listas de filtros"
+  },
+  "midoriCustomFiltersScriptlets": {
+    "message": "Filtros propios y scriptlets"
+  },
+  "midoriRepairIntro": {
+    "message": "Prueba una solución segura para el sitio actual"
+  },
+  "midoriRepairRecommended": {
+    "message": "Pausar solo en este sitio"
+  },
+  "midoriRepairPauseHint": {
+    "message": "Desactiva temporalmente la protección para este dominio y recarga la página. Puedes reactivarla desde el panel en cualquier momento."
+  },
+  "midoriPauseAndReload": {
+    "message": "Pausar y recargar"
+  },
+  "midoriReportProblem": {
+    "message": "Reportar un problema"
   },
   "midoriActivityDetail": {
     "message": "{{blocked}} de {{total}} solicitudes bloqueadas",
@@ -1595,7 +1709,7 @@
     "message": "Impacto alto: muchos sitios dejarán de funcionar correctamente."
   },
   "midoriExpertModeHint": {
-    "message": "El modo experto muestra filtrado dinámico y reglas de bajo nivel. Actívalo solo si entiendes la prioridad de las reglas."
+    "message": "El Modo experto muestra el registro, las listas, los filtros propios, los scriptlets y las reglas de bajo nivel. Actívalo solo si entiendes la prioridad de las reglas."
   },
   "midoriLearnMore": {
     "message": "Más información"

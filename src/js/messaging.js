@@ -42,6 +42,7 @@ import cacheStorage from './cachestorage.js';
 import cosmeticFilteringEngine from './cosmetic-filtering.js';
 import { denseBase64 } from './base64-custom.js';
 import { filteringBehaviorChanged } from './broadcast.js';
+import { getMidoriVpnStatus } from './midori-vpn.js';
 import htmlFilteringEngine from './html-filtering.js';
 import { i18n$ } from './i18n.js';
 import io from './assets.js';
@@ -383,6 +384,10 @@ const popupDataFromTabId = function(tabId, tabTitle) {
         pageHostname: rootHostname,
         pageDomain: tabContext.rootDomain,
         popupBlockedCount: 0,
+        threatBlockedCount: tabContext.rawURL.startsWith(
+            vAPI.getURL('document-blocked.html')
+        ) ? 1 : 0,
+        vpnStatus: getMidoriVpnStatus(),
         popupPanelSections: µbus.popupPanelSections,
         popupPanelDisabledSections: µbhs.popupPanelDisabledSections,
         popupPanelLockedSections: µbhs.popupPanelLockedSections,
@@ -557,6 +562,10 @@ const onMessage = function(request, sender, callback) {
     let response;
 
     switch ( request.what ) {
+    case 'getMidoriVpnStatus':
+        response = getMidoriVpnStatus();
+        break;
+
     case 'dismissUnprocessedRequest':
         vAPI.net.removeUnprocessedRequest(request.tabId);
         µb.updateToolbarIcon(request.tabId, 0b110);
@@ -1494,6 +1503,7 @@ const onMessage = function(request, sender, callback) {
     switch ( request.what ) {
     case 'dashboardConfig':
         response = {
+            advancedUserEnabled: µb.userSettings.advancedUserEnabled,
             noDashboard: µb.noDashboard,
         };
         break;

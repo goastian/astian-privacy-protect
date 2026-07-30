@@ -208,6 +208,12 @@ function synchronizeDOM() {
         'advancedUser',
         advancedUserEnabled
     );
+    if ( self.parent !== self ) {
+        self.parent.document.body.classList.toggle(
+            'advancedUser',
+            advancedUserEnabled
+        );
+    }
     if ( advancedUserEnabled ) {
         qs$('#advancedSettingsGroup').open = true;
     }

@@ -2107,3 +2107,690 @@ body.loading .resultValue {
         display: none;
     }
 }
+
+/* Midori Privacy simplified popup. The uBlock controls stay in the DOM for
+   engine compatibility, while the daily interface exposes only product-level
+   protection states and the two requested actions. */
+:root body,
+:root.mobile body {
+    --popup-main-min-width: 360px;
+    --midori-green: #0d9b63;
+    --midori-green-strong: #087a4d;
+    --midori-green-soft: rgb(13 155 99 / 11%);
+    --midori-green-border: rgb(13 155 99 / 24%);
+    --midori-header: #0e3528;
+    --midori-header-ink: #effdf6;
+    --midori-header-muted: #a8d9c3;
+    font-size: 14px;
+}
+
+:root body {
+    background: transparent;
+    overflow: hidden;
+    padding: 6px;
+}
+
+#panes {
+    background: var(--surface-1);
+    border: 1px solid var(--border-1);
+    border-radius: 18px;
+    box-shadow: 0 16px 40px rgb(0 38 24 / 22%);
+    display: block;
+    overflow: hidden;
+}
+
+#main {
+    max-height: 590px;
+    max-width: 360px;
+    min-width: 360px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-color: rgb(13 155 99 / 35%) transparent;
+    scrollbar-width: thin;
+    width: 360px;
+}
+
+#sticky {
+    background: var(--midori-header);
+    position: static;
+}
+
+#brandBar {
+    align-items: center;
+    background: var(--midori-header);
+    box-sizing: border-box;
+    display: flex;
+    min-height: 54px;
+    padding: 10px 16px;
+}
+
+.brandIdentity {
+    align-items: center;
+    color: var(--midori-header-ink);
+    display: flex;
+    gap: 9px;
+    min-width: 0;
+    text-decoration: none;
+}
+
+.brandIdentity:hover {
+    color: var(--midori-header-ink);
+}
+
+.brandIdentity img {
+    height: 28px;
+    width: 28px;
+}
+
+.brandIdentity > div {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.brandIdentity strong {
+    color: var(--midori-header-ink);
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+.brandIdentity span {
+    color: var(--midori-header-muted);
+    font-size: 9px;
+    margin-top: 2px;
+}
+
+.popupView {
+    animation: midoriSimpleViewIn 180ms ease both;
+    box-sizing: border-box;
+    padding: 0 16px 18px;
+}
+
+.popupView[hidden],
+.engineCompatibility,
+#firewall,
+#firewall-vspacer {
+    display: none !important;
+}
+
+@keyframes midoriSimpleViewIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#midoriActivity.protectionHero {
+    --blocked-angle: 0deg;
+    align-items: center;
+    background: transparent;
+    display: grid;
+    gap: 3px 13px;
+    grid-template-columns: 58px minmax(0, 1fr);
+    margin: 0;
+    padding: 20px 2px 17px;
+}
+
+.heroShield {
+    align-items: center;
+    display: inline-flex;
+    grid-row: 1 / span 2;
+    height: 58px;
+    justify-content: center;
+    position: relative;
+    width: 58px;
+}
+
+.heroShield > img {
+    height: 54px;
+    width: 54px;
+}
+
+.heroStateIcon {
+    align-items: center;
+    background: var(--midori-green);
+    border: 2px solid var(--surface-1);
+    border-radius: 50%;
+    bottom: -1px;
+    color: white;
+    display: inline-flex;
+    fill: white;
+    font-size: 9px;
+    height: 19px;
+    justify-content: center;
+    position: absolute;
+    right: -1px;
+    width: 19px;
+}
+
+.heroCopy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+#midoriProtectionStatus {
+    color: var(--ink-1);
+    font-size: 22px;
+    font-weight: 720;
+    letter-spacing: -0.04em;
+    line-height: 1.08;
+    text-wrap: balance;
+}
+
+#hostname {
+    background: transparent;
+    color: var(--ink-3);
+    font-size: 11px;
+    line-height: 1.25;
+    margin-top: 4px;
+    overflow: hidden;
+    padding: 0;
+    text-align: start;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#hostname > span {
+    word-break: normal;
+}
+
+#midoriActivityDetail {
+    color: var(--ink-2);
+    font-size: 12px;
+    grid-column: 1 / -1;
+    line-height: 1.4;
+    margin: 11px 0 0;
+    padding: 10px 12px;
+    background: var(--midori-green-soft);
+    border: 1px solid var(--midori-green-border);
+    border-radius: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.statusList {
+    background: var(--surface-2);
+    border: 1px solid var(--border-1);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.statusRow,
+#switch.statusRow {
+    align-items: center;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--border-1);
+    border-radius: 0;
+    box-sizing: border-box;
+    color: var(--ink-1);
+    cursor: default;
+    display: grid;
+    fill: var(--ink-1);
+    font: inherit;
+    gap: 10px;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    margin: 0;
+    min-height: 64px;
+    padding: 9px 12px;
+    stroke: none;
+    text-align: start;
+    width: 100%;
+}
+
+#switch.statusRow {
+    cursor: pointer;
+}
+
+.statusRow:last-child {
+    border-bottom: 0;
+}
+
+.statusIcon {
+    align-items: center;
+    background: var(--midori-green-soft);
+    border-radius: 9px;
+    color: var(--midori-green-strong);
+    display: inline-flex;
+    fill: var(--midori-green-strong);
+    font-size: 15px;
+    height: 34px;
+    justify-content: center;
+    width: 34px;
+}
+
+.statusCopy {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.22;
+    min-width: 0;
+}
+
+.statusCopy strong {
+    color: var(--ink-1);
+    font-size: 12px;
+    font-weight: 620;
+}
+
+.statusCopy > span {
+    color: var(--ink-3);
+    font-size: 9px;
+    margin-top: 3px;
+}
+
+.statusEnd {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.statusEnd > strong,
+.statusValue {
+    color: var(--midori-green-strong);
+    font-size: 10px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.stateSwitch {
+    background: var(--midori-green);
+    border-radius: 999px;
+    display: inline-flex;
+    height: 18px;
+    padding: 2px;
+    transition: background-color 180ms ease;
+    width: 31px;
+}
+
+.stateSwitch > i {
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgb(0 48 30 / 28%);
+    height: 14px;
+    transform: translateX(13px);
+    transition: transform 180ms ease;
+    width: 14px;
+}
+
+body.off .stateSwitch {
+    background: var(--border-2);
+}
+
+body.off .stateSwitch > i {
+    transform: translateX(0);
+}
+
+body.off #midoriSwitchStatus,
+body.off #midoriProtectionStatus {
+    color: var(--ink-2);
+}
+
+body.off .heroShield {
+    filter: grayscale(0.7);
+    opacity: 0.76;
+}
+
+body.off .heroStateIcon {
+    background: #b7791f;
+}
+
+.vpnStatus[data-vpn-state="off"] .statusIcon,
+.vpnProtectionRow[data-vpn-state="off"] .protectionIcon {
+    background: var(--surface-3);
+    color: var(--ink-3);
+    fill: var(--ink-3);
+}
+
+.vpnStatus[data-vpn-state="off"] .statusValue,
+.vpnProtectionRow[data-vpn-state="off"] .protectionValue {
+    color: var(--ink-3);
+}
+
+.vpnStatus[data-vpn-state="connecting"] .statusIcon,
+.vpnProtectionRow[data-vpn-state="connecting"] .protectionIcon {
+    animation: midoriVpnPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes midoriVpnPulse {
+    50% { opacity: 0.48; }
+}
+
+.mainActions {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    margin-top: 14px;
+}
+
+.primaryAction,
+.secondaryAction,
+.reportAction,
+.backButton {
+    align-items: center;
+    appearance: none;
+    border: 0;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    justify-content: center;
+    transition: background-color 180ms ease, color 180ms ease, transform 160ms ease;
+}
+
+.primaryAction {
+    background: var(--midori-green-strong);
+    border-radius: 10px;
+    color: white;
+    fill: white;
+    font-size: 11px;
+    font-weight: 650;
+    gap: 7px;
+    min-height: 42px;
+    padding: 0 12px;
+}
+
+.primaryAction:hover {
+    background: var(--midori-green);
+}
+
+.secondaryAction {
+    background: transparent;
+    border: 1px solid var(--border-2);
+    border-radius: 10px;
+    color: var(--ink-2);
+    fill: var(--ink-2);
+    font-size: 11px;
+    font-weight: 620;
+    gap: 7px;
+    min-height: 42px;
+    padding: 0 11px;
+}
+
+.secondaryAction:hover,
+.reportAction:hover {
+    background: var(--surface-2);
+    color: var(--ink-1);
+    fill: var(--ink-1);
+}
+
+.primaryAction:active,
+.secondaryAction:active,
+.reportAction:active,
+.backButton:active,
+#switch.statusRow:active {
+    transform: scale(0.98);
+}
+
+.primaryAction:focus-visible,
+.secondaryAction:focus-visible,
+.reportAction:focus-visible,
+.backButton:focus-visible,
+#switch.statusRow:focus-visible,
+.brandIdentity:focus-visible,
+.expertLinks a:focus-visible {
+    outline: 2px solid rgb(var(--primary-50));
+    outline-offset: 2px;
+}
+
+.viewHeader {
+    align-items: flex-start;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 32px minmax(0, 1fr);
+    padding: 17px 0 13px;
+}
+
+.backButton {
+    background: var(--surface-2);
+    border: 1px solid var(--border-1);
+    border-radius: 9px;
+    color: var(--ink-2);
+    fill: var(--ink-2);
+    font-size: 13px;
+    height: 32px;
+    width: 32px;
+}
+
+.viewHeader > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.viewHeader > div > strong {
+    color: var(--ink-1);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+}
+
+.viewHeader > div > span {
+    color: var(--ink-3);
+    font-size: 10px;
+    line-height: 1.3;
+    margin-top: 4px;
+}
+
+.protectionList {
+    background: var(--surface-2);
+    border: 1px solid var(--border-1);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.protectionRow {
+    align-items: center;
+    border-bottom: 1px solid var(--border-1);
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    min-height: 59px;
+    padding: 8px 11px;
+}
+
+.protectionRow:last-child {
+    border-bottom: 0;
+}
+
+.protectionIcon {
+    align-items: center;
+    background: var(--midori-green-soft);
+    border-radius: 9px;
+    color: var(--midori-green-strong);
+    display: inline-flex;
+    fill: var(--midori-green-strong);
+    font-size: 14px;
+    height: 32px;
+    justify-content: center;
+    width: 32px;
+}
+
+.protectionCopy {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.22;
+    min-width: 0;
+}
+
+.protectionCopy strong {
+    color: var(--ink-1);
+    font-size: 11px;
+    font-weight: 630;
+}
+
+.protectionCopy small {
+    color: var(--ink-3);
+    font-size: 9px;
+    line-height: 1.25;
+    margin-top: 3px;
+}
+
+.protectionValue {
+    color: var(--ink-3);
+    font-size: 9px;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.protectionValue.isActive {
+    color: var(--midori-green-strong);
+}
+
+#midoriExpertTools {
+    display: none;
+    margin-top: 15px;
+}
+
+body.advancedUser #midoriExpertTools {
+    display: block;
+}
+
+#midoriExpertTools > header {
+    display: flex;
+    flex-direction: column;
+    margin: 0 2px 8px;
+}
+
+#midoriExpertTools > header strong {
+    color: var(--ink-1);
+    font-size: 11px;
+    font-weight: 650;
+}
+
+#midoriExpertTools > header span {
+    color: var(--ink-3);
+    font-size: 9px;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+
+.expertLinks {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.expertLinks a {
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--border-1);
+    border-radius: 9px;
+    color: var(--ink-2);
+    display: flex;
+    fill: var(--ink-2);
+    font-size: 9px;
+    gap: 7px;
+    line-height: 1.2;
+    min-height: 38px;
+    padding: 4px 9px;
+    text-decoration: none;
+}
+
+.expertLinks a:hover {
+    border-color: var(--midori-green-border);
+    color: var(--midori-green-strong);
+    fill: var(--midori-green-strong);
+}
+
+.repairCard {
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--border-1);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 16px 16px;
+    text-align: center;
+}
+
+.repairIcon {
+    align-items: center;
+    background: var(--midori-green-soft);
+    border-radius: 12px;
+    color: var(--midori-green-strong);
+    display: inline-flex;
+    fill: var(--midori-green-strong);
+    font-size: 21px;
+    height: 46px;
+    justify-content: center;
+    width: 46px;
+}
+
+.repairCard > strong {
+    color: var(--ink-1);
+    font-size: 14px;
+    font-weight: 680;
+    margin-top: 11px;
+}
+
+.repairCard > p {
+    color: var(--ink-3);
+    font-size: 10px;
+    line-height: 1.45;
+    margin: 6px 0 14px;
+    max-width: 31ch;
+    text-wrap: pretty;
+}
+
+.repairCard .primaryAction {
+    min-width: 170px;
+}
+
+.reportAction {
+    background: transparent;
+    border: 0;
+    border-radius: 9px;
+    color: var(--ink-3);
+    fill: var(--ink-3);
+    font-size: 10px;
+    gap: 6px;
+    margin-top: 9px;
+    min-height: 36px;
+    padding: 0 10px;
+    width: 100%;
+}
+
+body.loading #switch,
+body.unavailable #switch,
+body.error #switch {
+    cursor: default;
+    opacity: 0.72;
+}
+
+body.unavailable .mainActions,
+body.error .mainActions {
+    display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root body,
+    :root.mobile body {
+        --midori-green: #28b97a;
+        --midori-green-strong: #66d5a1;
+        --midori-green-soft: rgb(40 185 122 / 13%);
+        --midori-green-border: rgb(40 185 122 / 23%);
+        --midori-header: #0a2b20;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .popupView,
+    .vpnStatus[data-vpn-state="connecting"] .statusIcon,
+    .vpnProtectionRow[data-vpn-state="connecting"] .protectionIcon {
+        animation: none;
+    }
+}
+
+@media (max-width: 390px) {
+    :root body,
+    :root.mobile body {
+        --popup-main-min-width: 340px;
+    }
+    #main {
+        max-width: 340px;
+        min-width: 340px;
+        width: 340px;
+    }
+}

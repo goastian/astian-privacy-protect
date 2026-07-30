@@ -23,6 +23,14 @@ import { dom, qs$ } from './dom.js';
 
 /******************************************************************************/
 
+const advancedPanes = new Set([
+    '1p-filters.html',
+    '3p-filters.html',
+    'dyna-rules.html',
+]);
+
+/******************************************************************************/
+
 function discardUnsavedData(synchronous = false) {
     const paneFrame = qs$('#iframe');
     const paneWindow = paneFrame.contentWindow;
@@ -67,6 +75,12 @@ function discardUnsavedData(synchronous = false) {
 }
 
 function loadDashboardPanel(pane, first) {
+    if (
+        advancedPanes.has(pane) &&
+        dom.cl.has(dom.body, 'advancedUser') === false
+    ) {
+        pane = 'settings.html';
+    }
     const tabButton = qs$(`[data-pane="${pane}"]`);
     if ( tabButton === null || dom.cl.has(tabButton, 'selected') ) { return; }
     const loadPane = ( ) => {
@@ -135,6 +149,11 @@ if ( self.location.hash.slice(1) === 'no-dashboard.html' ) {
 
     {
         const details = results[0] || {};
+        dom.cl.toggle(
+            dom.body,
+            'advancedUser',
+            details.advancedUserEnabled === true
+        );
         if ( details.noDashboard ) {
             self.location.hash = '#no-dashboard.html';
             dom.cl.add(dom.body, 'noDashboard');
