@@ -172,6 +172,7 @@ const µBlock = {  // jshint ignore:line
         'chrome-extension-scheme',
         'moz-extension-scheme',
         '.astian.org',
+        '.astiango.com',
 
     ],
 
